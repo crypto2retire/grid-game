@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: grid-api
+    runtime: docker
+    rootDir: apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: DAILY_SALT
+        generateValue: true
+    healthCheckPath: /health
+    plan: standard
+    numInstances: 1
+
+  - type: web
+    name: grid-web
+    runtime: static
+    buildCommand: cd apps/web && npm install && npm run build
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://grid-api.onrender.com
+    plan: starter
+
+  - type: pserv
+    name: grid-postgres
+    runtime: docker
+    image: postgres:16-alpine
+    envVars:
+      - key: POSTGRES_USER
+        value: grid
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+      - key: POSTGRES_DB
+        value: gridgame
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 10
+    plan: standard
+
+  - type: pserv
+    name: grid-redis
+    runtime: docker
+    image: redis:7-alpine
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
+    plan: starter

@@ -1,0 +1,23 @@
+# Railway Deployment Configuration
+# Deploy this project on Railway by connecting your GitHub repo
+
+# Services:
+# 1. PostgreSQL: Managed database (auto-provisioned)
+# 2. Redis: Managed cache (auto-provisioned)
+# 3. API Server: Node.js container (from Dockerfile)
+# 4. Frontend: Static build (from Vite build output)
+
+# Environment Variables to set in Railway dashboard:
+# DATABASE_URL (auto-populated by PostgreSQL service)
+# REDIS_URL (auto-populated by Redis service)
+# JWT_SECRET (generate with: openssl rand -base64 32)
+# JWT_EXPIRES_IN=7d
+# DAILY_SALT (generate with: openssl rand -base64 16)
+# FRONTEND_URL (your Railway frontend domain)
+# NODE_ENV=production
+
+# Build steps:
+# 1. Connect GitHub repo to Railway
+# 2. Add PostgreSQL and Redis services
+# 3. Set environment variables
+# 4. Deploy - Railway auto-detects Dockerfile and builds
