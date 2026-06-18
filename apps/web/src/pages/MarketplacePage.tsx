@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
-import { ShoppingCart, Tag, Check, X } from 'lucide-react';
+import { ShoppingCart, Tag, ChevronRight, X } from 'lucide-react';
 
 interface Listing {
   id: string;
@@ -26,7 +25,6 @@ interface Listing {
 }
 
 export default function MarketplacePage() {
-  const { user } = useAuthStore();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);

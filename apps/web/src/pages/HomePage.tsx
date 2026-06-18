@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Swords, Trophy, Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { Swords, Trophy, Users, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
   return (

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { Swords, Calendar, ArrowRight } from 'lucide-react';
 
@@ -21,7 +20,6 @@ interface Team {
 
 export default function MatchesPage() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,9 +39,8 @@ export default function MatchesPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        // Note: In a real app, we'd have a dedicated endpoint for listing matches
-        // This is a simplified version
+        const result = await res.json();
+        setMatches(result.data?.matches || []);
       }
     } catch (err) {
       console.error('Failed to fetch matches:', err);
@@ -104,6 +101,8 @@ export default function MatchesPage() {
     }
   };
 
+  // simulateMatch is available for future use
+  /*
   const simulateMatch = async (matchId: string) => {
     try {
       const token = localStorage.getItem('token');
@@ -118,6 +117,7 @@ export default function MatchesPage() {
       console.error('Failed to simulate match:', err);
     }
   };
+  */
 
   if (loading) {
     return (

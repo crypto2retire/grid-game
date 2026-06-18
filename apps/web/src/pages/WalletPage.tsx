@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
 import { Wallet, ArrowDown, ArrowUp, Clock, Trophy } from 'lucide-react';
 
 interface WalletData {
@@ -23,7 +22,6 @@ interface Transaction {
 }
 
 export default function WalletPage() {
-  const { user } = useAuthStore();
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);

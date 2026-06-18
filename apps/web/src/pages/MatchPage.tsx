@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Swords, Clock, Trophy, ChevronRight } from 'lucide-react';
+import { Swords, Trophy } from 'lucide-react';
 
 interface MatchEvent {
   timestamp: number;
@@ -64,7 +64,7 @@ export default function MatchPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
+        await res.json();
         // Refresh match data
         fetchMatch();
       }

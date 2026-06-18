@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import { Shield, Plus, X, Star, ChevronRight } from 'lucide-react';
+import { Shield, Plus, X, Star } from 'lucide-react';
 
 interface TeamPlayer {
   id: string;
@@ -40,7 +39,6 @@ interface Team {
 export default function TeamPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
-import { Users, Search, Filter } from 'lucide-react';
+import { Users, Search } from 'lucide-react';
 
 interface Player {
   id: string;
