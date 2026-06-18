@@ -1,0 +1,18 @@
+{
+  "name": "grid-game",
+  "version": "1.0.0",
+  "description": "GRID - Sports Management Simulation Game",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "devDependencies": {
+    "turbo": "^2.4.0"
+  }
+}

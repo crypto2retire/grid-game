@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  username      String   @unique
+  password      String
+  displayName   String?
+  avatar        String?
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  teams         Team[]
+  wallet        Wallet?
+  marketplaceListings MarketplaceListing[]
+  matchParticipants   MatchParticipant[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model Wallet {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  cash          Int      @default(50000)
+  gridTokens    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Team {
+  id            String   @id @default(uuid())
+  name          String
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [id])
+
+  formation     String   @default("4-3-3")
+  style         String   @default("balanced")
+  pressing      String   @default("medium")
+  mentality     String   @default("balanced")
+
+  teamPlayers   TeamPlayer[]
+  matchesHome   Match[]  @relation("HomeTeam")
+  matchesAway   Match[]  @relation("AwayTeam")
+
+  wins          Int      @default(0)
+  draws         Int      @default(0)
+  losses        Int      @default(0)
+  goalsFor      Int      @default(0)
+  goalsAgainst  Int      @default(0)
+  points        Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model Player {
+  id            String   @id @default(uuid())
+  name          String
+  position      String
+  nationality   String
+  age           Int
+
+  pace          Int
+  shooting      Int
+  passing       Int
+  dribbling     Int
+  defending     Int
+  physical      Int
+  goalkeeping   Int?
+
+  overall       Int
+  form          Int      @default(50)
+  fatigue       Int      @default(0)
+  morale        Int      @default(50)
+
+  rarity        Rarity   @default(COMMON)
+
+  teamPlayers   TeamPlayer[]
+  matchStats    PlayerMatchStats[]
+  marketplaceListings MarketplaceListing[]
+
+  createdAt     DateTime @default(now())
+
+  @@index([rarity])
+  @@index([overall])
+}
+
+model TeamPlayer {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  isStarter   Boolean  @default(false)
+
+  @@unique([teamId, playerId])
+  @@index([teamId])
+  @@index([playerId])
+}
+
+model Match {
+  id            String       @id @default(uuid())
+  status        MatchStatus  @default(SCHEDULED)
+
+  homeTeamId    String
+  homeTeam      Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId    String
+  awayTeam      Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  homeScore     Int          @default(0)
+  awayScore     Int          @default(0)
+
+  homeTactics   Json?
+  awayTactics   Json?
+
+  seed          String?
+  seedHash      String?
+
+  events        MatchEvent[]
+  playerStats   PlayerMatchStats[]
+  participants  MatchParticipant[]
+
+  scheduledAt   DateTime
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  createdAt     DateTime     @default(now())
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+}
+
+model MatchEvent {
+  id          String   @id @default(uuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  timestamp   Int      // Game clock in seconds
+  tick        Int      // Simulation tick
+  type        String   // GOAL, SHOT, SAVE, TACKLE, PASS, FOUL, CORNER, SUB, INJURY, CARD, etc.
+
+  actorId     String?
+  targetId    String?
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+
+  @@index([matchId, tick])
+  @@index([matchId, type])
+}
+
+model PlayerMatchStats {
+  id            String   @id @default(uuid())
+  matchId       String
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId      String
+  player        Player   @relation(fields: [playerId], references: [id])
+  teamId        String
+
+  goals         Int      @default(0)
+  assists       Int      @default(0)
+  shots         Int      @default(0)
+  shotsOnTarget Int      @default(0)
+  passes        Int      @default(0)
+  passAccuracy  Int      @default(0)
+  tackles       Int      @default(0)
+  saves         Int      @default(0)
+  distance      Int      @default(0)
+  rating        Float    @default(6.0)
+
+  @@unique([matchId, playerId])
+  @@index([matchId])
+  @@index([playerId])
+}
+
+model MatchParticipant {
+  id          String   @id @default(uuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  side        String   // HOME or AWAY
+  cashWon     Int      @default(0)
+  xpGained    Int      @default(0)
+
+  @@unique([matchId, userId])
+  @@index([matchId])
+  @@index([userId])
+}
+
+model MarketplaceListing {
+  id          String        @id @default(uuid())
+  sellerId    String
+  seller      User          @relation(fields: [sellerId], references: [id])
+  playerId    String
+  player      Player        @relation(fields: [playerId], references: [id])
+  price       Int
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  soldAt      DateTime?
+
+  @@index([status])
+  @@index([sellerId])
+  @@index([playerId])
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum Rarity {
+  COMMON
+  BRONZE
+  SILVER
+  GOLD
+  ELITE
+  LEGEND
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}

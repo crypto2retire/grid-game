@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 235 60% 8%;
+    --foreground: 0 0% 100%;
+    --card: 235 40% 12%;
+    --card-foreground: 0 0% 100%;
+    --popover: 235 40% 12%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 235 60% 8%;
+    --secondary: 235 30% 20%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 235 30% 20%;
+    --muted-foreground: 0 0% 63%;
+    --accent: 350 80% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 235 30% 20%;
+    --input: 235 30% 20%;
+    --ring: 350 80% 58%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-border/50 rounded-lg;
+  }
+
+  .rarity-common {
+    @apply border-gray-500;
+  }
+  .rarity-bronze {
+    @apply border-amber-700;
+  }
+  .rarity-silver {
+    @apply border-slate-300;
+  }
+  .rarity-gold {
+    @apply border-yellow-400;
+  }
+  .rarity-elite {
+    @apply border-purple-400;
+  }
+  .rarity-legend {
+    @apply border-red-400;
+  }
+}
