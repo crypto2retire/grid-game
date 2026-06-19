@@ -1,5 +1,5 @@
-import { SeededRNG } from '../utils/rng';
-import { prisma } from '../config/database';
+import { SeededRNG } from '../../utils/rng';
+import { prisma } from '../../config/database';
 
 export interface PlayerState {
   playerId: string;
@@ -319,7 +319,7 @@ export class SoccerSimulator {
     }
   }
 
-  private resolveCorner(attackingTeam: TeamState, defendingTeam: TeamState): SimulationEvent | null {
+  private resolveCorner(attackingTeam: TeamState, _defendingTeam: TeamState): SimulationEvent | null {
     const taker = attackingTeam.players.find(p => p.isActive && p.stats.passing > 70);
     if (!taker) return null;
 
@@ -504,7 +504,7 @@ export class SoccerSimulator {
 }
 
 export async function runMatchSimulation(
-  matchId: string,
+  _matchId: string,
   seed: string,
   homeTeam: TeamState,
   awayTeam: TeamState

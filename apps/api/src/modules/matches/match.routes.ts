@@ -4,7 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
-import { runMatchSimulation, TeamState, PlayerState } from './simulator';
+import { runMatchSimulation, TeamState } from './simulator';
 
 const router = Router();
 
@@ -48,8 +48,8 @@ router.post(
     const seed = generateMatchSeed(
       crypto.randomUUID(),
       scheduledAt.toISOString(),
-      homeTeam.teamPlayers.map(tp => tp.player.id).sort().join(''),
-      awayTeam.teamPlayers.map(tp => tp.player.id).sort().join(''),
+      homeTeam.teamPlayers.map((tp: any) => tp.player.id).sort().join(''),
+      awayTeam.teamPlayers.map((tp: any) => tp.player.id).sort().join(''),
       process.env.DAILY_SALT || 'default-salt'
     );
     const seedHash = generateSeedHash(seed);
@@ -157,7 +157,7 @@ router.post(
     const buildTeamState = (team: typeof match.homeTeam): TeamState => ({
       teamId: team.id,
       name: team.name,
-      players: team.teamPlayers.map(tp => ({
+      players: team.teamPlayers.map((tp: any) => ({
         playerId: tp.player.id,
         name: tp.player.name,
         position: tp.player.position,
@@ -189,7 +189,7 @@ router.post(
     const result = await runMatchSimulation(match.id, match.seed!, homeState, awayState);
 
     // Update match with results
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.match.update({
         where: { id: match.id },
         data: {
@@ -219,7 +219,7 @@ router.post(
         data: Object.entries(result.playerStats).map(([playerId, stats]) => ({
           matchId: match.id,
           playerId,
-          teamId: match.homeTeam.teamPlayers.some(tp => tp.player.id === playerId)
+          teamId: match.homeTeam.teamPlayers.some((tp: any) => tp.player.id === playerId)
             ? match.homeTeamId
             : match.awayTeamId,
           goals: stats.goals,

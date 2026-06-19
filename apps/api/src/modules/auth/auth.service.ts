@@ -8,9 +8,10 @@ import { RegisterInput, LoginInput } from './auth.schema';
 export const SALT_ROUNDS = 12;
 
 export const generateToken = (user: { id: string; email: string; username: string; role: string }): string => {
+  const secret = env.JWT_SECRET || 'fallback-secret-for-dev-only';
   return jwt.sign(
     { id: user.id, email: user.email, username: user.username, role: user.role },
-    env.JWT_SECRET,
+    secret,
     { expiresIn: env.JWT_EXPIRES_IN }
   );
 };

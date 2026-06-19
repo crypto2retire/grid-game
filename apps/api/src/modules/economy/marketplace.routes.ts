@@ -151,7 +151,7 @@ router.post(
       throw new AppError(400, 'You already own this player');
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Deduct from buyer
       await tx.wallet.update({
         where: { userId },

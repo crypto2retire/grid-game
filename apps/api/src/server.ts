@@ -120,17 +120,17 @@ const startServer = async () => {
           console.log('Migrations:', stdout?.trim() || 'OK');
         }
 
-        prisma.player.count().then((count) => {
+        prisma.player.count().then((count: number) => {
           if (count === 0) {
             console.log('Seeding database...');
-            exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr, seedOut) => {
+            exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
               if (seedErr) console.error('Seed error:', seedErr.message);
               else console.log('Seeded:', seedOut?.trim() || 'OK');
             });
           } else {
             console.log(`Database ready (${count} players)`);
           }
-        }).catch((countErr) => console.error('Count error:', countErr));
+        }).catch((countErr: any) => console.error('Count error:', countErr));
       });
     } catch (dbErr) {
       console.error('Database failed:', dbErr);

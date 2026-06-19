@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth';
-import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { asyncHandler } from '../../middleware/errorHandler';
 import { prisma } from '../../config/database';
 
 const router = Router();
