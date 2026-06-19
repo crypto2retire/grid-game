@@ -91,7 +91,7 @@ jobs:
       - name: Deploy to Railway
         run: |
           echo "Deploying to Railway..."
-          railway login --token "6f0fe356-0123-44b0-bcca-c02845228455" --verbose 2>&1
+          echo "Using RAILWAY_API_TOKEN for authentication..."
           railway up --service grid-web --detach --yes --verbose 2>&1
         timeout-minutes: 15
         env:
