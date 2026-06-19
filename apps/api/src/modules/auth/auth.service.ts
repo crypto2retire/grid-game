@@ -12,7 +12,7 @@ export const generateToken = (user: { id: string; email: string; username: strin
   return jwt.sign(
     { id: user.id, email: user.email, username: user.username, role: user.role },
     secret,
-    { expiresIn: env.JWT_EXPIRES_IN as `${number}${string}` }
+    { expiresIn: env.JWT_EXPIRES_IN as any }
   );
 };
 
