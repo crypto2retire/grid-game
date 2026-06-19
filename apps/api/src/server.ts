@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
+import path from 'path';
 import { exec } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env';
@@ -44,14 +45,12 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Root route - quick response for Railway health check
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Root route - serve the frontend app
 app.get('/', (_req, res) => {
-  res.json({
-    status: 'ok',
-    name: 'GRID API',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-  });
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 app.get('/health', (_req, res) => {
@@ -68,6 +67,15 @@ app.use('/api/matches', matchesListRouter);
 app.use('/api/economy', economyRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/leaderboard', leaderboardRouter);
+
+// SPA fallback - serve index.html for non-API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path === '/health') {
+    next();
+  } else {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  }
+});
 
 app.use((_req, res) => {
   res.status(404).json({ status: 'error', message: 'Route not found' });
@@ -90,63 +98,52 @@ const gracefulShutdown = async (signal: string) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Start server FIRST - respond to HTTP immediately, then handle migrations in background
 const startServer = async () => {
   const port = env.PORT;
 
-  // Start server immediately so Railway health check passes
   server.listen(port, '0.0.0.0', () => {
-    console.log(`GRID API server running on port ${port}`);
+    console.log(`GRID server running on port ${port}`);
     console.log(`Environment: ${env.NODE_ENV}`);
-    console.log(`Database URL: ${env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
-    console.log(`JWT Secret: ${env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
+    console.log(`Database: ${env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
+    console.log(`JWT: ${env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
   });
 
-  // Background: connect to database and run migrations
   if (env.DATABASE_URL) {
     try {
       await connectDatabase();
       console.log('Database connected');
 
-      // Run migrations in background (non-blocking)
-      exec('npx prisma migrate deploy', { cwd: process.cwd() }, (err, stdout, stderr) => {
+      exec('npx prisma migrate deploy', { cwd: process.cwd() }, (err, stdout) => {
         if (err) {
-          console.log('Migration may already be current or failed:', stderr || err.message);
+          console.log('Migration status:', err.message);
         } else {
-          console.log('Migrations complete:', stdout?.trim() || 'OK');
+          console.log('Migrations:', stdout?.trim() || 'OK');
         }
 
-        // After migrations, check if seeding is needed
         prisma.player.count().then((count) => {
           if (count === 0) {
-            console.log('Database empty, seeding players...');
-            exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr, seedOut, seedStderr) => {
-              if (seedErr) {
-                console.error('Seed error:', seedStderr || seedErr.message);
-              } else {
-                console.log('Seeding complete:', seedOut?.trim() || 'OK');
-              }
+            console.log('Seeding database...');
+            exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr, seedOut) => {
+              if (seedErr) console.error('Seed error:', seedErr.message);
+              else console.log('Seeded:', seedOut?.trim() || 'OK');
             });
           } else {
             console.log(`Database ready (${count} players)`);
           }
-        }).catch((countErr) => {
-          console.error('Failed to check player count:', countErr);
-        });
+        }).catch((countErr) => console.error('Count error:', countErr));
       });
     } catch (dbErr) {
-      console.error('Database connection failed:', dbErr);
+      console.error('Database failed:', dbErr);
     }
   } else {
-    console.warn('No DATABASE_URL - database features unavailable');
+    console.warn('No DATABASE_URL - database unavailable');
   }
 
-  // Background: connect to Redis (optional)
   try {
     await connectRedis();
     console.log('Redis connected');
-  } catch (redisErr) {
-    console.warn('Redis unavailable (optional):', redisErr);
+  } catch {
+    console.warn('Redis unavailable');
   }
 };
 
