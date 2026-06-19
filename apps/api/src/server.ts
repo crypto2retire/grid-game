@@ -3,9 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
+import { execSync } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env';
-import { connectDatabase, disconnectDatabase } from './config/database';
+import { connectDatabase, disconnectDatabase, prisma } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
@@ -88,6 +89,36 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 const startServer = async () => {
   try {
     await connectDatabase();
+
+    // Auto-run migrations on startup
+    try {
+      console.log('Running database migrations...');
+      execSync('npx prisma migrate deploy', {
+        cwd: process.cwd(),
+        stdio: 'inherit',
+      });
+      console.log('Migrations complete');
+    } catch (migrateErr) {
+      console.warn('Migration warning (may already be current):', migrateErr);
+    }
+
+    // Auto-seed if database is empty
+    try {
+      const playerCount = await prisma.player.count();
+      if (playerCount === 0) {
+        console.log('Database empty, seeding players...');
+        execSync('node prisma/seed.js', {
+          cwd: process.cwd(),
+          stdio: 'inherit',
+        });
+        console.log('Seeding complete');
+      } else {
+        console.log(`Database already seeded (${playerCount} players found)`);
+      }
+    } catch (seedErr) {
+      console.error('Seed error:', seedErr);
+    }
+
     await connectRedis();
 
     const port = env.PORT;
