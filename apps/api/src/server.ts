@@ -71,12 +71,12 @@ app.use('/api/leaderboard', leaderboardRouter);
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path === '/health') {
-    next();
-  } else {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+    return next();
   }
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// 404 handler for API routes
 app.use((_req, res) => {
   res.status(404).json({ status: 'error', message: 'Route not found' });
 });

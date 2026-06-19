@@ -5,9 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
 jobs:
-  deploy-api:
-    name: Deploy API to Railway
+  deploy:
+    name: Deploy GRID to Railway
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,51 +24,29 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Verify Railway Token
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           echo "Testing Railway token..."
           railway whoami || (echo "Railway token is invalid. Please generate a new token at https://railway.app/account/tokens" && exit 1)
 
-      - name: Deploy API
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deploy to Railway
         run: |
-          cd apps/api
-          railway up --detach --yes --no-wait
-        timeout-minutes: 10
-
-      - name: Run Database Migrations
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          cd apps/api
-          railway run --service api "npx prisma migrate deploy"
-        timeout-minutes: 5
-
-      - name: Seed Database
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          cd apps/api
-          railway run --service api "npx prisma db seed"
-        timeout-minutes: 5
+          echo "Deploying from root Dockerfile..."
+          railway up --detach --yes
+        timeout-minutes: 15
 
       - name: Health Check
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          echo "Waiting for deployment to be ready..."
-          sleep 30
-          SERVICE_URL=$(railway service domain --service api --json | jq -r '.url')
+          echo "Waiting for deployment..."
+          sleep 45
+          SERVICE_URL=$(railway service domain --json | jq -r '.url // empty')
+          if [ -z "$SERVICE_URL" ]; then
+            echo "Could not get service URL, trying default..."
+            SERVICE_URL=$(railway service domain --json 2>/dev/null | jq -r '.url // empty')
+          fi
           echo "Service URL: $SERVICE_URL"
           curl -f "$SERVICE_URL/health" || echo "Health check failed - service may still be starting"
         timeout-minutes: 5
         continue-on-error: true
-
-      - name: Notify on Success
-        if: success()
-        run: echo "Deployment successful!"
 
       - name: Notify on Failure
         if: failure()
@@ -75,4 +56,5 @@ jobs:
           echo "2. Service not linked - run 'railway link' locally first"
           echo "3. Database not connected - add PostgreSQL service in Railway dashboard"
           echo "4. Redis not connected - add Redis service in Railway dashboard"
+          echo "5. Build errors - check Dockerfile and build logs in Railway dashboard"
           exit 1

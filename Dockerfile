@@ -2,9 +2,11 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Copy package files
+# Copy root package files
 COPY package*.json ./
 COPY turbo.json ./
+
+# Copy workspace package files for dependency resolution
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 
@@ -27,15 +29,19 @@ RUN cd apps/web && npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-# Copy backend runtime files
-COPY --from=build /app/apps/api/dist ./dist
-COPY --from=build /app/apps/api/prisma ./prisma
-COPY --from=build /app/apps/api/node_modules ./node_modules
-COPY --from=build /app/apps/api/package.json ./package.json
-COPY --from=build /app/package.json ./package.json
+# Install production dependencies
+COPY package*.json ./
+COPY apps/api/package.json ./apps/api/
+RUN npm ci --omit=dev
 
-# Copy frontend build
-COPY --from=build /app/apps/web/dist ./public
+# Copy backend runtime files
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+
+# Copy frontend build to be served by the API
+COPY --from=build /app/apps/web/dist ./apps/api/public
+
+WORKDIR /app/apps/api
 
 EXPOSE 3000
 
