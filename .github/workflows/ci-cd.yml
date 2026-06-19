@@ -94,11 +94,11 @@ jobs:
           echo "Using Project Access Token for authentication..."
           # Project tokens use Project-Access-Token header, not Authorization Bearer
           # The CLI should pick this up from RAILWAY_TOKEN env var
-          export RAILWAY_TOKEN="6f0fe356-0123-44b0-bcca-c02845228455"
+          export RAILWAY_TOKEN="fe224778-7649-442e-a795-044236078f7e"
           railway up --service grid-web --detach --yes --verbose 2>&1
         timeout-minutes: 15
         env:
-          RAILWAY_TOKEN: 6f0fe356-0123-44b0-bcca-c02845228455
+          RAILWAY_TOKEN: fe224778-7649-442e-a795-044236078f7e
 
       # Deploy to Render (if RENDER_API_KEY is set)
       - name: Deploy to Render
