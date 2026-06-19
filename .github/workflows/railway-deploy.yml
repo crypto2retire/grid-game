@@ -27,9 +27,11 @@ jobs:
         run: |
           echo "Deploying from root Dockerfile..."
           echo "Logging in with provided token..."
-          railway login --token "6f0fe356-0123-44b0-bcca-c02845228455"
+          railway login --token "6f0fe356-0123-44b0-bcca-c02845228455" --verbose
+          echo "Login completed. Checking status..."
+          railway status
           echo "Linked to project. Deploying..."
-          railway up --service grid-web --detach --yes 2>&1
+          railway up --service grid-web --detach --yes --verbose 2>&1
         timeout-minutes: 15
 
       - name: Health Check
