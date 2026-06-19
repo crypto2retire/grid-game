@@ -38,6 +38,10 @@ RUN npm install --omit=dev
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 
+# Copy Prisma generated client (critical!)
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+
 # Copy frontend build to be served by the API
 COPY --from=build /app/apps/web/dist ./apps/api/public
 
