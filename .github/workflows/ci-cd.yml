@@ -83,12 +83,18 @@ jobs:
       - run: npm install
       - run: npm run build
 
-      # Deploy to Railway (if RAILWAY_TOKEN is set)
+      # Deploy to Railway using CLI with account token
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
       - name: Deploy to Railway
-        if: env.RAILWAY_TOKEN != ''
-        uses: railway/deploy@v1
+        run: |
+          echo "Deploying to Railway..."
+          railway login --token "6f0fe356-0123-44b0-bcca-c02845228455" --verbose 2>&1
+          railway up --service grid-web --detach --yes --verbose 2>&1
+        timeout-minutes: 15
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: 6f0fe356-0123-44b0-bcca-c02845228455
 
       # Deploy to Render (if RENDER_API_KEY is set)
       - name: Deploy to Render
