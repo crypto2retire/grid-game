@@ -1,5 +1,4 @@
 import { SeededRNG } from '../../utils/rng';
-import { prisma } from '../../config/database';
 
 export interface PlayerState {
   playerId: string;
