@@ -1,8 +1,8 @@
 {
   "name": "@grid/api",
   "version": "1.0.0",
-  "description": "GRID Game API Server",
-  "main": "dist/server.js",
+  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
@@ -33,6 +33,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
@@ -41,10 +42,12 @@
     "@types/node": "^22.10.5",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
+    "globals": "^17.6.0",
     "jest": "^29.7.0",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.61.1"
   }
 }
