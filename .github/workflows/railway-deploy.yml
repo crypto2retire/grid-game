@@ -27,12 +27,20 @@ jobs:
         run: |
           echo "Deploying from root Dockerfile..."
           echo "Logging in with provided token..."
-          railway login --token "6f0fe356-0123-44b0-bcca-c02845228455" --verbose
+          railway login --token "6f0fe356-0123-44b0-bcca-c02845228455" --verbose > /tmp/railway-deploy.log 2>&1
           echo "Login completed. Checking status..."
-          railway status
+          railway status >> /tmp/railway-deploy.log 2>&1
           echo "Linked to project. Deploying..."
-          railway up --service grid-web --detach --yes --verbose 2>&1
+          railway up --service grid-web --detach --yes --verbose >> /tmp/railway-deploy.log 2>&1
+          cat /tmp/railway-deploy.log
         timeout-minutes: 15
+
+      - name: Upload Deploy Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: railway-deploy-logs
+          path: /tmp/railway-deploy.log
 
       - name: Health Check
         run: |
