@@ -1,8 +1,8 @@
 {
   "name": "grid-game",
   "version": "1.0.0",
-  "description": "GRID - Sports Management Simulation Game",
   "private": true,
+  "packageManager": "npm@10.2.4",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
