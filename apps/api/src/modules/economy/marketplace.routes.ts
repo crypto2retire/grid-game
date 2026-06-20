@@ -131,7 +131,7 @@ router.post(
       throw new AppError(400, 'Insufficient CASH');
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: listing.price } },
@@ -276,7 +276,7 @@ router.post(
       throw new AppError(400, 'Buyer has insufficient CASH');
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.wallet.update({
         where: { userId: offer.buyerId },
         data: { cash: { decrement: offer.price } },
