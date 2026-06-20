@@ -32,5 +32,5 @@ databases:
   - name: grid-db
     databaseName: gridgame
     user: grid
-    plan: starter
+    plan: basic-1gb
     ipAllowList: []
