@@ -7,7 +7,7 @@ import path from 'path';
 import { exec } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env';
-import { connectDatabase, disconnectDatabase, prisma } from './config/database';
+import { connectDatabase, disconnectDatabase } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
@@ -123,17 +123,12 @@ const startServer = async () => {
           console.log('Migrations:', stdout?.trim() || 'OK');
         }
 
-        prisma.player.count().then((count: number) => {
-          if (count === 0) {
-            console.log('Seeding database...');
-            exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
-              if (seedErr) console.error('Seed error:', seedErr.message);
-              else console.log('Seeded:', seedOut?.trim() || 'OK');
-            });
-          } else {
-            console.log(`Database ready (${count} players)`);
-          }
-        }).catch((countErr: any) => console.error('Count error:', countErr));
+        // Always re-seed to update player stats for rec-league balance
+        console.log('Re-seeding database with rec-league player stats...');
+        exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
+          if (seedErr) console.error('Seed error:', seedErr.message);
+          else console.log('Seeded:', seedOut?.trim() || 'OK');
+        });
       });
     } catch (dbErr) {
       console.error('Database failed:', dbErr);
