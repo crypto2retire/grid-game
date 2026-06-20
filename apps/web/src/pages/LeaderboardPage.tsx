@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Medal, TrendingUp, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Trophy, Medal, ArrowUp, ArrowDown, Minus, Crown } from 'lucide-react';
 
 interface LeaderboardTeam {
   id: string;
@@ -67,7 +67,7 @@ export default function LeaderboardPage() {
   };
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Medal className="w-5 h-5 text-yellow-400" />;
+    if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" />;
     if (rank === 2) return <Medal className="w-5 h-5 text-slate-300" />;
     if (rank === 3) return <Medal className="w-5 h-5 text-amber-700" />;
     return <span className="text-sm text-muted-foreground w-5 text-center">{rank}</span>;
@@ -92,153 +92,163 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'teams'
-                ? 'bg-accent text-white'
-                : 'bg-secondary text-muted-foreground hover:text-white'
-            }`}
-          >
-            Teams
-          </button>
-          <button
-            onClick={() => setActiveTab('players')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'players'
-                ? 'bg-accent text-white'
-                : 'bg-secondary text-muted-foreground hover:text-white'
-            }`}
-          >
-            Players
-          </button>
+        <div>
+          <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Top performing teams and players
+          </p>
         </div>
       </div>
 
-      {activeTab === 'teams' ? (
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-secondary/50 text-left">
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Rank</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Team</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Manager</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">W</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">D</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">L</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">GF</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">GA</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">GD</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">Pts</th>
-                  <th className="px-4 py-3 text-sm font-medium text-muted-foreground text-center">Form</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map((team, index) => (
-                  <tr
-                    key={team.id}
-                    className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center w-8">
-                        {getRankIcon(index + 1 + (page - 1) * 20)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-white">{team.name}</div>
-                      <div className="text-xs text-muted-foreground">{team._count.teamPlayers} players</div>
-                    </td>
-                    <td className="px-4 py-3 text-white">
-                      {team.owner.displayName || team.owner.username}
-                    </td>
-                    <td className="px-4 py-3 text-center text-green-400">{team.wins}</td>
-                    <td className="px-4 py-3 text-center text-yellow-400">{team.draws}</td>
-                    <td className="px-4 py-3 text-center text-red-400">{team.losses}</td>
-                    <td className="px-4 py-3 text-center text-white">{team.goalsFor}</td>
-                    <td className="px-4 py-3 text-center text-white">{team.goalsAgainst}</td>
-                    <td className="px-4 py-3 text-center text-white">
-                      {team.goalsFor - team.goalsAgainst > 0 ? '+' : ''}
-                      {team.goalsFor - team.goalsAgainst}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="font-bold text-accent">{team.points}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {getFormIndicator(team)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {teams.length === 0 && (
-            <div className="text-center py-12">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-1">
+        {[
+          { id: 'teams' as const, label: 'Teams', icon: Trophy },
+          { id: 'players' as const, label: 'Players', icon: Medal },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => { setActiveTab(t.id); setPage(1); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
+              activeTab === t.id
+                ? 'text-accent border-b-2 border-accent'
+                : 'text-muted-foreground hover:text-white'
+            }`}
+          >
+            <t.icon className="w-4 h-4" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Teams Tab */}
+      {activeTab === 'teams' && (
+        <div className="glass-card p-6">
+          {teams.length === 0 ? (
+            <div className="text-center py-8">
               <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No teams on the leaderboard yet</p>
+              <p className="text-white font-medium mb-1">No teams ranked yet</p>
+              <p className="text-muted-foreground text-sm">Play matches to earn points</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {teams.map((team, index) => (
+                <div
+                  key={team.id}
+                  className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
+                    index < 3 ? 'bg-secondary/50' : 'bg-secondary/30'
+                  }`}
+                >
+                  <div className="w-8 flex justify-center">
+                    {getRankIcon((page - 1) * 20 + index + 1)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-white">{team.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {team.owner.displayName || team.owner.username} • {team._count.teamPlayers} players
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="font-bold text-white">{team.wins}-{team.draws}-{team.losses}</div>
+                      <div className="text-xs text-muted-foreground">W-D-L</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-white">{team.goalsFor}:{team.goalsAgainst}</div>
+                      <div className="text-xs text-muted-foreground">Goals</div>
+                    </div>
+                    <div className="text-center w-16">
+                      <div className="font-bold text-accent text-lg">{team.points}</div>
+                      <div className="text-xs text-muted-foreground">PTS</div>
+                    </div>
+                    <div>{getFormIndicator(team)}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {players.map((player, index) => (
-            <div key={player.id} className="glass-card p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="text-sm font-bold text-muted-foreground">#{index + 1}</div>
-                <div className="text-2xl font-bold text-white">{player.overall}</div>
-              </div>
-              <h3 className="font-semibold text-white mb-1">{player.name}</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                {player.position} • {player.rarity}
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="text-center p-2 bg-secondary rounded">
-                  <div className="font-bold text-white">{player.matchStats[0]?.goals || 0}</div>
-                  <div className="text-muted-foreground">Goals</div>
-                </div>
-                <div className="text-center p-2 bg-secondary rounded">
-                  <div className="font-bold text-white">{player.matchStats[0]?.assists || 0}</div>
-                  <div className="text-muted-foreground">Assists</div>
-                </div>
-                <div className="text-center p-2 bg-secondary rounded">
-                  <div className="font-bold text-white">{player.matchStats[0]?.rating || '6.0'}</div>
-                  <div className="text-muted-foreground">Rating</div>
-                </div>
-              </div>
-            </div>
-          ))}
-          {players.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No player stats yet</p>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-border">
+              <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-            className="px-4 py-2 bg-secondary rounded-lg text-white disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-            disabled={page === totalPages}
-            className="px-4 py-2 bg-secondary rounded-lg text-white disabled:opacity-50"
-          >
-            Next
-          </button>
+      {/* Players Tab */}
+      {activeTab === 'players' && (
+        <div className="glass-card p-6">
+          {players.length === 0 ? (
+            <div className="text-center py-8">
+              <Medal className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-white font-medium mb-1">No players ranked yet</p>
+              <p className="text-muted-foreground text-sm">Play matches to earn stats</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {players.map((player, index) => (
+                <div
+                  key={player.id}
+                  className="flex items-center gap-4 p-4 bg-secondary/30 rounded-lg"
+                >
+                  <div className="w-8 flex justify-center">
+                    {getRankIcon((page - 1) * 20 + index + 1)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-white">{player.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {player.position} • OVR {player.overall}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-accent">{player.matchStats.length}</div>
+                    <div className="text-xs text-muted-foreground">Matches</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-border">
+              <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

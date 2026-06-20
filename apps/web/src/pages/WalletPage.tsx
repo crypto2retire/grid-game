@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wallet, ArrowDown, ArrowUp, Clock, Trophy } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Trophy, Coins } from 'lucide-react';
 
 interface WalletData {
   cash: number;
@@ -76,14 +76,22 @@ export default function WalletPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-white">Wallet</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Wallet</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your CASH and view earnings
+          </p>
+        </div>
+      </div>
 
       {/* Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-card p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-yellow-400/10 rounded-lg flex items-center justify-center">
-              <Wallet className="w-6 h-6 text-yellow-400" />
+              <Coins className="w-6 h-6 text-yellow-400" />
             </div>
             <div>
               <div className="text-sm text-muted-foreground">CASH Balance</div>
@@ -99,93 +107,76 @@ export default function WalletPage() {
 
         <div className="glass-card p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-accent" />
+            <div className="w-12 h-12 bg-green-400/10 rounded-lg flex items-center justify-center">
+              <ArrowUp className="w-6 h-6 text-green-400" />
             </div>
             <div>
               <div className="text-sm text-muted-foreground">Total Earned</div>
-              <div className="text-3xl font-bold text-green-400">
-                +{totalEarned.toLocaleString()} CASH
+              <div className="text-3xl font-bold text-white">
+                {totalEarned.toLocaleString()}
               </div>
             </div>
           </div>
           <div className="text-sm text-muted-foreground">
-            Total XP Gained: {totalXP.toLocaleString()}
+            From matches and rewards
+          </div>
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-purple-400/10 rounded-lg flex items-center justify-center">
+              <Trophy className="w-6 h-6 text-purple-400" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Total XP</div>
+              <div className="text-3xl font-bold text-white">
+                {totalXP.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Experience gained from play
           </div>
         </div>
       </div>
 
-      {/* Rewards Info */}
+      {/* Transactions */}
       <div className="glass-card p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Match Rewards</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex items-center gap-3 p-4 bg-secondary rounded-lg">
-            <div className="w-10 h-10 bg-green-400/10 rounded-lg flex items-center justify-center">
-              <ArrowUp className="w-5 h-5 text-green-400" />
-            </div>
-            <div>
-              <div className="font-semibold text-white">Win</div>
-              <div className="text-sm text-green-400">5,000 CASH + XP</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-secondary rounded-lg">
-            <div className="w-10 h-10 bg-yellow-400/10 rounded-lg flex items-center justify-center">
-              <ArrowUp className="w-5 h-5 text-yellow-400" />
-            </div>
-            <div>
-              <div className="font-semibold text-white">Draw</div>
-              <div className="text-sm text-yellow-400">2,000 CASH + XP</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-4 bg-secondary rounded-lg">
-            <div className="w-10 h-10 bg-red-400/10 rounded-lg flex items-center justify-center">
-              <ArrowDown className="w-5 h-5 text-red-400" />
-            </div>
-            <div>
-              <div className="font-semibold text-white">Loss</div>
-              <div className="text-sm text-red-400">1,000 CASH + XP</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Transaction History */}
-      <div className="glass-card p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Transaction History</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">Recent Transactions</h2>
         {transactions.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No transactions yet</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Play matches to earn CASH and XP
-            </p>
+            <p className="text-white font-medium mb-1">No transactions yet</p>
+            <p className="text-muted-foreground text-sm">Play matches to earn CASH and XP</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {transactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex items-center justify-between p-4 bg-secondary rounded-lg"
-              >
-                <div>
-                  <div className="font-medium text-white">
-                    {transaction.match.homeTeam.name} vs {transaction.match.awayTeam.name}
+            {transactions.map((t) => (
+              <div key={t.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    t.cashWon >= 0 ? 'bg-green-400/10' : 'bg-red-400/10'
+                  }`}>
+                    {t.cashWon >= 0 ? (
+                      <ArrowUp className="w-5 h-5 text-green-400" />
+                    ) : (
+                      <ArrowDown className="w-5 h-5 text-red-400" />
+                    )}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {transaction.match.homeScore} - {transaction.match.awayScore} • {transaction.side}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3 inline mr-1" />
-                    {new Date(transaction.match.completedAt).toLocaleDateString()}
+                  <div>
+                    <div className="font-medium text-white">
+                      {t.match.homeTeam.name} vs {t.match.awayTeam.name}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Score: {t.match.homeScore} - {t.match.awayScore} • You played as {t.side}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-green-400">
-                    +{transaction.cashWon.toLocaleString()} CASH
+                  <div className={`font-bold ${t.cashWon >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {t.cashWon >= 0 ? '+' : ''}{t.cashWon.toLocaleString()} CASH
                   </div>
-                  <div className="text-sm text-accent">
-                    +{transaction.xpGained} XP
-                  </div>
+                  <div className="text-sm text-purple-400">+{t.xpGained} XP</div>
                 </div>
               </div>
             ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Search, Coins, TrendingUp, TrendingDown, Minus, ShoppingCart } from 'lucide-react';
+import { Users, Search, Coins, TrendingUp, TrendingDown, Minus, ShoppingCart, AlertCircle, Filter } from 'lucide-react';
 
 interface Player {
   id: string;
@@ -33,8 +33,10 @@ export default function PlayersPage() {
   const [myWallet, setMyWallet] = useState({ cash: 0 });
   const [buying, setBuying] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
+  const [buySuccess, setBuySuccess] = useState<string | null>(null);
   const [myTeams, setMyTeams] = useState<any[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchPlayers();
@@ -70,7 +72,7 @@ export default function PlayersPage() {
   const fetchWallet = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/wallet', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/economy/wallet', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         setMyWallet(data.data || { cash: 0 });
@@ -99,11 +101,12 @@ export default function PlayersPage() {
 
   const buyPlayer = async (playerId: string) => {
     if (!selectedTeam) {
-      setBuyError('Select a team first');
+      setBuyError('Create a team first to hire players');
       return;
     }
     setBuying(playerId);
     setBuyError(null);
+    setBuySuccess(null);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`/api/teams/${selectedTeam}/players`, {
@@ -116,32 +119,28 @@ export default function PlayersPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        fetchPlayers();
+        setBuySuccess('Player hired successfully!');
         fetchWallet();
-        fetchMyTeams();
+        setTimeout(() => setBuySuccess(null), 3000);
       } else {
-        setBuyError(data.message || 'Purchase failed');
+        setBuyError(data.message || 'Failed to hire player');
       }
     } catch (err) {
       console.error('Failed to buy player:', err);
-      setBuyError('Network error');
+      setBuyError('Network error. Please try again.');
     } finally {
       setBuying(null);
     }
   };
 
-  const filteredPlayers = players.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
-
   const getRarityColor = (rarity: string) => {
     const colors: Record<string, string> = {
-      COMMON: 'border-gray-500',
-      BRONZE: 'border-amber-700',
-      SILVER: 'border-slate-300',
-      GOLD: 'border-yellow-400',
-      ELITE: 'border-purple-400',
-      LEGEND: 'border-red-400',
+      COMMON: 'text-gray-400 border-gray-500',
+      BRONZE: 'text-amber-600 border-amber-700',
+      SILVER: 'text-slate-300 border-slate-300',
+      GOLD: 'text-yellow-400 border-yellow-400',
+      ELITE: 'text-purple-400 border-purple-400',
+      LEGEND: 'text-red-400 border-red-400',
     };
     return colors[rarity] || colors.COMMON;
   };
@@ -159,16 +158,14 @@ export default function PlayersPage() {
   };
 
   const getDemandIcon = (mult: number) => {
-    if (mult > 1.3) return <TrendingUp className="w-3.5 h-3.5 text-rose-400" />;
-    if (mult < 0.9) return <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />;
-    return <Minus className="w-3.5 h-3.5 text-slate-400" />;
+    if (mult > 1.5) return <TrendingUp className="w-3 h-3 text-green-400" />;
+    if (mult < 0.8) return <TrendingDown className="w-3 h-3 text-red-400" />;
+    return <Minus className="w-3 h-3 text-muted-foreground" />;
   };
 
-  const getDemandLabel = (mult: number) => {
-    if (mult > 1.3) return 'High demand';
-    if (mult < 0.9) return 'Low demand';
-    return 'Normal demand';
-  };
+  const filteredPlayers = search
+    ? players.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+    : players;
 
   if (loading) {
     return (
@@ -180,180 +177,209 @@ export default function PlayersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Players</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Prices are dynamic based on overall rating, rarity, and market demand.
+            Scout and hire talent for your team
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-muted-foreground">
-            <Users className="w-5 h-5 inline mr-2" />
-            {players.length} available
-          </div>
-          <div className="text-sm text-yellow-400 mt-1">
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-yellow-400">
             <Coins className="w-4 h-4 inline mr-1" />
             {myWallet.cash.toLocaleString()} CASH
           </div>
         </div>
       </div>
 
+      {/* Alerts */}
       {buyError && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
+        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
           {buyError}
         </div>
       )}
+      {buySuccess && (
+        <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
+          {buySuccess}
+        </div>
+      )}
 
-      {/* Filters */}
+      {/* Search & Filters */}
       <div className="glass-card p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="relative">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search players..."
-              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
-          <select
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+              showFilters ? 'bg-accent/10 border-accent/30 text-accent' : 'border-border text-muted-foreground hover:text-white'
+            }`}
           >
-            <option value="">All Positions</option>
-            <option value="GK">Goalkeeper</option>
-            <option value="DEF">Defender</option>
-            <option value="MID">Midfielder</option>
-            <option value="FWD">Forward</option>
-          </select>
-          <select
-            value={rarity}
-            onChange={(e) => setRarity(e.target.value)}
-            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="">All Rarities</option>
-            <option value="COMMON">Common</option>
-            <option value="BRONZE">Bronze</option>
-            <option value="SILVER">Silver</option>
-            <option value="GOLD">Gold</option>
-            <option value="ELITE">Elite</option>
-            <option value="LEGEND">Legend</option>
-          </select>
-          <select
-            value={minOverall}
-            onChange={(e) => setMinOverall(e.target.value)}
-            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="">Min Overall</option>
-            <option value="60">60+</option>
-            <option value="70">70+</option>
-            <option value="80">80+</option>
-            <option value="90">90+</option>
-          </select>
+            <Filter className="w-4 h-4" />
+            Filters
+          </button>
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Position</label>
+              <select
+                value={position}
+                onChange={(e) => { setPosition(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="">All Positions</option>
+                <option value="GK">Goalkeeper</option>
+                <option value="DEF">Defender</option>
+                <option value="MID">Midfielder</option>
+                <option value="FWD">Forward</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Rarity</label>
+              <select
+                value={rarity}
+                onChange={(e) => { setRarity(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="">All Rarities</option>
+                <option value="COMMON">Common</option>
+                <option value="BRONZE">Bronze</option>
+                <option value="SILVER">Silver</option>
+                <option value="GOLD">Gold</option>
+                <option value="ELITE">Elite</option>
+                <option value="LEGEND">Legend</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Min Overall</label>
+              <select
+                value={minOverall}
+                onChange={(e) => { setMinOverall(e.target.value); setPage(1); }}
+                className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="">Any Rating</option>
+                <option value="30">30+</option>
+                <option value="40">40+</option>
+                <option value="50">50+</option>
+                <option value="60">60+</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Team Selector for Buying */}
+      {myTeams.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">Hire to:</span>
           <select
             value={selectedTeam}
             onChange={(e) => setSelectedTeam(e.target.value)}
-            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+            className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-accent"
           >
-            <option value="">Select team to buy for</option>
             {myTeams.map((team) => (
               <option key={team.id} value={team.id}>{team.name}</option>
             ))}
           </select>
         </div>
-      </div>
+      )}
 
-      {/* Players Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredPlayers.map((player) => (
-          <div
-            key={player.id}
-            className={`glass-card p-4 border-2 ${getRarityColor(player.rarity)} hover:bg-secondary/50 transition-colors`}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).replace('border-', 'text-')}`}>
-                {player.rarity}
-              </div>
-              <div className="text-2xl font-bold text-white">{player.overall}</div>
-            </div>
-            <h3 className="font-semibold text-white mb-1">{player.name}</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              {player.position} • {player.nationality} • Age {player.age}
-            </p>
-
-            {/* Price Section */}
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3 mb-3">
-              <div className="flex items-center justify-between">
+      {/* Player Grid */}
+      {filteredPlayers.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-white font-medium mb-1">No players found</p>
+          <p className="text-muted-foreground text-sm">Try adjusting your filters</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredPlayers.map((player) => (
+            <div
+              key={player.id}
+              className={`glass-card p-4 border hover:bg-secondary/50 transition-colors ${getRarityColor(player.rarity)}`}
+            >
+              <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Current price</p>
-                  <p className="text-lg font-black text-yellow-400">
-                    {player.currentPrice.toLocaleString()} CASH
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1 justify-end">
-                    {getDemandIcon(player.demandMultiplier)}
-                    <span className="text-xs text-slate-300">{getDemandLabel(player.demandMultiplier)}</span>
+                  <div className="font-semibold text-white">{player.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {player.position} • Age {player.age}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    ×{player.demandMultiplier.toFixed(2)} multiplier
-                  </p>
+                </div>
+                <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).split(' ')[0]}`}>
+                  {player.rarity}
                 </div>
               </div>
-              {player.lastSoldPrice && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Last sold: {player.lastSoldPrice.toLocaleString()} CASH
-                </p>
+
+              <div className="flex items-center gap-4 mb-3">
+                <div className="text-center">
+                  <div className="text-2xl font-black text-white">{player.overall}</div>
+                  <div className="text-xs text-muted-foreground">OVR</div>
+                </div>
+                <div className="flex-1 grid grid-cols-3 gap-2 text-xs">
+                  <div className="text-center">
+                    <div className="font-semibold text-white">{player.pace}</div>
+                    <div className="text-muted-foreground">PAC</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-white">{player.shooting}</div>
+                    <div className="text-muted-foreground">SHO</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-white">{player.passing}</div>
+                    <div className="text-muted-foreground">PAS</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-white">{player.dribbling}</div>
+                    <div className="text-muted-foreground">DRI</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-white">{player.defending}</div>
+                    <div className="text-muted-foreground">DEF</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-white">{player.physical}</div>
+                    <div className="text-muted-foreground">PHY</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                    Demand {getDemandIcon(player.demandMultiplier)}
+                  </div>
+                  <div className="text-lg font-black text-yellow-400">
+                    {player.currentPrice.toLocaleString()} CASH
+                  </div>
+                </div>
+                <button
+                  onClick={() => buyPlayer(player.id)}
+                  disabled={buying === player.id || myWallet.cash < player.currentPrice}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  {buying === player.id ? 'Hiring...' : 'Hire'}
+                </button>
+              </div>
+              {myWallet.cash < player.currentPrice && (
+                <p className="text-xs text-red-300 mt-2">Not enough CASH</p>
               )}
             </div>
-
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="text-center p-2 bg-secondary rounded">
-                <div className="font-bold text-white">{player.pace}</div>
-                <div className="text-muted-foreground">PAC</div>
-              </div>
-              <div className="text-center p-2 bg-secondary rounded">
-                <div className="font-bold text-white">{player.shooting}</div>
-                <div className="text-muted-foreground">SHO</div>
-              </div>
-              <div className="text-center p-2 bg-secondary rounded">
-                <div className="font-bold text-white">{player.passing}</div>
-                <div className="text-muted-foreground">PAS</div>
-              </div>
-              <div className="text-center p-2 bg-secondary rounded">
-                <div className="font-bold text-white">{player.dribbling}</div>
-                <div className="text-muted-foreground">DRI</div>
-              </div>
-              <div className="text-center p-2 bg-secondary rounded">
-                <div className="font-bold text-white">{player.defending}</div>
-                <div className="text-muted-foreground">DEF</div>
-              </div>
-              <div className="text-center p-2 bg-secondary rounded">
-                <div className="font-bold text-white">{player.physical}</div>
-                <div className="text-muted-foreground">PHY</div>
-              </div>
-            </div>
-
-            {player.teamPlayers.length > 0 ? (
-              <div className="mt-3 text-xs text-muted-foreground">
-                Owned by {player.teamPlayers[0]?.team?.name || 'a team'}
-              </div>
-            ) : (
-              <button
-                onClick={() => buyPlayer(player.id)}
-                disabled={buying === player.id || !selectedTeam || myWallet.cash < player.currentPrice}
-                className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                {buying === player.id ? 'Buying...' : 'Buy for team'}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -361,17 +387,17 @@ export default function PlayersPage() {
           <button
             onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page === 1}
-            className="px-4 py-2 bg-secondary rounded-lg text-white disabled:opacity-50"
+            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
           >
             Previous
           </button>
-          <span className="text-muted-foreground">
+          <span className="text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages, page + 1))}
             disabled={page === totalPages}
-            className="px-4 py-2 bg-secondary rounded-lg text-white disabled:opacity-50"
+            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
           >
             Next
           </button>
