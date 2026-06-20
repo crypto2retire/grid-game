@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Search, Coins, TrendingUp, TrendingDown, Minus, ShoppingCart, AlertCircle, Filter } from 'lucide-react';
+import { getSportLabel, useGameStore } from '../store/gameStore';
 
 interface Player {
   id: string;
@@ -22,6 +23,7 @@ interface Player {
 }
 
 export default function PlayersPage() {
+  const { activeSportId } = useGameStore();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -42,7 +44,7 @@ export default function PlayersPage() {
     fetchPlayers();
     fetchWallet();
     fetchMyTeams();
-  }, [position, rarity, minOverall, page]);
+  }, [position, rarity, minOverall, page, activeSportId]);
 
   const fetchPlayers = async () => {
     try {
@@ -53,6 +55,7 @@ export default function PlayersPage() {
       if (minOverall) params.append('minOverall', minOverall);
       params.append('page', String(page));
       params.append('limit', '20');
+      params.append('sportId', activeSportId);
 
       const res = await fetch(`/api/players?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -89,9 +92,10 @@ export default function PlayersPage() {
       if (res.ok) {
         const data = await res.json();
         const teams = data.data || [];
-        setMyTeams(teams);
-        if (teams.length > 0 && !selectedTeam) {
-          setSelectedTeam(teams[0].id);
+        setMyTeams(teams.filter((team: any) => (team.sportId || 'american-football') === activeSportId));
+        const sportTeams = teams.filter((team: any) => (team.sportId || 'american-football') === activeSportId);
+        if (sportTeams.length > 0 && !selectedTeam) {
+          setSelectedTeam(sportTeams[0].id);
         }
       }
     } catch (err) {
@@ -182,7 +186,7 @@ export default function PlayersPage() {
         <div>
           <h1 className="text-3xl font-bold text-white">Players</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Scout and hire talent for your team
+            Scout and hire talent for your {getSportLabel(activeSportId)} team
           </p>
         </div>
         <div className="flex items-center gap-3">

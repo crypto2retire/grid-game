@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
+import { getSportLabel, useGameStore } from '../store/gameStore';
 import {
   ArrowRight,
   BadgeDollarSign,
@@ -64,7 +65,7 @@ const dashboardOptions: DashboardOption[] = [
   {
     title: 'My Team',
     eyebrow: 'Build the roster',
-    description: 'Create your club, view players on your roster, and decide who should develop next.',
+    description: 'Create your franchise, view players on your roster, and decide who should develop next.',
     why: 'This is the core management loop: stronger teams unlock better match results and future marketplace value.',
     start: 'Start here if you are new.',
     path: '/team',
@@ -116,7 +117,7 @@ const dashboardOptions: DashboardOption[] = [
   {
     title: 'Sports Economy',
     eyebrow: 'Growth roadmap',
-    description: 'See how American football, soccer, basketball, and baseball share one GRID economy.',
+    description: 'See how American football now, with soccer, basketball, and baseball expansion paths share one GRID economy.',
     why: 'This explains the regular-user path, whale/capital path, token sinks, and expansion plan.',
     start: 'Use when you want the big-picture strategy.',
     path: '/sports-economy',
@@ -161,6 +162,7 @@ const economyExplainers = [
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const { activeSportId } = useGameStore();
   const [teams, setTeams] = useState<Team[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ export default function DashboardPage() {
 
         if (teamsResult.status === 'fulfilled' && teamsResult.value.ok) {
           const data = await teamsResult.value.json();
-          setTeams(data.data || []);
+          setTeams((data.data || []).filter((team: any) => (team.sportId || 'american-football') === activeSportId));
         } else if (teamsResult.status === 'fulfilled') {
           throw new Error(`Teams API returned ${teamsResult.value.status}`);
         } else {
@@ -192,7 +194,7 @@ export default function DashboardPage() {
 
         if (matchesResult.status === 'fulfilled' && matchesResult.value.ok) {
           const data = await matchesResult.value.json();
-          setRecentMatches(data.data?.matches || []);
+          setRecentMatches((data.data?.matches || []).filter((match: any) => (match.sportId || 'american-football') === activeSportId));
         } else if (matchesResult.status === 'fulfilled') {
           // Matches are helpful context, but they should not block the whole dashboard.
           console.warn(`Matches API returned ${matchesResult.value.status}`);
@@ -210,7 +212,7 @@ export default function DashboardPage() {
     };
 
     loadDashboard();
-  }, []);
+  }, [activeSportId]);
 
   const stats = useMemo(() => {
     const matchesPlayed = teams.reduce((sum, t) => sum + t.wins + t.draws + t.losses, 0);
@@ -268,7 +270,7 @@ export default function DashboardPage() {
               Welcome back, {user?.displayName || user?.username || 'Coach'}.
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
-              This dashboard now separates the game into clear choices: build your roster, compete in matches, trade assets, study the economy, and track your wallet. Each card explains what the option does and why it matters.
+              This {getSportLabel(activeSportId)} dashboard separates the game into clear choices: build your roster, compete in matches, trade assets, study the economy, and track your wallet. Each card explains what the option does and why it matters.
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-300">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2">
@@ -300,12 +302,12 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <Swords className="mb-4 h-10 w-10 text-accent" />
-                  <h2 className="text-2xl font-black text-white">Play or review matches</h2>
+                  <h2 className="text-2xl font-black text-white">Play or review games</h2>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
                     You have a team foundation. Use matches to test lineup quality, build points, and find gaps to fix through scouting or the market.
                   </p>
                   <Link to="/matches" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 py-3 font-bold text-white transition hover:bg-accent/90">
-                    Go to matches <ArrowRight className="h-4 w-4" />
+                    Go to games <ArrowRight className="h-4 w-4" />
                   </Link>
                 </>
               )}
@@ -322,7 +324,7 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Dashboard summary">
         {[
-          { label: 'Teams', value: stats.teams, detail: 'Clubs you control', icon: Shield, color: 'text-blue-300' },
+          { label: 'Teams', value: stats.teams, detail: 'Teams you control', icon: Shield, color: 'text-blue-300' },
           { label: 'Players', value: stats.totalPlayers, detail: 'Rostered athletes', icon: Users, color: 'text-emerald-300' },
           { label: 'Points', value: stats.totalPoints, detail: 'Earned from results', icon: Trophy, color: 'text-yellow-300' },
           { label: 'Matches', value: stats.matchesPlayed, detail: 'Record history', icon: CalendarDays, color: 'text-rose-300' },
@@ -421,7 +423,7 @@ export default function DashboardPage() {
               <Shield className="mx-auto mb-4 h-12 w-12 text-blue-300" />
               <h3 className="text-xl font-black text-white">No team yet</h3>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-300">
-                Create a team first. After that, this panel will show player count, points, wins, draws, and losses at a glance.
+                Create a team first. After that, this panel will show player count, points, wins, losses, and ties at a glance.
               </p>
               <Link to="/team" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 py-3 font-bold text-white hover:bg-accent/90">
                 Create your first team <ArrowRight className="h-4 w-4" />
@@ -443,7 +445,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center text-sm sm:min-w-48">
                     <span className="rounded-xl bg-emerald-400/10 px-3 py-2 font-bold text-emerald-200">{team.wins}W</span>
-                    <span className="rounded-xl bg-yellow-400/10 px-3 py-2 font-bold text-yellow-200">{team.draws}D</span>
+                    <span className="rounded-xl bg-yellow-400/10 px-3 py-2 font-bold text-yellow-200">{team.draws}T</span>
                     <span className="rounded-xl bg-rose-400/10 px-3 py-2 font-bold text-rose-200">{team.losses}L</span>
                   </div>
                 </Link>
@@ -455,7 +457,7 @@ export default function DashboardPage() {
         <div className="rounded-3xl border border-white/10 bg-card/80 p-6 backdrop-blur-md">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-black text-white">Recent Matches</h2>
+              <h2 className="text-xl font-black text-white">Recent Games</h2>
               <p className="mt-1 text-sm text-muted-foreground">Fast feedback from completed games.</p>
             </div>
             <Link to="/matches" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-white hover:bg-white/10">
@@ -465,12 +467,12 @@ export default function DashboardPage() {
           {recentMatches.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-8 text-center">
               <Swords className="mx-auto mb-4 h-12 w-12 text-rose-300" />
-              <h3 className="text-xl font-black text-white">No completed matches yet</h3>
+              <h3 className="text-xl font-black text-white">No completed games yet</h3>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-300">
-                Schedule or complete a match to see scores here. Match history helps you decide whether to scout, trade, or adjust your roster.
+                Schedule or complete a game to see scores here. Match history helps you decide whether to scout, trade, or adjust your roster.
               </p>
               <Link to="/matches" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 py-3 font-bold text-white hover:bg-accent/90">
-                Schedule a match <ArrowRight className="h-4 w-4" />
+                Schedule a game <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           ) : (
@@ -535,7 +537,7 @@ export default function DashboardPage() {
         <Link to="/leaderboard" className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-yellow-300/40 hover:bg-white/10">
           <Trophy className="mb-3 h-7 w-7 text-yellow-300" />
           <h3 className="font-black text-white">Leaderboard</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-300">Compare team performance and see what top clubs are doing differently.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">Compare team performance and see what top franchises are doing differently.</p>
         </Link>
         <Link to="/marketplace" className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-amber-300/40 hover:bg-white/10">
           <Gem className="mb-3 h-7 w-7 text-amber-300" />

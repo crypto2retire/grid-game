@@ -22,6 +22,8 @@ interface MatchData {
   events: MatchEvent[];
   playerStats: any[];
   seed: string;
+  sportId?: string;
+  metadata?: any;
 }
 
 export default function MatchPage() {
@@ -90,30 +92,39 @@ export default function MatchPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatEventLabel = (type: string) => type
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
   const getEventIcon = (type: string) => {
     switch (type) {
-      case 'goal': return <span className="text-green-400">⚽</span>;
-      case 'shot': return <span className="text-yellow-400">🎯</span>;
-      case 'save': return <span className="text-blue-400">🧤</span>;
-      case 'tackle': return <span className="text-red-400">🦶</span>;
-      case 'foul': return <span className="text-red-400">🟨</span>;
-      case 'card': return <span className="text-red-400">🟥</span>;
-      case 'halftime': return <span className="text-muted-foreground">⏸️</span>;
-      case 'fulltime': return <span className="text-muted-foreground">🏁</span>;
+      case 'touchdown': return <span className="text-green-400">🏈</span>;
+      case 'field_goal': return <span className="text-yellow-400">🥅</span>;
+      case 'pass_completion': return <span className="text-cyan-400">🎯</span>;
+      case 'rush': return <span className="text-orange-400">💨</span>;
+      case 'turnover': return <span className="text-red-400">🔁</span>;
+      case 'sack': return <span className="text-red-400">💥</span>;
+      case 'kickoff': return <span className="text-blue-400">🚀</span>;
+      case 'end_quarter': return <span className="text-muted-foreground">⏱️</span>;
+      case 'final': return <span className="text-muted-foreground">🏁</span>;
+      case 'goal': return <span className="text-green-400">🏈</span>;
       default: return <span className="text-muted-foreground">•</span>;
     }
   };
 
   const getEventColor = (type: string) => {
     switch (type) {
+      case 'touchdown': return 'text-green-400 bg-green-400/10';
+      case 'field_goal': return 'text-yellow-400 bg-yellow-400/10';
+      case 'pass_completion': return 'text-cyan-400 bg-cyan-400/10';
+      case 'rush': return 'text-orange-400 bg-orange-400/10';
+      case 'turnover': return 'text-red-400 bg-red-400/10';
+      case 'sack': return 'text-red-400 bg-red-400/10';
+      case 'kickoff': return 'text-blue-400 bg-blue-400/10';
+      case 'end_quarter': return 'text-muted-foreground bg-secondary';
+      case 'final': return 'text-accent bg-accent/10';
       case 'goal': return 'text-green-400 bg-green-400/10';
-      case 'shot': return 'text-yellow-400 bg-yellow-400/10';
-      case 'save': return 'text-blue-400 bg-blue-400/10';
-      case 'tackle': return 'text-red-400 bg-red-400/10';
-      case 'foul': return 'text-orange-400 bg-orange-400/10';
-      case 'card': return 'text-red-400 bg-red-400/10';
-      case 'halftime': return 'text-muted-foreground bg-secondary';
-      case 'fulltime': return 'text-accent bg-accent/10';
       default: return 'text-muted-foreground bg-secondary';
     }
   };
@@ -130,7 +141,7 @@ export default function MatchPage() {
     return (
       <div className="text-center py-12">
         <Swords className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">Match not found</p>
+        <p className="text-muted-foreground">Game not found</p>
       </div>
     );
   }
@@ -150,7 +161,7 @@ export default function MatchPage() {
           </div>
           <div className="text-center">
             <div className="text-sm text-muted-foreground mb-2">
-              {match.status === 'SCHEDULED' ? 'VS' : match.status === 'IN_PROGRESS' ? 'LIVE' : 'FT'}
+              {match.status === 'SCHEDULED' ? 'VS' : match.status === 'IN_PROGRESS' ? 'LIVE' : 'FINAL'}
             </div>
             {match.status === 'COMPLETED' && (
               <Trophy className="w-8 h-8 text-accent mx-auto" />
@@ -162,7 +173,7 @@ export default function MatchPage() {
           </div>
         </div>
 
-        {/* Match Controls */}
+        {/* Game Controls */}
         {match.status === 'COMPLETED' && (
           <div className="flex items-center justify-center gap-4 mt-6">
             <button
@@ -172,7 +183,7 @@ export default function MatchPage() {
               }}
               className="px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90"
             >
-              {playing ? 'Playing...' : 'Replay Match'}
+              {playing ? 'Playing...' : 'Replay Game'}
             </button>
             <button
               onClick={() => setPlaying(false)}
@@ -195,7 +206,7 @@ export default function MatchPage() {
               onClick={simulateMatch}
               className="px-6 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90"
             >
-              Simulate Match
+              Simulate Game
             </button>
           </div>
         )}
@@ -204,7 +215,7 @@ export default function MatchPage() {
       {/* Event Timeline */}
       {(match.status === 'COMPLETED' || match.events.length > 0) && (
         <div className="glass-card p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Match Events</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Game Events</h2>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {visibleEvents.map((event, index) => (
               <motion.div
@@ -219,7 +230,7 @@ export default function MatchPage() {
                 </div>
                 <div className="text-lg">{getEventIcon(event.type)}</div>
                 <div className="flex-1">
-                  <span className="font-medium">{event.type.toUpperCase()}</span>
+                  <span className="font-medium">{formatEventLabel(event.type)}</span>
                   {event.actorName && (
                     <span className="text-muted-foreground"> - {event.actorName}</span>
                   )}
@@ -236,7 +247,7 @@ export default function MatchPage() {
       {/* Player Stats */}
       {match.playerStats && match.playerStats.length > 0 && (
         <div className="glass-card p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Player Statistics</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Player Game Stats</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -259,13 +270,13 @@ export default function MatchPage() {
                       <div className="font-medium text-white">{stat.player?.name}</div>
                       <div className="text-xs text-muted-foreground">{stat.player?.position}</div>
                     </td>
-                    <td className="text-center py-2 text-white">{stat.goals}</td>
+                    <td className="text-center py-2 text-white">{stat.stats?.touchdowns ?? stat.goals}</td>
                     <td className="text-center py-2 text-white">{stat.assists}</td>
-                    <td className="text-center py-2 text-white">{stat.shots}</td>
-                    <td className="text-center py-2 text-white">{stat.shotsOnTarget}</td>
-                    <td className="text-center py-2 text-white">{stat.passes}</td>
+                    <td className="text-center py-2 text-white">{stat.stats?.plays ?? stat.shots}</td>
+                    <td className="text-center py-2 text-white">{stat.stats?.onTarget ?? stat.shotsOnTarget}</td>
+                    <td className="text-center py-2 text-white">{stat.stats?.yards ?? stat.passes}</td>
                     <td className="text-center py-2 text-white">{stat.tackles}</td>
-                    <td className="text-center py-2 text-white">{stat.saves}</td>
+                    <td className="text-center py-2 text-white">{stat.stats?.stops ?? stat.saves}</td>
                     <td className="text-center py-2">
                       <span className={`font-bold ${stat.rating >= 7 ? 'text-green-400' : stat.rating >= 6 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {stat.rating}

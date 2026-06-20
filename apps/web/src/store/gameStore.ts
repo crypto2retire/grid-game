@@ -76,6 +76,10 @@ interface GameState {
   setWallet: (wallet: WalletData) => void;
   setWalletLoading: (loading: boolean) => void;
   
+  // Active sport
+  activeSportId: SportId;
+  setActiveSportId: (sportId: SportId) => void;
+  
   // Last sync timestamp
   lastSync: number;
   setLastSync: (timestamp: number) => void;
@@ -89,6 +93,17 @@ interface GameState {
 
 const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const API_BASE = API_ORIGIN.endsWith('/api') ? API_ORIGIN : `${API_ORIGIN}/api`;
+
+export const SPORT_OPTIONS = [
+  { id: 'american-football', label: 'American Football', shortLabel: 'Football', rosterName: 'Roster', matchupName: 'Game' },
+  { id: 'soccer', label: 'Soccer', shortLabel: 'Soccer', rosterName: 'Squad', matchupName: 'Match' },
+  { id: 'basketball', label: 'Basketball', shortLabel: 'Basketball', rosterName: 'Roster', matchupName: 'Game' },
+  { id: 'baseball', label: 'Baseball', shortLabel: 'Baseball', rosterName: 'Roster', matchupName: 'Game' },
+] as const;
+
+export type SportId = typeof SPORT_OPTIONS[number]['id'];
+
+export const getSportLabel = (sportId: string) => SPORT_OPTIONS.find((sport) => sport.id === sportId)?.label || 'American Football';
 
 export const useGameStore = create<GameState>()(
   persist(
@@ -117,6 +132,16 @@ export const useGameStore = create<GameState>()(
       setWallet: (wallet) => set({ wallet }),
       setWalletLoading: (walletLoading) => set({ walletLoading }),
       
+      // Active sport
+      activeSportId: 'american-football',
+      setActiveSportId: (activeSportId) => {
+        set({ activeSportId, selectedTeamId: null, teams: [], players: [], lastSync: 0 });
+        setTimeout(() => {
+          get().refreshTeams();
+          get().refreshPlayers();
+        }, 0);
+      },
+      
       // Last sync
       lastSync: 0,
       setLastSync: (lastSync) => set({ lastSync }),
@@ -133,7 +158,7 @@ export const useGameStore = create<GameState>()(
           });
           if (res.ok) {
             const data = await res.json();
-            const teams = data.data || [];
+            const teams = (data.data || []).filter((team: any) => (team.sportId || 'american-football') === get().activeSportId);
             set({ teams, teamsLoading: false, lastSync: Date.now() });
             // If no selected team, select first one
             const { selectedTeamId } = get();
@@ -154,7 +179,7 @@ export const useGameStore = create<GameState>()(
         
         set({ playersLoading: true, playersError: null });
         try {
-          const res = await fetch(`${API_BASE}/players?limit=50`, {
+          const res = await fetch(`${API_BASE}/players?limit=50&sportId=${get().activeSportId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) {
@@ -203,6 +228,7 @@ export const useGameStore = create<GameState>()(
         selectedTeamId: state.selectedTeamId,
         players: state.players,
         wallet: state.wallet,
+        activeSportId: state.activeSportId,
         lastSync: state.lastSync,
       }),
     }

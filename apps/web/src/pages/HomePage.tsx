@@ -23,7 +23,7 @@ export default function HomePage() {
               <span className="text-accent"> Dream Team</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-              GRID is the ultimate sports management game. Build your squad, compete in matches,
+              GRID is the ultimate sports management game. Build your roster, compete in games,
               trade players, and climb the global leaderboard.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -48,8 +48,8 @@ export default function HomePage() {
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { icon: Swords, title: 'Competitive Matches', desc: 'Face off against other managers in real-time simulated matches.' },
-            { icon: Users, title: 'Player Management', desc: 'Build your squad with 200+ unique players. Scout, trade, and develop talent.' },
+            { icon: Swords, title: 'Competitive Games', desc: 'Face off against other managers in real-time simulated games.' },
+            { icon: Users, title: 'Player Management', desc: 'Build your roster with 200+ unique players. Scout, trade, and develop talent.' },
             { icon: Trophy, title: 'Global Leaderboard', desc: 'Compete for the top spot. Weekly tournaments and seasonal rewards.' },
           ].map((feature, i) => (
             <motion.div
@@ -72,7 +72,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
             { value: '200+', label: 'Players' },
-            { value: '1,000+', label: 'Matches Played' },
+            { value: '1,000+', label: 'Games Played' },
             { value: '500+', label: 'Managers' },
             { value: '50K', label: 'Starting CASH' },
           ].map((stat) => (

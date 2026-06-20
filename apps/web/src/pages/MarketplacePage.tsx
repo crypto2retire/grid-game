@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tag, X, HandCoins, Check, Ban, Coins, AlertCircle, Store, Package } from 'lucide-react';
+import { useGameStore } from '../store/gameStore';
 
 interface Listing {
   id: string;
@@ -28,6 +29,7 @@ interface Offer {
 }
 
 export default function MarketplacePage() {
+  const { activeSportId } = useGameStore();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
@@ -50,17 +52,17 @@ export default function MarketplacePage() {
     fetchWallet();
     fetchMyOffers();
     fetchMyListings();
-  }, []);
+  }, [activeSportId]);
 
   const fetchListings = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/marketplace?limit=50', {
+      const res = await fetch(`/api/marketplace?limit=50&sportId=${activeSportId}`,  {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        setListings(data.data || []);
+        setListings((data.data || []).filter((listing: any) => (listing.sportId || listing.player?.sportId || 'american-football') === activeSportId));
       }
     } catch (err) {
       console.error('Failed to fetch listings:', err);
@@ -77,7 +79,7 @@ export default function MarketplacePage() {
       });
       if (res.ok) {
         const data = await res.json();
-        const players = data.data?.flatMap((team: any) => team.teamPlayers?.map((tp: any) => tp.player) || []) || [];
+        const players = data.data?.filter((team: any) => (team.sportId || 'american-football') === activeSportId).flatMap((team: any) => team.teamPlayers?.map((tp: any) => tp.player) || []) || [];
         setMyPlayers(players);
       }
     } catch (err) {
@@ -104,7 +106,7 @@ export default function MarketplacePage() {
       const res = await fetch('/api/marketplace/my-offers', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
-        setMyOffers(data.data || []);
+        setMyOffers((data.data || []).filter((offer: any) => (offer.listing?.sportId || offer.listing?.player?.sportId || 'american-football') === activeSportId));
       }
     } catch (err) {
       console.error('Failed to fetch my offers:', err);
@@ -117,7 +119,7 @@ export default function MarketplacePage() {
       const res = await fetch('/api/marketplace/my-listings', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
-        setMyListings(data.data || []);
+        setMyListings((data.data || []).filter((listing: any) => (listing.sportId || listing.player?.sportId || 'american-football') === activeSportId));
       }
     } catch (err) {
       console.error('Failed to fetch my listings:', err);
@@ -483,7 +485,7 @@ export default function MarketplacePage() {
             <div className="glass-card p-12 text-center">
               <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-white font-medium mb-1">No active listings</p>
-              <p className="text-muted-foreground text-sm">List players from your squad to sell them</p>
+              <p className="text-muted-foreground text-sm">List players from your roster to sell them</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

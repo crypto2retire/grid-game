@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight } from 'lucide-react';
-import { useGameStore } from '../store/gameStore';
+import { getSportLabel, useGameStore } from '../store/gameStore';
 
 const FOOTBALL_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
 const FOOTBALL_POSITION_TARGETS: Record<string, number> = { QB: 2, RB: 4, WR: 6, TE: 3, OL: 8, DL: 6, LB: 5, CB: 5, S: 3, K: 1 };
@@ -21,6 +21,7 @@ export default function TeamPage() {
     setSelectedTeamId,
     refreshTeams,
     refreshWallet,
+    activeSportId,
   } = useGameStore();
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId) || teams[0] || null;
@@ -56,7 +57,7 @@ export default function TeamPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: newTeamName.trim() }),
+        body: JSON.stringify({ name: newTeamName.trim(), sportId: activeSportId, formation: activeSportId === 'american-football' ? '11v11' : undefined }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -78,7 +79,7 @@ export default function TeamPage() {
     setAddSuccess(null);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/players?limit=50', {
+      const res = await fetch(`/api/players?limit=50&sportId=${activeSportId}`,  {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -129,7 +130,7 @@ export default function TeamPage() {
     try {
       const token = localStorage.getItem('token');
       // Fetch a single random player not already in the available list
-      const res = await fetch('/api/players?limit=1&random=true', {
+      const res = await fetch(`/api/players?limit=1&random=true&sportId=${activeSportId}`,  {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -214,7 +215,7 @@ export default function TeamPage() {
           <h1 className="text-4xl font-black text-white tracking-tight">
             MY <span className="text-[#E94560]">TEAM</span>
           </h1>
-          <p className="text-white/40 mt-1">Build your American football roster. Players cost CASH to hire.</p>
+          <p className="text-white/40 mt-1">Active sport: {getSportLabel(activeSportId)}. Build your roster; players cost CASH to hire.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-black/30 border border-[#FFD700]/20 rounded-xl">
@@ -267,7 +268,7 @@ export default function TeamPage() {
             <div className="w-px h-8 bg-white/10"></div>
             <div className="text-center">
               <div className="text-2xl font-black text-purple-400">#1</div>
-              <div className="text-xs text-white/30">Goal</div>
+              <div className="text-xs text-white/30">Rank</div>
             </div>
           </div>
           <button
@@ -316,7 +317,7 @@ export default function TeamPage() {
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-white/30">
                         <span>OVR {teamOVR || '—'}</span>
-                        <span>{team.teamPlayers?.length || 0}/25</span>
+                        <span>{team.teamPlayers?.length || 0}/43</span>
                       </div>
                     </button>
                   );
@@ -335,14 +336,14 @@ export default function TeamPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-white/40">Record</span>
-                    <span className="text-sm font-bold text-white">{selectedTeam.wins}-{selectedTeam.draws}-{selectedTeam.losses}</span>
+                    <span className="text-sm font-bold text-white">{selectedTeam.wins}-{selectedTeam.losses}-{selectedTeam.draws}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-white/40">Points</span>
                     <span className="text-sm font-bold text-[#FFD700]">{selectedTeam.points}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-white/40">Squad Size</span>
+                    <span className="text-sm text-white/40">Roster Size</span>
                     <span className="text-sm font-bold text-white">{selectedTeam.teamPlayers?.length || 0}/25</span>
                   </div>
                 </div>
@@ -386,7 +387,7 @@ export default function TeamPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                        <span className="text-sm text-white/40">{selectedTeam.draws} Draws</span>
+                        <span className="text-sm text-white/40">{selectedTeam.draws} Ties</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-red-400"></div>
@@ -396,14 +397,14 @@ export default function TeamPage() {
                   </div>
                 </div>
 
-                {/* Squad Section */}
+                {/* Roster Section */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                       <Users className="w-5 h-5 text-[#E94560]" />
-                      Squad ({selectedTeam.teamPlayers?.length || 0}/25)
+                      Roster ({selectedTeam.teamPlayers?.length || 0}/43)
                     </h3>
-                    {(selectedTeam.teamPlayers?.length || 0) < 25 && (
+                    {(selectedTeam.teamPlayers?.length || 0) < 43 && (
                       <button
                         onClick={openPlayerSelect}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-medium hover:shadow-glow transition-shadow"
@@ -420,7 +421,7 @@ export default function TeamPage() {
                         <Users className="w-8 h-8 text-white/20" />
                       </div>
                       <p className="text-white font-medium mb-1">No players yet</p>
-                      <p className="text-white/30 text-sm">Click "Hire Player" to add your first squad member</p>
+                      <p className="text-white/30 text-sm">Click "Hire Player" to add your first roster player</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -500,7 +501,7 @@ export default function TeamPage() {
                   type="text"
                   value={newTeamName}
                   onChange={(e) => setNewTeamName(e.target.value)}
-                  placeholder="e.g., Thunder FC"
+                  placeholder="e.g., Oshkosh Gridiron"
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#E94560] focus:ring-1 focus:ring-[#E94560]/30 transition-all"
                 />
               </div>
@@ -543,10 +544,10 @@ export default function TeamPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Left Sidebar - Current Squad Overview */}
+              {/* Left Sidebar - Current Roster Overview */}
               <div className="lg:col-span-1 space-y-4">
                 <div className="glass-card p-4">
-                  <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Current Squad</h4>
+                  <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Current Roster</h4>
                   
                   {/* Position Counts */}
                   <div className="space-y-2 mb-4">
@@ -585,7 +586,7 @@ export default function TeamPage() {
                   </div>
                 </div>
 
-                {/* Formation Preview */}
+                {/* Roster Preview */}
                 <div className="glass-card p-4">
                   <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Roster Build</h4>
                   <div className="text-center">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trophy, Medal, ArrowUp, ArrowDown, Minus, Crown } from 'lucide-react';
+import { getSportLabel, useGameStore } from '../store/gameStore';
 
 interface LeaderboardTeam {
   id: string;
@@ -24,6 +25,7 @@ interface LeaderboardPlayer {
 }
 
 export default function LeaderboardPage() {
+  const { activeSportId } = useGameStore();
   const [activeTab, setActiveTab] = useState<'teams' | 'players'>('teams');
   const [teams, setTeams] = useState<LeaderboardTeam[]>([]);
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
@@ -34,7 +36,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     if (activeTab === 'teams') fetchTeams();
     else fetchPlayers();
-  }, [activeTab, page]);
+  }, [activeTab, page, activeSportId]);
 
   const fetchTeams = async () => {
     try {
@@ -97,7 +99,7 @@ export default function LeaderboardPage() {
         <div>
           <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Top performing teams and players
+            Top performing {getSportLabel(activeSportId)} teams and players
           </p>
         </div>
       </div>
@@ -130,7 +132,7 @@ export default function LeaderboardPage() {
             <div className="text-center py-8">
               <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-white font-medium mb-1">No teams ranked yet</p>
-              <p className="text-muted-foreground text-sm">Play matches to earn points</p>
+              <p className="text-muted-foreground text-sm">Play games to earn standings points</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -152,12 +154,12 @@ export default function LeaderboardPage() {
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <div className="text-center">
-                      <div className="font-bold text-white">{team.wins}-{team.draws}-{team.losses}</div>
-                      <div className="text-xs text-muted-foreground">W-D-L</div>
+                      <div className="font-bold text-white">{team.wins}-{team.losses}-{team.draws}</div>
+                      <div className="text-xs text-muted-foreground">W-L-T</div>
                     </div>
                     <div className="text-center">
                       <div className="font-bold text-white">{team.goalsFor}:{team.goalsAgainst}</div>
-                      <div className="text-xs text-muted-foreground">Score</div>
+                      <div className="text-xs text-muted-foreground">PF:PA</div>
                     </div>
                     <div className="text-center w-16">
                       <div className="font-bold text-accent text-lg">{team.points}</div>
@@ -201,7 +203,7 @@ export default function LeaderboardPage() {
             <div className="text-center py-8">
               <Medal className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-white font-medium mb-1">No players ranked yet</p>
-              <p className="text-muted-foreground text-sm">Play matches to earn stats</p>
+              <p className="text-muted-foreground text-sm">Play games to earn stats</p>
             </div>
           ) : (
             <div className="space-y-3">

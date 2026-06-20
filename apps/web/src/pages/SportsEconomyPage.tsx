@@ -143,7 +143,7 @@ export default function SportsEconomyPage() {
             </div>
             <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-5">
               <Trophy className="mb-4 h-10 w-10 text-emerald-300" />
-              <h2 className="text-2xl font-black text-white">Global Football Clubs</h2>
+              <h2 className="text-2xl font-black text-white">Global Soccer Clubs</h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">The first theme uses the broadest sports market and maps naturally to scouting, academies, transfers, loans, stadiums, limited kits, and sponsor cups.</p>
             </div>
           </div>

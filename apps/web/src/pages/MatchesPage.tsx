@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Swords, Calendar, ArrowRight, AlertCircle, Trophy, Clock } from 'lucide-react';
+import { getSportLabel, useGameStore } from '../store/gameStore';
 
 interface Match {
   id: string;
@@ -20,6 +21,7 @@ interface Team {
 
 export default function MatchesPage() {
   const navigate = useNavigate();
+  const { activeSportId } = useGameStore();
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ export default function MatchesPage() {
   useEffect(() => {
     fetchMatches();
     fetchTeams();
-  }, []);
+  }, [activeSportId]);
 
   const fetchMatches = async () => {
     try {
@@ -42,7 +44,7 @@ export default function MatchesPage() {
       });
       if (res.ok) {
         const result = await res.json();
-        setMatches(result.data?.matches || []);
+        setMatches((result.data?.matches || []).filter((match: any) => (match.sportId || 'american-football') === activeSportId));
       }
     } catch (err) {
       console.error('Failed to fetch matches:', err);
@@ -59,7 +61,7 @@ export default function MatchesPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTeams(data.data || []);
+        setTeams((data.data || []).filter((team: any) => (team.sportId || 'american-football') === activeSportId));
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
@@ -72,7 +74,7 @@ export default function MatchesPage() {
       return;
     }
     if (selectedHomeTeam === selectedAwayTeam) {
-      setScheduleError('Cannot schedule a match against yourself');
+      setScheduleError('Cannot schedule a game against yourself');
       return;
     }
 
@@ -139,7 +141,7 @@ export default function MatchesPage() {
         <div>
           <h1 className="text-3xl font-bold text-white">Matches</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Schedule and view your competitive matches
+            Schedule and view your {getSportLabel(activeSportId)} games
           </p>
         </div>
       </div>
@@ -157,11 +159,11 @@ export default function MatchesPage() {
         </div>
       )}
 
-      {/* Schedule Match Card */}
+      {/* Schedule Game Card */}
       <div className="glass-card p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Swords className="w-5 h-5 text-accent" />
-          Schedule New Match
+          Schedule New Game
         </h2>
 
         {teams.length < 2 ? (
@@ -169,7 +171,7 @@ export default function MatchesPage() {
             <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-white font-medium mb-1">Need more teams</p>
             <p className="text-muted-foreground text-sm mb-4">
-              Create at least 2 teams to schedule matches between them
+              Create at least 2 teams in this sport to schedule a game
             </p>
             <button
               onClick={() => navigate('/team')}
@@ -212,26 +214,26 @@ export default function MatchesPage() {
                 disabled={scheduling || !selectedHomeTeam || !selectedAwayTeam}
                 className="w-full px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 disabled:opacity-50"
               >
-                {scheduling ? 'Scheduling...' : 'Schedule Match'}
+                {scheduling ? 'Scheduling...' : 'Schedule Game'}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Match History */}
+      {/* Game History */}
       <div className="glass-card p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-accent" />
-          Match History
+          Game History
         </h2>
 
         {matches.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-border rounded-xl">
             <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-white font-medium mb-1">No matches yet</p>
+            <p className="text-white font-medium mb-1">No games yet</p>
             <p className="text-muted-foreground text-sm">
-              Schedule your first match above
+              Schedule your first game above
             </p>
           </div>
         ) : (

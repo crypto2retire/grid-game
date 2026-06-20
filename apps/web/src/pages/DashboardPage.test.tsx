@@ -31,12 +31,12 @@ describe('DashboardPage', () => {
             data: [
               {
                 id: 'team-1',
-                name: 'Grid FC',
+                name: 'Grid Iron',
                 wins: 2,
                 draws: 1,
                 losses: 0,
                 points: 7,
-                teamPlayers: [{ player: { id: 'p1', name: 'Alex', position: 'MID', overall: 72 } }],
+                teamPlayers: [{ player: { id: 'p1', name: 'Alex', position: 'WR', overall: 72 } }],
               },
             ],
           })
@@ -47,7 +47,7 @@ describe('DashboardPage', () => {
               matches: [
                 {
                   id: 'match-1',
-                  homeTeam: { name: 'Grid FC' },
+                  homeTeam: { name: 'Grid Iron' },
                   awayTeam: { name: 'Chain United' },
                   homeScore: 3,
                   awayScore: 1,
