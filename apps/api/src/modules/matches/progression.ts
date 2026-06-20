@@ -31,10 +31,10 @@ function num(value: unknown): number {
 function calculateMvpDelta(input: ProgressionPlayerInput): number {
   const s = input.stats;
   const native = s.sportStats || {};
+  const touchdowns = num(native.touchdowns) || s.goals;
   return (
     s.rating * 2 +
-    s.goals * 8 +
-    num(native.touchdowns) * 8 +
+    touchdowns * 8 +
     s.assists * 5 +
     num(native.passingTouchdowns) * 6 +
     Math.floor(num(native.yards) / 25) +
@@ -54,7 +54,7 @@ function calculateGrowth(input: ProgressionPlayerInput) {
   const moraleDelta = s.rating >= 7.5 ? 3 : s.rating >= 6.5 ? 1 : s.rating < 5.8 ? -3 : -1;
   const formDelta = s.rating >= 7.5 ? 4 : s.rating >= 6.5 ? 2 : s.rating < 5.8 ? -4 : -1;
 
-  const touchdowns = s.goals + num(native.touchdowns);
+  const touchdowns = num(native.touchdowns) || s.goals;
   const yards = num(native.yards);
   const turnovers = num(native.turnoversForced);
   const fieldGoals = num(native.fieldGoals);
@@ -87,7 +87,7 @@ export async function applyPostGameProgression(
   for (const player of input.players) {
     const s = player.stats;
     const native = s.sportStats || {};
-    const touchdowns = s.goals + num(native.touchdowns);
+    const touchdowns = num(native.touchdowns) || s.goals;
     const passingTouchdowns = num(native.passingTouchdowns);
     const fieldGoals = num(native.fieldGoals);
     const yards = num(native.yards);
