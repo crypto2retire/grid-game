@@ -1,101 +1,38 @@
 import { useState, useEffect } from 'react';
 import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight } from 'lucide-react';
-
-interface Team {
-  id: string;
-  name: string;
-  wins: number;
-  draws: number;
-  losses: number;
-  points: number;
-  teamPlayers: {
-    id: string;
-    isStarter: boolean;
-    player: {
-      id: string;
-      name: string;
-      position: string;
-      overall: number;
-      pace: number;
-      shooting: number;
-      passing: number;
-      dribbling: number;
-      defending: number;
-      physical: number;
-      rarity: string;
-    };
-  }[];
-}
-
-interface AvailablePlayer {
-  id: string;
-  name: string;
-  position: string;
-  overall: number;
-  pace: number;
-  shooting: number;
-  passing: number;
-  dribbling: number;
-  defending: number;
-  physical: number;
-  rarity: string;
-  currentPrice: number;
-}
+import { useGameStore } from '../store/gameStore';
 
 export default function TeamPage() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const {
+    teams,
+    selectedTeamId,
+    teamsLoading,
+    wallet,
+    setSelectedTeamId,
+    refreshTeams,
+    refreshWallet,
+  } = useGameStore();
+
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId) || teams[0] || null;
+
   const [newTeamName, setNewTeamName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showPlayerSelect, setShowPlayerSelect] = useState(false);
-  const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
-  const [myWallet, setMyWallet] = useState({ cash: 0 });
+  const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
+  // Load data on mount if not already loaded
   useEffect(() => {
-    fetchTeams();
-    fetchWallet();
+    if (teams.length === 0 && !teamsLoading) {
+      refreshTeams();
+    }
+    if (wallet.cash === 0) {
+      refreshWallet();
+    }
   }, []);
-
-  const fetchTeams = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/teams/mine', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const teamsData = data.data || [];
-        setTeams(teamsData);
-        if (teamsData.length > 0 && !selectedTeam) {
-          setSelectedTeam(teamsData[0]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch teams:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchWallet = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/wallet', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMyWallet(data.data || { cash: 0 });
-      }
-    } catch (err) {
-      console.error('Failed to fetch wallet:', err);
-    }
-  };
 
   const createTeam = async () => {
     if (!newTeamName.trim()) return;
@@ -114,7 +51,7 @@ export default function TeamPage() {
       if (res.ok) {
         setNewTeamName('');
         setShowCreate(false);
-        fetchTeams();
+        refreshTeams();
       } else {
         setCreateError(data.message || `Failed to create team (${res.status})`);
       }
@@ -160,8 +97,8 @@ export default function TeamPage() {
       const data = await res.json();
       if (res.ok) {
         setAddSuccess('Player hired successfully!');
-        fetchTeams();
-        fetchWallet();
+        refreshTeams();
+        refreshWallet();
         setTimeout(() => setAddSuccess(null), 3000);
       } else {
         setAddError(data.message || 'Failed to hire player');
@@ -182,7 +119,7 @@ export default function TeamPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        fetchWallet();
+        refreshWallet();
       }
     } catch (err) {
       console.error('Failed to top up wallet:', err);
@@ -213,11 +150,13 @@ export default function TeamPage() {
     return colors[rarity] || colors.COMMON;
   };
 
-  const calculateTeamOVR = (team: Team) => {
+  const calculateTeamOVR = (team: any) => {
     if (!team.teamPlayers?.length) return 0;
-    const total = team.teamPlayers.reduce((sum, tp) => sum + tp.player.overall, 0);
+    const total = team.teamPlayers.reduce((sum: number, tp: any) => sum + tp.player.overall, 0);
     return Math.round(total / team.teamPlayers.length);
   };
+
+  const loading = teamsLoading;
 
   if (loading) {
     return (
@@ -240,7 +179,7 @@ export default function TeamPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-black/30 border border-[#FFD700]/20 rounded-xl">
             <Coins className="w-5 h-5 text-[#FFD700]" />
-            <span className="text-lg font-mono font-bold text-[#FFD700]">{myWallet.cash.toLocaleString()}</span>
+            <span className="text-lg font-mono font-bold text-[#FFD700]">{wallet.cash.toLocaleString()}</span>
             <span className="text-xs text-[#FFD700]/60">CASH</span>
           </div>
           <button
@@ -324,7 +263,7 @@ export default function TeamPage() {
                   return (
                     <button
                       key={team.id}
-                      onClick={() => setSelectedTeam(team)}
+                      onClick={() => setSelectedTeamId(team.id)}
                       className={`w-full text-left p-3 rounded-xl transition-all duration-200 border ${
                         isSelected
                           ? 'bg-[#E94560]/10 border-[#E94560]/30'
@@ -549,7 +488,7 @@ export default function TeamPage() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-black/30 border border-[#FFD700]/20 rounded-lg">
                   <Coins className="w-4 h-4 text-[#FFD700]" />
-                  <span className="text-sm font-bold text-[#FFD700]">{myWallet.cash.toLocaleString()}</span>
+                  <span className="text-sm font-bold text-[#FFD700]">{wallet.cash.toLocaleString()}</span>
                 </div>
                 <button onClick={() => setShowPlayerSelect(false)} className="p-2 hover:bg-white/10 rounded-lg">
                   <X className="w-5 h-5 text-white/40" />
@@ -566,7 +505,7 @@ export default function TeamPage() {
                   {/* Position Counts */}
                   <div className="space-y-2 mb-4">
                     {['GK', 'DEF', 'MID', 'FWD'].map((pos) => {
-                      const count = selectedTeam?.teamPlayers?.filter(tp => tp.player.position === pos).length || 0;
+                      const count = selectedTeam?.teamPlayers?.filter((tp: any) => tp.player.position === pos).length || 0;
                       const maxCount = pos === 'GK' ? 2 : pos === 'DEF' ? 5 : pos === 'MID' ? 5 : 4;
                       const isNeeded = count < maxCount;
                       return (
@@ -586,7 +525,7 @@ export default function TeamPage() {
                   {/* Current Players List */}
                   <div className="space-y-1 max-h-60 overflow-auto">
                     <div className="text-xs text-white/30 mb-2">{selectedTeam?.teamPlayers?.length || 0} players</div>
-                    {selectedTeam?.teamPlayers?.map((tp) => (
+                    {selectedTeam?.teamPlayers?.map((tp: any) => (
                       <div key={tp.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
                         <div className={`w-2 h-2 rounded-full ${
                           tp.player.position === 'GK' ? 'bg-yellow-400' :
@@ -625,7 +564,7 @@ export default function TeamPage() {
               <div className="lg:col-span-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                   {availablePlayers.map((player) => {
-                    const posCount = selectedTeam?.teamPlayers?.filter(tp => tp.player.position === player.position).length || 0;
+                    const posCount = selectedTeam?.teamPlayers?.filter((tp: any) => tp.player.position === player.position).length || 0;
                     const maxCount = player.position === 'GK' ? 2 : player.position === 'DEF' ? 5 : player.position === 'MID' ? 5 : 4;
                     const isNeeded = posCount < maxCount;
                     
@@ -672,13 +611,13 @@ export default function TeamPage() {
                           <div className="text-lg font-black text-[#FFD700]">{player.currentPrice.toLocaleString()} CASH</div>
                           <button
                             onClick={() => addPlayerToTeam(player.id)}
-                            disabled={addingPlayer === player.id || myWallet.cash < player.currentPrice}
+                            disabled={addingPlayer === player.id || wallet.cash < player.currentPrice}
                             className="px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-lg font-medium hover:shadow-glow transition-shadow disabled:opacity-50 text-sm"
                           >
                             {addingPlayer === player.id ? 'Hiring...' : 'Hire'}
                           </button>
                         </div>
-                        {myWallet.cash < player.currentPrice && (
+                        {wallet.cash < player.currentPrice && (
                           <p className="text-xs text-red-300 mt-2">Not enough CASH</p>
                         )}
                       </div>
