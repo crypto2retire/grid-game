@@ -198,7 +198,7 @@ router.post(
     const homeState = buildTeamState(match.homeTeam);
     const awayState = buildTeamState(match.awayTeam);
 
-    const result = await runMatchSimulation(match.id, match.seed!, homeState, awayState);
+    const result = await runMatchSimulation(match.sportId, match.id, match.seed!, homeState, awayState);
 
     // Update match with results
     await prisma.$transaction(async (tx: any) => {
@@ -210,6 +210,7 @@ router.post(
           awayScore: result.awayScore,
           startedAt: new Date(),
           completedAt: new Date(),
+          metadata: result.metadata || {},
         },
       });
 
@@ -243,15 +244,26 @@ router.post(
           saves: stats.saves,
           rating: stats.rating,
           stats: {
-            touchdowns: stats.goals,
+            ...stats.sportStats,
+            touchdowns: stats.sportStats?.touchdowns ?? stats.goals,
             assists: stats.assists,
-            plays: stats.shots,
+            plays: stats.sportStats?.plays ?? stats.shots,
             onTarget: stats.shotsOnTarget,
             passes: stats.passes,
             tackles: stats.tackles,
-            stops: stats.saves,
+            stops: stats.sportStats?.stops ?? stats.saves,
             rating: stats.rating,
-            legacy: stats,
+            sportId: result.sportId,
+            legacy: {
+              goals: stats.goals,
+              assists: stats.assists,
+              shots: stats.shots,
+              shotsOnTarget: stats.shotsOnTarget,
+              passes: stats.passes,
+              tackles: stats.tackles,
+              saves: stats.saves,
+              rating: stats.rating,
+            },
           },
         })),
       });
