@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useGameStore } from '../store/gameStore';
 import { Wallet, LogOut, Zap } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
+  const { wallet } = useGameStore();
 
   return (
     <header className="h-16 bg-black/40 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-6 sticky top-0 z-50">
@@ -18,11 +20,11 @@ export default function Navbar() {
       </Link>
 
       <div className="flex items-center gap-4">
-        {/* Wallet Display */}
+        {/* Wallet Display - uses global game store */}
         <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
           <Wallet className="w-4 h-4 text-[#FFD700]" />
           <span className="text-sm font-mono font-bold text-[#FFD700]">
-            {user?.wallet?.cash?.toLocaleString() || 0}
+            {wallet.cash.toLocaleString()}
           </span>
           <span className="text-xs text-white/40 font-medium">CASH</span>
         </div>
