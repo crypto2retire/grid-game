@@ -16,11 +16,11 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Generate Prisma client before TypeScript so new models are available in clean Docker builds
+RUN cd apps/api && npx prisma generate
+
 # Build backend TypeScript
 RUN cd apps/api && npx tsc
-
-# Generate Prisma client
-RUN cd apps/api && npx prisma generate
 
 # Build frontend with Vite
 RUN cd apps/web && npm run build
