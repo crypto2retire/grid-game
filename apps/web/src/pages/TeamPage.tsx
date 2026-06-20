@@ -20,6 +20,7 @@ export default function TeamPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showPlayerSelect, setShowPlayerSelect] = useState(false);
   const [availablePlayers, setAvailablePlayers] = useState<any[]>([]);
+  const [positionFilter, setPositionFilter] = useState<string>('ALL');
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
@@ -562,8 +563,31 @@ export default function TeamPage() {
 
               {/* Right Side - Available Players */}
               <div className="lg:col-span-3">
+                {/* Position Filter */}
+                <div className="flex items-center gap-2 mb-4">
+                  {['ALL', 'GK', 'DEF', 'MID', 'FWD'].map((pos) => {
+                    const isActive = positionFilter === pos;
+                    const posCount = pos === 'ALL' ? availablePlayers.length : availablePlayers.filter((p: any) => p.position === pos).length;
+                    return (
+                      <button
+                        key={pos}
+                        onClick={() => setPositionFilter(pos)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          isActive
+                            ? 'bg-[#E94560] text-white shadow-glow'
+                            : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {pos} ({posCount})
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {availablePlayers.map((player) => {
+                  {availablePlayers
+                    .filter((player) => positionFilter === 'ALL' || player.position === positionFilter)
+                    .map((player) => {
                     const posCount = selectedTeam?.teamPlayers?.filter((tp: any) => tp.player.position === player.position).length || 0;
                     const maxCount = player.position === 'GK' ? 2 : player.position === 'DEF' ? 5 : player.position === 'MID' ? 5 : 4;
                     const isNeeded = posCount < maxCount;
