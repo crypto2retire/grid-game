@@ -27,11 +27,12 @@ export default function Navbar() {
         {/* Sport Switcher */}
         <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
           <Trophy className="w-4 h-4 text-[#E94560]" />
+          <span className="hidden lg:inline text-[10px] font-black uppercase tracking-wider text-white/35">Demo Sport</span>
           <select
             value={activeSportId}
             onChange={(event) => handleSportChange(event.target.value as SportId)}
             className="bg-transparent text-sm font-bold text-white focus:outline-none"
-            title="Switch sport"
+            title="Demo/test sport switcher — launch games are separate"
           >
             {SPORT_OPTIONS.map((sport) => (
               <option key={sport.id} value={sport.id} className="bg-[#0B1020] text-white">

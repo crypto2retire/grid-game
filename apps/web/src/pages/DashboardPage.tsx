@@ -117,8 +117,8 @@ const dashboardOptions: DashboardOption[] = [
   {
     title: 'Sports Economy',
     eyebrow: 'Growth roadmap',
-    description: 'See how American football now, with soccer, basketball, and baseball expansion paths share one GRID economy.',
-    why: 'This explains the regular-user path, whale/capital path, token sinks, and expansion plan.',
+    description: 'Each sport launches as its own game, while one shared GRID coin powers utility across football, soccer, basketball, baseball, and future branches.',
+    why: 'This explains separate game launches, shared coin utility, regular-user paths, whale/capital paths, token sinks, and expansion plans.',
     start: 'Use when you want the big-picture strategy.',
     path: '/sports-economy',
     cta: 'View economy',
