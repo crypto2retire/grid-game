@@ -23,6 +23,7 @@ model User {
   marketplaceListings MarketplaceListing[]
   matchParticipants   MatchParticipant[]
   offers        MarketplaceOffer[]
+  currencyLedger CurrencyLedger[]
 
   @@index([email])
   @@index([username])
@@ -41,6 +42,7 @@ model Wallet {
 model Team {
   id            String   @id @default(uuid())
   name          String
+  sportId       String   @default("american-football")
   ownerId       String
   owner         User     @relation(fields: [ownerId], references: [id])
 
@@ -48,6 +50,7 @@ model Team {
   style         String   @default("balanced")
   pressing      String   @default("medium")
   mentality     String   @default("balanced")
+  tactics       Json     @default("{}")
 
   teamPlayers   TeamPlayer[]
   matchesHome   Match[]  @relation("HomeTeam")
@@ -59,16 +62,20 @@ model Team {
   goalsFor      Int      @default(0)
   goalsAgainst  Int      @default(0)
   points        Int      @default(0)
+  record        Json     @default("{}")
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([ownerId])
+  @@index([sportId])
+  @@index([sportId, ownerId])
 }
 
 model Player {
   id            String   @id @default(uuid())
   name          String
+  sportId       String   @default("american-football")
   position      String
   nationality   String
   age           Int
@@ -80,6 +87,7 @@ model Player {
   defending     Int
   physical      Int
   goalkeeping   Int?
+  attributes    Json     @default("{}")
 
   overall       Int
   form          Int      @default(50)
@@ -101,6 +109,8 @@ model Player {
 
   @@index([rarity])
   @@index([overall])
+  @@index([sportId])
+  @@index([sportId, position])
 }
 
 model TeamPlayer {
@@ -118,6 +128,7 @@ model TeamPlayer {
 
 model Match {
   id            String       @id @default(uuid())
+  sportId       String       @default("american-football")
   status        MatchStatus  @default(SCHEDULED)
 
   homeTeamId    String
@@ -130,6 +141,7 @@ model Match {
 
   homeTactics   Json?
   awayTactics   Json?
+  metadata      Json         @default("{}")
 
   seed          String?
   seedHash      String?
@@ -145,6 +157,8 @@ model Match {
   createdAt     DateTime     @default(now())
 
   @@index([status])
+  @@index([sportId])
+  @@index([sportId, status])
   @@index([scheduledAt])
   @@index([homeTeamId])
   @@index([awayTeamId])
@@ -187,6 +201,7 @@ model PlayerMatchStats {
   saves         Int      @default(0)
   distance      Int      @default(0)
   rating        Float    @default(6.0)
+  stats         Json     @default("{}")
 
   @@unique([matchId, playerId])
   @@index([matchId])
@@ -210,6 +225,7 @@ model MatchParticipant {
 
 model MarketplaceListing {
   id          String        @id @default(uuid())
+  sportId     String        @default("american-football")
   sellerId    String
   seller      User          @relation(fields: [sellerId], references: [id])
   playerId    String
@@ -222,6 +238,7 @@ model MarketplaceListing {
   offers      MarketplaceOffer[]
 
   @@index([status])
+  @@index([sportId])
   @@index([sellerId])
   @@index([playerId])
 }
@@ -240,6 +257,25 @@ model MarketplaceOffer {
   @@index([listingId])
   @@index([buyerId])
   @@index([status])
+}
+
+
+model CurrencyLedger {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency      String
+  amount        Int
+  balanceAfter  Int?
+  reason        String
+  sourceType    String?
+  sourceId      String?
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([currency])
+  @@index([sourceType, sourceId])
 }
 
 enum OfferStatus {

@@ -11,9 +11,9 @@ router.get(
   '/',
   authMiddleware,
   asyncHandler(async (req, res) => {
-    const { position, rarity, minOverall, maxOverall, page = '1', limit = '20', random } = req.query;
+    const { position, rarity, minOverall, maxOverall, sportId = 'american-football', page = '1', limit = '20', random } = req.query;
 
-    const where: any = {};
+    const where: any = { sportId: sportId as string };
     if (position) where.position = position as string;
     if (rarity) where.rarity = rarity as string;
     if (minOverall || maxOverall) {

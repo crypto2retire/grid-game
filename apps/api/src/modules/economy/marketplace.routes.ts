@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
+import { recordCurrencyLedger } from './ledger';
 
 const router = Router();
 
@@ -54,9 +55,10 @@ export async function updatePlayerDemand(playerId: string, transaction: any = pr
 router.get(
   '/',
   authMiddleware,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const { sportId = 'american-football' } = req.query;
     const listings = await prisma.marketplaceListing.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', sportId: sportId as string },
       include: {
         player: true,
         seller: { select: { username: true } },
@@ -83,6 +85,7 @@ router.post(
         playerId: input.playerId,
         team: { ownerId: userId },
       },
+      include: { player: true },
     });
 
     if (!teamPlayer) {
@@ -91,6 +94,7 @@ router.post(
 
     const listing = await prisma.marketplaceListing.create({
       data: {
+        sportId: teamPlayer.player.sportId,
         playerId: input.playerId,
         sellerId: userId,
         price: input.price,
@@ -132,13 +136,33 @@ router.post(
     }
 
     await prisma.$transaction(async (tx: any) => {
-      await tx.wallet.update({
+      const buyerWalletAfter = await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: listing.price } },
       });
-      await tx.wallet.update({
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -listing.price,
+        balanceAfter: buyerWalletAfter.cash,
+        reason: 'MARKETPLACE_PURCHASE',
+        sourceType: 'MARKETPLACE_LISTING',
+        sourceId: listingId,
+        metadata: { playerId: listing.playerId, sportId: listing.sportId },
+      });
+      const sellerWalletAfter = await tx.wallet.update({
         where: { userId: listing.sellerId },
         data: { cash: { increment: listing.price } },
+      });
+      await recordCurrencyLedger(tx, {
+        userId: listing.sellerId,
+        currency: 'CASH',
+        amount: listing.price,
+        balanceAfter: sellerWalletAfter.cash,
+        reason: 'MARKETPLACE_SALE',
+        sourceType: 'MARKETPLACE_LISTING',
+        sourceId: listingId,
+        metadata: { buyerId: userId, playerId: listing.playerId, sportId: listing.sportId },
       });
       await tx.marketplaceListing.update({
         where: { id: listingId },
@@ -277,13 +301,33 @@ router.post(
     }
 
     await prisma.$transaction(async (tx: any) => {
-      await tx.wallet.update({
+      const buyerWalletAfter = await tx.wallet.update({
         where: { userId: offer.buyerId },
         data: { cash: { decrement: offer.price } },
       });
-      await tx.wallet.update({
+      await recordCurrencyLedger(tx, {
+        userId: offer.buyerId,
+        currency: 'CASH',
+        amount: -offer.price,
+        balanceAfter: buyerWalletAfter.cash,
+        reason: 'MARKETPLACE_OFFER_ACCEPTED_PURCHASE',
+        sourceType: 'MARKETPLACE_OFFER',
+        sourceId: offerId,
+        metadata: { listingId: offer.listingId, playerId: offer.listing.playerId, sportId: offer.listing.sportId },
+      });
+      const sellerWalletAfter = await tx.wallet.update({
         where: { userId },
         data: { cash: { increment: offer.price } },
+      });
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: offer.price,
+        balanceAfter: sellerWalletAfter.cash,
+        reason: 'MARKETPLACE_OFFER_ACCEPTED_SALE',
+        sourceType: 'MARKETPLACE_OFFER',
+        sourceId: offerId,
+        metadata: { listingId: offer.listingId, buyerId: offer.buyerId, playerId: offer.listing.playerId, sportId: offer.listing.sportId },
       });
       await tx.marketplaceOffer.update({
         where: { id: offerId },

@@ -41,6 +41,16 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
           gridTokens: 0,
         },
       },
+      currencyLedger: {
+        create: {
+          currency: 'CASH',
+          amount: 50000,
+          balanceAfter: 50000,
+          reason: 'STARTING_BALANCE',
+          sourceType: 'AUTH_REGISTER',
+          metadata: { note: 'Initial test wallet balance' },
+        },
+      },
     },
     select: {
       id: true,

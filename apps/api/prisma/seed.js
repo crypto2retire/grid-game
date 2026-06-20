@@ -91,8 +91,22 @@ async function main() {
 
     const overall = Math.round((pace + shooting + passing + dribbling + defending + physical) / 6);
 
+    const attributes = {
+      speed: pace,
+      arm: shooting,
+      footballIQ: passing,
+      agility: dribbling,
+      tackling: defending,
+      strength: physical,
+      blocking: ['OL', 'TE'].includes(position) ? physical : Math.round((physical + passing) / 2),
+      catching: ['WR', 'TE', 'RB'].includes(position) ? shooting : Math.round((shooting + passing) / 2),
+      coverage: ['CB', 'S', 'LB'].includes(position) ? defending : Math.round((defending + pace) / 2),
+      legacy: { pace, shooting, passing, dribbling, defending, physical, goalkeeping: 0 },
+    };
+
     players.push({
       name: `${firstName} ${lastName}`,
+      sportId: 'american-football',
       position,
       nationality: nationalities[randomInt(0, nationalities.length - 1)],
       age: randomInt(18, 35),
@@ -103,6 +117,7 @@ async function main() {
       defending,
       physical,
       goalkeeping,
+      attributes,
       overall,
       rarity,
       basePrice: overall * 100,

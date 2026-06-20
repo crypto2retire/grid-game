@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { recordCurrencyLedger } from './ledger';
 
 const router = Router();
 
@@ -26,22 +27,10 @@ router.get(
   '/transactions',
   authMiddleware,
   asyncHandler(async (req: AuthRequest, res) => {
-    const transactions = await prisma.matchParticipant.findMany({
+    const transactions = await prisma.currencyLedger.findMany({
       where: { userId: req.user!.id },
-      include: {
-        match: {
-          select: {
-            id: true,
-            homeScore: true,
-            awayScore: true,
-            completedAt: true,
-            homeTeam: { select: { name: true } },
-            awayTeam: { select: { name: true } },
-          },
-        },
-      },
-      orderBy: { match: { completedAt: 'desc' } },
-      take: 50,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     res.json({ status: 'success', data: transactions });
@@ -64,9 +53,22 @@ router.post(
       throw new AppError(404, 'Wallet not found');
     }
 
-    const updated = await prisma.wallet.update({
-      where: { userId },
-      data: { cash: { increment: input.amount } },
+    const updated = await prisma.$transaction(async (tx: any) => {
+      const walletAfter = await tx.wallet.update({
+        where: { userId },
+        data: { cash: { increment: input.amount } },
+      });
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: input.amount,
+        balanceAfter: walletAfter.cash,
+        reason: 'TEST_TOPUP',
+        sourceType: 'WALLET_TOPUP',
+        sourceId: walletAfter.id,
+        metadata: { testOnly: true },
+      });
+      return walletAfter;
     });
 
     res.json({ status: 'success', data: updated, message: `Added ${input.amount.toLocaleString()} CASH` });

@@ -5,11 +5,14 @@ import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
+import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
+import { getSportConfig, SportId } from '../sports/sports.config';
 
 const router = Router();
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(50),
+  sportId: z.enum(['american-football', 'soccer', 'basketball', 'baseball']).default('american-football'),
   formation: z.string().default('11v11'),
 });
 
@@ -36,7 +39,9 @@ router.post(
     const team = await prisma.team.create({
       data: {
         name: input.name,
+        sportId: input.sportId,
         formation: input.formation,
+        tactics: { formation: input.formation, sportId: input.sportId },
         ownerId: userId,
       },
       include: {
@@ -170,8 +175,9 @@ router.post(
     }
 
     const playerCount = team.teamPlayers.length;
-    if (playerCount >= 25) {
-      throw new AppError(400, 'Maximum squad size reached (25)');
+    const sportConfig = getSportConfig(team.sportId as SportId);
+    if (playerCount >= sportConfig.roster.maxRoster) {
+      throw new AppError(400, `Maximum ${sportConfig.label} roster size reached (${sportConfig.roster.maxRoster})`);
     }
 
     const existing = await prisma.teamPlayer.findUnique({
@@ -193,15 +199,32 @@ router.post(
       throw new AppError(404, 'Player not found');
     }
     const price = calculatePlayerPrice(player);
+    if (player.sportId !== team.sportId) {
+      throw new AppError(400, `This player belongs to ${player.sportId}, but this team is ${team.sportId}`);
+    }
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet || wallet.cash < price) {
       throw new AppError(400, `Insufficient CASH. This player costs ${price.toLocaleString()} CASH`);
     }
 
     await prisma.$transaction(async (tx: any) => {
-      await tx.wallet.update({
+      const walletAfter = await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: price } },
+      });
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -price,
+        balanceAfter: walletAfter.cash,
+        reason: 'PLAYER_HIRE',
+        sourceType: 'TEAM_PLAYER',
+        sourceId: input.playerId,
+        metadata: { teamId, playerId: input.playerId, sportId: team.sportId },
+      });
+      await tx.player.update({
+        where: { id: input.playerId },
+        data: { attributes: legacyAttributesFromPlayer(player) },
       });
       await tx.teamPlayer.create({
         data: {

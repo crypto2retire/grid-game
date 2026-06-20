@@ -6,6 +6,7 @@ import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
 import { runMatchSimulation, TeamState } from './simulator';
 import { routeParam } from '../../utils/routeParams';
+import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
 
 const router = Router();
 
@@ -45,6 +46,10 @@ router.post(
       throw new AppError(400, 'Cannot schedule match against yourself');
     }
 
+    if (homeTeam.sportId !== awayTeam.sportId) {
+      throw new AppError(400, `Cannot schedule cross-sport match: ${homeTeam.sportId} vs ${awayTeam.sportId}`);
+    }
+
     const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : new Date(Date.now() + 60000);
     const seed = generateMatchSeed(
       crypto.randomUUID(),
@@ -57,6 +62,7 @@ router.post(
 
     const match = await prisma.match.create({
       data: {
+        sportId: homeTeam.sportId,
         homeTeamId: homeTeam.id,
         awayTeamId: awayTeam.id,
         scheduledAt,
@@ -160,23 +166,26 @@ router.post(
     const buildTeamState = (team: typeof match.homeTeam): TeamState => ({
       teamId: team.id,
       name: team.name,
-      players: team.teamPlayers.map((tp: any) => ({
+      players: team.teamPlayers.map((tp: any) => {
+        const attributes = legacyAttributesFromPlayer(tp.player);
+        return {
         playerId: tp.player.id,
         name: tp.player.name,
         position: tp.player.position,
         stats: {
-          pace: tp.player.pace,
-          shooting: tp.player.shooting,
-          passing: tp.player.passing,
-          dribbling: tp.player.dribbling,
-          defending: tp.player.defending,
-          physical: tp.player.physical,
+          pace: attributes.speed,
+          shooting: attributes.arm,
+          passing: attributes.footballIQ,
+          dribbling: attributes.agility,
+          defending: attributes.tackling,
+          physical: attributes.strength,
           goalkeeping: tp.player.goalkeeping || 0,
         },
         condition: 100 - tp.player.fatigue,
         morale: tp.player.morale,
         isActive: tp.isStarter,
-      })),
+      };
+      }),
       formation: team.formation,
       style: 'balanced',
       pressing: 'medium',
@@ -233,6 +242,17 @@ router.post(
           tackles: stats.tackles,
           saves: stats.saves,
           rating: stats.rating,
+          stats: {
+            touchdowns: stats.goals,
+            assists: stats.assists,
+            plays: stats.shots,
+            onTarget: stats.shotsOnTarget,
+            passes: stats.passes,
+            tackles: stats.tackles,
+            stops: stats.saves,
+            rating: stats.rating,
+            legacy: stats,
+          },
         })),
       });
 
@@ -269,14 +289,34 @@ router.post(
       const homeReward = homeWon ? 5000 : draw ? 2000 : 1000;
       const awayReward = awayWon ? 5000 : draw ? 2000 : 1000;
 
-      await tx.wallet.update({
+      const homeWalletAfter = await tx.wallet.update({
         where: { userId: match.homeTeam.ownerId },
         data: { cash: { increment: homeReward } },
       });
+      await recordCurrencyLedger(tx, {
+        userId: match.homeTeam.ownerId,
+        currency: 'CASH',
+        amount: homeReward,
+        balanceAfter: homeWalletAfter.cash,
+        reason: homeWon ? 'MATCH_WIN_REWARD' : draw ? 'MATCH_DRAW_REWARD' : 'MATCH_PARTICIPATION_REWARD',
+        sourceType: 'MATCH',
+        sourceId: match.id,
+        metadata: { teamId: match.homeTeamId, side: 'HOME', sportId: match.sportId },
+      });
 
-      await tx.wallet.update({
+      const awayWalletAfter = await tx.wallet.update({
         where: { userId: match.awayTeam.ownerId },
         data: { cash: { increment: awayReward } },
+      });
+      await recordCurrencyLedger(tx, {
+        userId: match.awayTeam.ownerId,
+        currency: 'CASH',
+        amount: awayReward,
+        balanceAfter: awayWalletAfter.cash,
+        reason: awayWon ? 'MATCH_WIN_REWARD' : draw ? 'MATCH_DRAW_REWARD' : 'MATCH_PARTICIPATION_REWARD',
+        sourceType: 'MATCH',
+        sourceId: match.id,
+        metadata: { teamId: match.awayTeamId, side: 'AWAY', sportId: match.sportId },
       });
     });
 
