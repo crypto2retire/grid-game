@@ -533,7 +533,7 @@ export default function TeamPage() {
                     className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90"
                   >
                     <Plus className="w-4 h-4" />
-                    Hire Player
+                    {selectedTeam.teamPlayers?.length === 0 ? 'Hire Your First Player' : 'Hire Player'}
                   </button>
                 )}
               </div>
@@ -543,12 +543,7 @@ export default function TeamPage() {
                   <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-white font-medium mb-1">No players yet</p>
                   <p className="text-muted-foreground text-sm mb-4">Hire players to build your squad</p>
-                  <button
-                    onClick={openPlayerSelect}
-                    className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90"
-                  >
-                    Hire Your First Player
-                  </button>
+                  <p className="text-xs text-muted-foreground">Click the "Hire Player" button above to get started</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
