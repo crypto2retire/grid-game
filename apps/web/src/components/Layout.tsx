@@ -9,7 +9,7 @@ export default function Layout() {
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E94560]"></div>
       </div>
     );
   }
@@ -19,7 +19,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col">
+    <div className="min-h-[100dvh] bg-background flex flex-col grid-pattern">
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />

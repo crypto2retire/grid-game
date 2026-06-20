@@ -4,26 +4,27 @@
 
 @layer base {
   :root {
-    --background: 235 60% 8%;
+    /* GRID Game - Dark Arena Theme */
+    --background: 220 25% 5%;
     --foreground: 0 0% 100%;
-    --card: 235 40% 12%;
+    --card: 220 20% 10%;
     --card-foreground: 0 0% 100%;
-    --popover: 235 40% 12%;
+    --popover: 220 20% 10%;
     --popover-foreground: 0 0% 100%;
     --primary: 0 0% 100%;
-    --primary-foreground: 235 60% 8%;
-    --secondary: 235 30% 20%;
+    --primary-foreground: 220 25% 5%;
+    --secondary: 220 15% 16%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 235 30% 20%;
-    --muted-foreground: 0 0% 63%;
-    --accent: 350 80% 58%;
+    --muted: 220 15% 16%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 350 85% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 235 30% 20%;
-    --input: 235 30% 20%;
-    --ring: 350 80% 58%;
-    --radius: 0.5rem;
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 350 85% 60%;
+    --radius: 0.75rem;
   }
 
   * {
@@ -33,30 +34,177 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, hsl(220 25% 5%) 0%, hsl(220 30% 8%) 50%, hsl(220 25% 5%) 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(220 20% 8%);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(220 15% 25%);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(350 85% 60%);
   }
 }
 
 @layer components {
+  /* Glass Card - Modern frosted glass */
   .glass-card {
-    @apply bg-card/80 backdrop-blur-md border border-border/50 rounded-lg;
+    @apply bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl;
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.3),
+      0 2px 4px -1px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   }
 
+  .glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 8px 12px -2px rgba(0, 0, 0, 0.4),
+      0 4px 6px -1px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* Neon Glow Button */
+  .btn-glow {
+    @apply relative overflow-hidden;
+    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+  }
+  .btn-glow:hover {
+    box-shadow: 0 0 30px rgba(233, 69, 96, 0.5);
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #fff 0%, #e0e0e0 100%);
+  }
+
+  .gradient-text-accent {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #E94560 0%, #FF6B6B 100%);
+  }
+
+  /* Stat Card Glow */
+  .stat-glow {
+    position: relative;
+  }
+  .stat-glow::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(233, 69, 96, 0.2), rgba(255, 215, 0, 0.1));
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .stat-glow:hover::before {
+    opacity: 1;
+  }
+
+  /* Rarity Styles with Glow */
   .rarity-common {
-    @apply border-gray-500;
+    @apply border-gray-500/50;
+    box-shadow: 0 0 10px rgba(128, 128, 128, 0.1);
   }
   .rarity-bronze {
-    @apply border-amber-700;
+    @apply border-amber-700/50;
+    box-shadow: 0 0 15px rgba(205, 127, 50, 0.2);
   }
   .rarity-silver {
-    @apply border-slate-300;
+    @apply border-slate-300/50;
+    box-shadow: 0 0 15px rgba(192, 192, 192, 0.2);
   }
   .rarity-gold {
-    @apply border-yellow-400;
+    @apply border-yellow-400/50;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
   }
   .rarity-elite {
-    @apply border-purple-400;
+    @apply border-purple-400/50;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
   }
   .rarity-legend {
-    @apply border-red-400;
+    @apply border-red-400/50;
+    box-shadow: 0 0 25px rgba(248, 113, 113, 0.4);
+  }
+
+  /* Grid Background Pattern */
+  .grid-pattern {
+    background-image: 
+      linear-gradient(rgba(233, 69, 96, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(233, 69, 96, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Card Hover Lift */
+  .card-lift {
+    @apply transition-all duration-300;
+  }
+  .card-lift:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Neon Border */
+  .neon-border {
+    border: 1px solid rgba(233, 69, 96, 0.3);
+    box-shadow: 
+      inset 0 0 20px rgba(233, 69, 96, 0.05),
+      0 0 20px rgba(233, 69, 96, 0.1);
+  }
+
+  /* Section Divider */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(233, 69, 96, 0.3), transparent);
+  }
+
+  /* Animated Background Gradient */
+  .animated-bg {
+    background: linear-gradient(-45deg, #0a0a0a, #1a1a2e, #16213e, #0a0a0a);
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Pulse Glow for Live Elements */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(233, 69, 96, 0.3); }
+    50% { box-shadow: 0 0 20px rgba(233, 69, 96, 0.6); }
+  }
+
+  /* Shimmer Effect for Loading */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(220 20% 10%) 0%,
+      hsl(220 20% 15%) 50%,
+      hsl(220 20% 10%) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 }

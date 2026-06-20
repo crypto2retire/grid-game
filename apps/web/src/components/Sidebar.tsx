@@ -25,7 +25,8 @@ export default function Sidebar() {
   const location = useLocation();
 
   return (
-    <aside className="w-64 bg-card border-r border-border hidden lg:flex flex-col">
+    <aside className="w-64 bg-black/20 backdrop-blur-xl border-r border-white/5 hidden lg:flex flex-col"
+    >
       <nav className="p-4 space-y-1">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
@@ -33,18 +34,30 @@ export default function Sidebar() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                 isActive
-                  ? 'bg-accent/10 text-accent'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-white'
+                  ? 'bg-gradient-to-r from-[#E94560]/20 to-transparent text-[#E94560] border border-[#E94560]/20'
+                  : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'
               }`}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
+              <item.icon className={`w-5 h-5 ${isActive ? 'text-[#E94560]' : ''}`} />
+              <span className="font-medium text-sm">{item.label}</span>
+              {isActive && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#E94560] pulse-glow" />
+              )}
             </Link>
           );
         })}
       </nav>
+
+      {/* Bottom Info */}
+      <div className="mt-auto p-4">
+        <div className="glass-card p-4 rounded-xl">
+          <div className="text-xs text-white/30 font-medium mb-2">GRID TOKEN</div>
+          <div className="text-lg font-black text-[#FFD700]">Coming Soon</div>
+          <div className="text-xs text-white/30 mt-1">Multi-sport economy</div>
+        </div>
+      </div>
     </aside>
   );
 }

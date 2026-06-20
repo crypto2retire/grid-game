@@ -1,39 +1,30 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Shield, Plus, X, Star, Coins, ShoppingCart, AlertCircle, Users, Trophy, TrendingUp, ChevronRight } from 'lucide-react';
-
-interface TeamPlayer {
-  id: string;
-  player: {
-    id: string;
-    name: string;
-    position: string;
-    overall: number;
-    pace: number;
-    shooting: number;
-    passing: number;
-    dribbling: number;
-    defending: number;
-    physical: number;
-    rarity: string;
-  };
-  isStarter: boolean;
-}
+import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight } from 'lucide-react';
 
 interface Team {
   id: string;
   name: string;
-  formation: string;
-  style: string;
-  pressing: string;
-  mentality: string;
   wins: number;
   draws: number;
   losses: number;
   points: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  teamPlayers: TeamPlayer[];
+  teamPlayers: {
+    id: string;
+    isStarter: boolean;
+    player: {
+      id: string;
+      name: string;
+      position: string;
+      overall: number;
+      pace: number;
+      shooting: number;
+      passing: number;
+      dribbling: number;
+      defending: number;
+      physical: number;
+      rarity: string;
+    };
+  }[];
 }
 
 interface AvailablePlayer {
@@ -49,39 +40,26 @@ interface AvailablePlayer {
   physical: number;
   rarity: string;
   currentPrice: number;
-  demandMultiplier: number;
-  teamPlayers: { id: string }[];
 }
 
 export default function TeamPage() {
-  const { id } = useParams();
-  const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [newTeamName, setNewTeamName] = useState('');
-  const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
   const [showPlayerSelect, setShowPlayerSelect] = useState(false);
+  const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
   const [myWallet, setMyWallet] = useState({ cash: 0 });
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTeams();
     fetchWallet();
   }, []);
-
-  useEffect(() => {
-    if (id && teams.length > 0) {
-      const team = teams.find(t => t.id === id);
-      if (team) setSelectedTeam(team);
-    } else if (teams.length > 0 && !selectedTeam) {
-      setSelectedTeam(teams[0]);
-    }
-  }, [id, teams]);
 
   const fetchTeams = async () => {
     try {
@@ -91,7 +69,11 @@ export default function TeamPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTeams(data.data || []);
+        const teamsData = data.data || [];
+        setTeams(teamsData);
+        if (teamsData.length > 0 && !selectedTeam) {
+          setSelectedTeam(teamsData[0]);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
@@ -109,8 +91,6 @@ export default function TeamPage() {
       if (res.ok) {
         const data = await res.json();
         setMyWallet(data.data || { cash: 0 });
-      } else {
-        console.error('Wallet fetch failed:', res.status);
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
@@ -128,14 +108,13 @@ export default function TeamPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: newTeamName }),
+        body: JSON.stringify({ name: newTeamName.trim() }),
       });
       const data = await res.json();
       if (res.ok) {
-        setTeams([...teams, data.data]);
-        setSelectedTeam(data.data);
-        setShowCreate(false);
         setNewTeamName('');
+        setShowCreate(false);
+        fetchTeams();
       } else {
         setCreateError(data.message || `Failed to create team (${res.status})`);
       }
@@ -145,7 +124,25 @@ export default function TeamPage() {
     }
   };
 
-  const addPlayer = async (playerId: string, price: number) => {
+  const openPlayerSelect = async () => {
+    setShowPlayerSelect(true);
+    setAddError(null);
+    setAddSuccess(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/players?limit=50', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAvailablePlayers(data.data?.players || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch players:', err);
+    }
+  };
+
+  const addPlayerToTeam = async (playerId: string) => {
     if (!selectedTeam) return;
     setAddingPlayer(playerId);
     setAddError(null);
@@ -162,13 +159,10 @@ export default function TeamPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setAddSuccess(`Player hired for ${price.toLocaleString()} CASH!`);
+        setAddSuccess('Player hired successfully!');
         fetchTeams();
         fetchWallet();
-        setTimeout(() => {
-          setShowPlayerSelect(false);
-          setAddSuccess(null);
-        }, 1500);
+        setTimeout(() => setAddSuccess(null), 3000);
       } else {
         setAddError(data.message || 'Failed to hire player');
       }
@@ -180,53 +174,29 @@ export default function TeamPage() {
     }
   };
 
-  const removePlayer = async (playerId: string) => {
-    if (!selectedTeam) return;
+  const topUpWallet = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/teams/${selectedTeam.id}/players/${playerId}`, {
-        method: 'DELETE',
+      const res = await fetch('/api/economy/wallet/topup', {
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        fetchTeams();
+        fetchWallet();
       }
     } catch (err) {
-      console.error('Failed to remove player:', err);
+      console.error('Failed to top up wallet:', err);
     }
-  };
-
-  const fetchAvailablePlayers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/players?limit=50', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const available = data.data?.players.filter((p: AvailablePlayer) => p.teamPlayers.length === 0) || [];
-        setAvailablePlayers(available);
-      }
-    } catch (err) {
-      console.error('Failed to fetch players:', err);
-    }
-  };
-
-  const openPlayerSelect = () => {
-    fetchAvailablePlayers();
-    setShowPlayerSelect(true);
-    setAddError(null);
-    setAddSuccess(null);
   };
 
   const getRarityColor = (rarity: string) => {
     const colors: Record<string, string> = {
-      COMMON: 'text-gray-400 border-gray-500',
-      BRONZE: 'text-amber-600 border-amber-700',
-      SILVER: 'text-slate-300 border-slate-300',
-      GOLD: 'text-yellow-400 border-yellow-400',
-      ELITE: 'text-purple-400 border-purple-400',
-      LEGEND: 'text-red-400 border-red-400',
+      COMMON: 'text-gray-400 border-gray-500/30',
+      BRONZE: 'text-amber-600 border-amber-700/30',
+      SILVER: 'text-slate-300 border-slate-300/30',
+      GOLD: 'text-yellow-400 border-yellow-400/30',
+      ELITE: 'text-purple-400 border-purple-400/30',
+      LEGEND: 'text-red-400 border-red-400/30',
     };
     return colors[rarity] || colors.COMMON;
   };
@@ -243,414 +213,392 @@ export default function TeamPage() {
     return colors[rarity] || colors.COMMON;
   };
 
-  const topUpWallet = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/wallet/topup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ amount: 100000 }),
-      });
-      if (res.ok) {
-        fetchWallet();
-        setAddSuccess('Added 100,000 CASH for testing!');
-        setTimeout(() => setAddSuccess(null), 3000);
-      }
-    } catch (err) {
-      console.error('Failed to top up:', err);
-    }
+  const calculateTeamOVR = (team: Team) => {
+    if (!team.teamPlayers?.length) return 0;
+    const total = team.teamPlayers.reduce((sum, tp) => sum + tp.player.overall, 0);
+    return Math.round(total / team.teamPlayers.length);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#E94560]"></div>
       </div>
     );
   }
 
-  // ── ONBOARDING: No teams yet ───────────────────────────────────────────
-  if (teams.length === 0) {
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white">My Teams</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Build your squad and compete in matches
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-sm text-yellow-400">
-              <Coins className="w-4 h-4 inline mr-1" />
-              {myWallet.cash.toLocaleString()} CASH
-            </div>
-            <button
-              onClick={topUpWallet}
-              className="px-3 py-1.5 text-xs border border-emerald-300/30 text-emerald-300 rounded-lg hover:bg-emerald-300/10"
-            >
-              +100K (test)
-            </button>
-          </div>
-        </div>
-
-        {addSuccess && (
-          <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
-            {addSuccess}
-          </div>
-        )}
-
-        {/* Onboarding Card */}
-        <div className="glass-card p-8 text-center max-w-2xl mx-auto">
-          <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Shield className="w-10 h-10 text-accent" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-3">Welcome to GRID</h2>
-          <p className="text-muted-foreground mb-2 max-w-md mx-auto">
-            You don't have a team yet. Create your first team to start building your squad and competing in matches.
-          </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-8">
-            <span className="flex items-center gap-1"><Users className="w-4 h-4" /> Up to 25 players</span>
-            <span className="text-border">•</span>
-            <span className="flex items-center gap-1"><Trophy className="w-4 h-4" /> Compete for points</span>
-            <span className="text-border">•</span>
-            <span className="flex items-center gap-1"><TrendingUp className="w-4 h-4" /> Climb the leaderboard</span>
-          </div>
-
-          {!showCreate ? (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 px-8 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors text-lg"
-            >
-              <Plus className="w-5 h-5" />
-              Create Your First Team
-            </button>
-          ) : (
-            <div className="glass-card p-6 max-w-md mx-auto text-left">
-              <h3 className="text-lg font-semibold text-white mb-4">Name Your Team</h3>
-              {createError && (
-                <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  {createError}
-                </div>
-              )}
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={newTeamName}
-                  onChange={(e) => setNewTeamName(e.target.value)}
-                  placeholder="e.g., Thunder FC"
-                  className="flex-1 px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-                  onKeyDown={(e) => e.key === 'Enter' && createTeam()}
-                />
-                <button
-                  onClick={createTeam}
-                  className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => { setShowCreate(false); setCreateError(null); }}
-                  className="px-4 py-2 text-muted-foreground hover:text-white"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── MAIN TEAM VIEW ──────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">My Teams</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your squads and hire players
-          </p>
+          <h1 className="text-4xl font-black text-white tracking-tight">
+            MY <span className="text-[#E94560]">TEAM</span>
+          </h1>
+          <p className="text-white/40 mt-1">Build your squad. Players cost CASH to hire.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-sm text-yellow-400">
-            <Coins className="w-4 h-4 inline mr-1" />
-            {myWallet.cash.toLocaleString()} CASH
+          <div className="flex items-center gap-2 px-4 py-2 bg-black/30 border border-[#FFD700]/20 rounded-xl">
+            <Coins className="w-5 h-5 text-[#FFD700]" />
+            <span className="text-lg font-mono font-bold text-[#FFD700]">{myWallet.cash.toLocaleString()}</span>
+            <span className="text-xs text-[#FFD700]/60">CASH</span>
           </div>
           <button
             onClick={topUpWallet}
-            className="px-3 py-1.5 text-xs border border-emerald-300/30 text-emerald-300 rounded-lg hover:bg-emerald-300/10"
+            className="px-3 py-2 bg-[#E94560]/10 border border-[#E94560]/30 text-[#E94560] rounded-xl text-sm font-medium hover:bg-[#E94560]/20 transition-colors"
           >
-            +100K (test)
+            +100K
           </button>
-          {teams.length < 3 && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              New Team
-            </button>
-          )}
         </div>
       </div>
 
       {/* Alerts */}
       {addError && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
+        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5" />
           {addError}
         </div>
       )}
       {addSuccess && (
-        <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
+        <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-200">
           {addSuccess}
         </div>
       )}
 
-      {/* Create Team Inline */}
-      {showCreate && (
-        <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Create New Team</h3>
-          {createError && (
-            <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              {createError}
+      {/* No Teams State */}
+      {teams.length === 0 && (
+        <div className="glass-card p-12 text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#E94560]/20 to-purple-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Shield className="w-10 h-10 text-[#E94560]" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Create Your First Team</h2>
+          <p className="text-white/40 mb-6 max-w-md mx-auto">
+            Build a squad of 25 players and compete in matches to earn points and climb the leaderboard.
+          </p>
+          <div className="flex items-center gap-4 justify-center mb-6">
+            <div className="text-center">
+              <div className="text-2xl font-black text-[#E94560]">25</div>
+              <div className="text-xs text-white/30">Players</div>
             </div>
-          )}
-          <div className="flex gap-4">
-            <input
-              type="text"
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              placeholder="Team name"
-              className="flex-1 px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-              onKeyDown={(e) => e.key === 'Enter' && createTeam()}
-            />
-            <button
-              onClick={createTeam}
-              className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90"
-            >
-              Create
-            </button>
-            <button
-              onClick={() => { setShowCreate(false); setCreateError(null); }}
-              className="px-4 py-2 text-muted-foreground hover:text-white"
-            >
-              Cancel
-            </button>
+            <div className="w-px h-8 bg-white/10"></div>
+            <div className="text-center">
+              <div className="text-2xl font-black text-[#FFD700]">∞</div>
+              <div className="text-xs text-white/30">Matches</div>
+            </div>
+            <div className="w-px h-8 bg-white/10"></div>
+            <div className="text-center">
+              <div className="text-2xl font-black text-purple-400">#1</div>
+              <div className="text-xs text-white/30">Goal</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="px-8 py-3 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-bold text-lg hover:shadow-glow-lg transition-shadow"
+          >
+            Create Your First Team
+          </button>
+        </div>
+      )}
+
+      {/* Team Selector + Content */}
+      {teams.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar - Teams List */}
+          <div className="lg:col-span-1 space-y-4">
+            <div className="glass-card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider">Your Teams</h3>
+                {teams.length < 3 && (
+                  <button
+                    onClick={() => setShowCreate(true)}
+                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4 text-[#E94560]" />
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {teams.map((team) => {
+                  const isSelected = selectedTeam?.id === team.id;
+                  const teamOVR = calculateTeamOVR(team);
+                  return (
+                    <button
+                      key={team.id}
+                      onClick={() => setSelectedTeam(team)}
+                      className={`w-full text-left p-3 rounded-xl transition-all duration-200 border ${
+                        isSelected
+                          ? 'bg-[#E94560]/10 border-[#E94560]/30'
+                          : 'bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-white text-sm">{team.name}</div>
+                        {isSelected && <ChevronRight className="w-4 h-4 text-[#E94560]" />}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-white/30">
+                        <span>OVR {teamOVR || '—'}</span>
+                        <span>{team.teamPlayers?.length || 0}/25</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            {selectedTeam && (
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Team Stats</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/40">Overall Rating</span>
+                    <span className="text-lg font-black text-[#E94560]">{calculateTeamOVR(selectedTeam) || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/40">Record</span>
+                    <span className="text-sm font-bold text-white">{selectedTeam.wins}-{selectedTeam.draws}-{selectedTeam.losses}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/40">Points</span>
+                    <span className="text-sm font-bold text-[#FFD700]">{selectedTeam.points}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white/40">Squad Size</span>
+                    <span className="text-sm font-bold text-white">{selectedTeam.teamPlayers?.length || 0}/25</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main Content */}
+          <div className="lg:col-span-3 space-y-6">
+            {selectedTeam && (
+              <>
+                {/* Team Header Card */}
+                <div className="glass-card p-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#E94560]/10 to-transparent rounded-full blur-3xl"></div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-[#E94560] to-purple-600 rounded-2xl flex items-center justify-center shadow-glow">
+                          <Shield className="w-8 h-8 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-black text-white">{selectedTeam.name}</h2>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-sm text-white/40">{selectedTeam.teamPlayers?.length || 0} players</span>
+                            <span className="text-sm text-white/20">•</span>
+                            <span className="text-sm text-[#FFD700]">{selectedTeam.points} pts</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-4xl font-black text-[#E94560]">{calculateTeamOVR(selectedTeam) || '—'}</div>
+                        <div className="text-xs text-white/30 uppercase tracking-wider">Team OVR</div>
+                      </div>
+                    </div>
+
+                    {/* Record Bar */}
+                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                        <span className="text-sm text-white/40">{selectedTeam.wins} Wins</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                        <span className="text-sm text-white/40">{selectedTeam.draws} Draws</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                        <span className="text-sm text-white/40">{selectedTeam.losses} Losses</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Squad Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Users className="w-5 h-5 text-[#E94560]" />
+                      Squad ({selectedTeam.teamPlayers?.length || 0}/25)
+                    </h3>
+                    {(selectedTeam.teamPlayers?.length || 0) < 25 && (
+                      <button
+                        onClick={openPlayerSelect}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-medium hover:shadow-glow transition-shadow"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {selectedTeam.teamPlayers?.length === 0 ? 'Hire Your First Player' : 'Hire Player'}
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedTeam.teamPlayers?.length === 0 ? (
+                    <div className="glass-card p-12 text-center border-2 border-dashed border-white/10">
+                      <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Users className="w-8 h-8 text-white/20" />
+                      </div>
+                      <p className="text-white font-medium mb-1">No players yet</p>
+                      <p className="text-white/30 text-sm">Click "Hire Player" to add your first squad member</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {selectedTeam.teamPlayers.map((tp) => (
+                        <div
+                          key={tp.id}
+                          className={`glass-card p-4 card-lift border ${getRarityColor(tp.player.rarity)}`}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="font-bold text-white">{tp.player.name}</div>
+                              <div className="text-sm text-white/40">{tp.player.position}</div>
+                            </div>
+                            <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(tp.player.rarity)} ${getRarityColor(tp.player.rarity).split(' ')[0]}`}>
+                              {tp.player.rarity}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="text-center">
+                              <div className="text-2xl font-black text-white">{tp.player.overall}</div>
+                              <div className="text-xs text-white/30">OVR</div>
+                            </div>
+                            <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
+                              {[
+                                { label: 'PAC', value: tp.player.pace },
+                                { label: 'SHO', value: tp.player.shooting },
+                                { label: 'PAS', value: tp.player.passing },
+                                { label: 'DRI', value: tp.player.dribbling },
+                                { label: 'DEF', value: tp.player.defending },
+                                { label: 'PHY', value: tp.player.physical },
+                              ].map((stat) => (
+                                <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
+                                  <div className="font-bold text-white">{stat.value}</div>
+                                  <div className="text-[10px] text-white/30">{stat.label}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {tp.isStarter && (
+                            <div className="flex items-center gap-1 text-xs text-[#E94560]">
+                              <Star className="w-3 h-3" />
+                              Starter
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Team Selector Sidebar */}
-        <div className="lg:col-span-1 space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Your Teams</h2>
-          {teams.map((team) => (
-            <button
-              key={team.id}
-              onClick={() => setSelectedTeam(team)}
-              className={`w-full text-left p-4 rounded-xl transition-all ${
-                selectedTeam?.id === team.id
-                  ? 'bg-accent/10 border border-accent/30'
-                  : 'bg-card border border-border hover:bg-secondary'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-white">{team.name}</div>
-                {selectedTeam?.id === team.id && <ChevronRight className="w-4 h-4 text-accent" />}
+      {/* Create Team Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass-card w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white">Create New Team</h3>
+              <button onClick={() => { setShowCreate(false); setCreateError(null); }} className="p-2 hover:bg-white/10 rounded-lg">
+                <X className="w-5 h-5 text-white/40" />
+              </button>
+            </div>
+            {createError && (
+              <div className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 mb-4">
+                {createError}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                {team.teamPlayers?.length || 0} players • {team.points} pts
+            )}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-white/40 mb-1 block">Team Name</label>
+                <input
+                  type="text"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  placeholder="e.g., Thunder FC"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#E94560] focus:ring-1 focus:ring-[#E94560]/30 transition-all"
+                />
               </div>
-              <div className="flex gap-2 mt-2 text-xs">
-                <span className="text-green-400">{team.wins}W</span>
-                <span className="text-yellow-400">{team.draws}D</span>
-                <span className="text-red-400">{team.losses}L</span>
-              </div>
-            </button>
-          ))}
+              <button
+                onClick={createTeam}
+                disabled={!newTeamName.trim()}
+                className="w-full px-4 py-3 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-bold hover:shadow-glow transition-shadow disabled:opacity-50"
+              >
+                Create Team
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Team Details */}
-        {selectedTeam && (
-          <div className="lg:col-span-2 space-y-6">
-            {/* Team Overview Card */}
-            <div className="glass-card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">{selectedTeam.name}</h2>
-                  <p className="text-muted-foreground">Formation: {selectedTeam.formation}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-accent">{selectedTeam.points}</div>
-                  <div className="text-sm text-muted-foreground">Points</div>
-                </div>
+      {/* Hire Player Modal */}
+      {showPlayerSelect && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass-card w-full max-w-4xl p-6 max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-white">Hire Player</h3>
+                <p className="text-sm text-white/40">Available players with their hire costs</p>
               </div>
-
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-3 bg-secondary rounded-lg">
-                  <div className="text-lg font-bold text-green-400">{selectedTeam.wins}</div>
-                  <div className="text-xs text-muted-foreground">Wins</div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-black/30 border border-[#FFD700]/20 rounded-lg">
+                  <Coins className="w-4 h-4 text-[#FFD700]" />
+                  <span className="text-sm font-bold text-[#FFD700]">{myWallet.cash.toLocaleString()}</span>
                 </div>
-                <div className="text-center p-3 bg-secondary rounded-lg">
-                  <div className="text-lg font-bold text-yellow-400">{selectedTeam.draws}</div>
-                  <div className="text-xs text-muted-foreground">Draws</div>
-                </div>
-                <div className="text-center p-3 bg-secondary rounded-lg">
-                  <div className="text-lg font-bold text-red-400">{selectedTeam.losses}</div>
-                  <div className="text-xs text-muted-foreground">Losses</div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Goals: {selectedTeam.goalsFor} - {selectedTeam.goalsAgainst}
-                </div>
-                <button
-                  onClick={() => navigate('/matches')}
-                  className="text-sm text-accent hover:underline"
-                >
-                  Schedule Match →
+                <button onClick={() => setShowPlayerSelect(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <X className="w-5 h-5 text-white/40" />
                 </button>
               </div>
             </div>
 
-            {/* Squad Card */}
-            <div className="glass-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Squad ({selectedTeam.teamPlayers?.length || 0}/25)</h3>
-                {(selectedTeam.teamPlayers?.length || 0) < 25 && (
-                  <button
-                    onClick={openPlayerSelect}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {selectedTeam.teamPlayers?.length === 0 ? 'Hire Your First Player' : 'Hire Player'}
-                  </button>
-                )}
-              </div>
-
-              {selectedTeam.teamPlayers?.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-border rounded-xl">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-white font-medium mb-1">No players yet</p>
-                  <p className="text-muted-foreground text-sm mb-4">Hire players to build your squad</p>
-                  <p className="text-xs text-muted-foreground">Click the "Hire Player" button above to get started</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {selectedTeam.teamPlayers.map((tp) => (
-                    <div
-                      key={tp.id}
-                      className={`flex items-center justify-between p-4 bg-secondary rounded-lg border ${getRarityColor(tp.player.rarity)}`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-white">{tp.player.name}</span>
-                          {tp.isStarter && <Star className="w-4 h-4 text-yellow-400" />}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {tp.player.position} • OVR {tp.player.overall}
-                        </div>
-                        <div className="flex gap-3 mt-1 text-xs">
-                          <span>PAC {tp.player.pace}</span>
-                          <span>SHO {tp.player.shooting}</span>
-                          <span>PAS {tp.player.passing}</span>
-                          <span>DRI {tp.player.dribbling}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removePlayer(tp.player.id)}
-                        className="p-2 hover:bg-destructive/20 rounded-lg transition-colors"
-                      >
-                        <X className="w-4 h-4 text-destructive" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Player Selection Modal */}
-      {showPlayerSelect && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="glass-card w-full max-w-2xl max-h-[80vh] overflow-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Hire Player</h3>
-                <p className="text-sm text-muted-foreground">
-                  <Coins className="w-3.5 h-3.5 inline mr-1" />
-                  {myWallet.cash.toLocaleString()} CASH available
-                </p>
-              </div>
-              <button
-                onClick={() => setShowPlayerSelect(false)}
-                className="p-2 hover:bg-secondary rounded-lg"
-              >
-                <X className="w-5 h-5 text-muted-foreground" />
-              </button>
-            </div>
-
-            {addError && (
-              <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                {addError}
-              </div>
-            )}
-
-            {addSuccess && (
-              <div className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
-                {addSuccess}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {availablePlayers.map((player) => (
-                <div
-                  key={player.id}
-                  className={`text-left p-4 bg-secondary rounded-lg border hover:bg-secondary/80 transition-colors ${getRarityColor(player.rarity)}`}
-                >
-                  <div className="flex items-start justify-between mb-2">
+                <div key={player.id} className={`glass-card p-4 border ${getRarityColor(player.rarity)}`}>
+                  <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-semibold text-white">{player.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {player.position} • OVR {player.overall} • {player.rarity}
-                      </div>
+                      <div className="font-bold text-white">{player.name}</div>
+                      <div className="text-sm text-white/40">{player.position}</div>
                     </div>
-                    <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).split(' ')[0]}`}>
+                    <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).split(' ')[0]}`}>
                       {player.rarity}
                     </div>
                   </div>
-                  <div className="flex gap-3 mt-1 text-xs mb-3">
-                    <span>PAC {player.pace}</span>
-                    <span>SHO {player.shooting}</span>
-                    <span>PAS {player.passing}</span>
-                    <span>DRI {player.dribbling}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Hire cost</p>
-                      <p className="text-lg font-black text-yellow-400">
-                        {player.currentPrice.toLocaleString()} CASH
-                      </p>
+
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-center">
+                      <div className="text-2xl font-black text-white">{player.overall}</div>
+                      <div className="text-xs text-white/30">OVR</div>
                     </div>
+                    <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
+                      {[
+                        { label: 'PAC', value: player.pace },
+                        { label: 'SHO', value: player.shooting },
+                        { label: 'PAS', value: player.passing },
+                        { label: 'DRI', value: player.dribbling },
+                        { label: 'DEF', value: player.defending },
+                        { label: 'PHY', value: player.physical },
+                      ].map((stat) => (
+                        <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
+                          <div className="font-bold text-white">{stat.value}</div>
+                          <div className="text-[10px] text-white/30">{stat.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                    <div className="text-lg font-black text-[#FFD700]">{player.currentPrice.toLocaleString()} CASH</div>
                     <button
-                      onClick={() => addPlayer(player.id, player.currentPrice)}
+                      onClick={() => addPlayerToTeam(player.id)}
                       disabled={addingPlayer === player.id || myWallet.cash < player.currentPrice}
-                      className="inline-flex items-center gap-2 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-lg font-medium hover:shadow-glow transition-shadow disabled:opacity-50 text-sm"
                     >
-                      <ShoppingCart className="w-4 h-4" />
                       {addingPlayer === player.id ? 'Hiring...' : 'Hire'}
                     </button>
                   </div>
@@ -660,11 +608,6 @@ export default function TeamPage() {
                 </div>
               ))}
             </div>
-            {availablePlayers.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                No available players. Check the marketplace or wait for new prospects.
-              </p>
-            )}
           </div>
         </div>
       )}
