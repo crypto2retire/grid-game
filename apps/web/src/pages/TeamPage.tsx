@@ -540,7 +540,7 @@ export default function TeamPage() {
       {/* Hire Player Modal */}
       {showPlayerSelect && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="glass-card w-full max-w-4xl p-6 max-h-[90vh] overflow-auto">
+          <div className="glass-card w-full max-w-6xl p-6 max-h-[90vh] overflow-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xl font-bold text-white">Hire Player</h3>
@@ -557,56 +557,135 @@ export default function TeamPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availablePlayers.map((player) => (
-                <div key={player.id} className={`glass-card p-4 border ${getRarityColor(player.rarity)}`}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-bold text-white">{player.name}</div>
-                      <div className="text-sm text-white/40">{player.position}</div>
-                    </div>
-                    <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).split(' ')[0]}`}>
-                      {player.rarity}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="text-center">
-                      <div className="text-2xl font-black text-white">{player.overall}</div>
-                      <div className="text-xs text-white/30">OVR</div>
-                    </div>
-                    <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
-                      {[
-                        { label: 'PAC', value: player.pace },
-                        { label: 'SHO', value: player.shooting },
-                        { label: 'PAS', value: player.passing },
-                        { label: 'DRI', value: player.dribbling },
-                        { label: 'DEF', value: player.defending },
-                        { label: 'PHY', value: player.physical },
-                      ].map((stat) => (
-                        <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
-                          <div className="font-bold text-white">{stat.value}</div>
-                          <div className="text-[10px] text-white/30">{stat.label}</div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Left Sidebar - Current Squad Overview */}
+              <div className="lg:col-span-1 space-y-4">
+                <div className="glass-card p-4">
+                  <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Current Squad</h4>
+                  
+                  {/* Position Counts */}
+                  <div className="space-y-2 mb-4">
+                    {['GK', 'DEF', 'MID', 'FWD'].map((pos) => {
+                      const count = selectedTeam?.teamPlayers?.filter(tp => tp.player.position === pos).length || 0;
+                      const maxCount = pos === 'GK' ? 2 : pos === 'DEF' ? 5 : pos === 'MID' ? 5 : 4;
+                      const isNeeded = count < maxCount;
+                      return (
+                        <div key={pos} className={`flex items-center justify-between p-2 rounded-lg ${isNeeded ? 'bg-[#E94560]/10 border border-[#E94560]/20' : 'bg-white/5'}`}>
+                          <span className="text-sm font-medium text-white">{pos}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold ${isNeeded ? 'text-[#E94560]' : 'text-green-400'}`}>
+                              {count}/{maxCount}
+                            </span>
+                            {isNeeded && <span className="text-[10px] text-[#E94560]">NEED</span>}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                    <div className="text-lg font-black text-[#FFD700]">{player.currentPrice.toLocaleString()} CASH</div>
-                    <button
-                      onClick={() => addPlayerToTeam(player.id)}
-                      disabled={addingPlayer === player.id || myWallet.cash < player.currentPrice}
-                      className="px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-lg font-medium hover:shadow-glow transition-shadow disabled:opacity-50 text-sm"
-                    >
-                      {addingPlayer === player.id ? 'Hiring...' : 'Hire'}
-                    </button>
+                  {/* Current Players List */}
+                  <div className="space-y-1 max-h-60 overflow-auto">
+                    <div className="text-xs text-white/30 mb-2">{selectedTeam?.teamPlayers?.length || 0} players</div>
+                    {selectedTeam?.teamPlayers?.map((tp) => (
+                      <div key={tp.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
+                        <div className={`w-2 h-2 rounded-full ${
+                          tp.player.position === 'GK' ? 'bg-yellow-400' :
+                          tp.player.position === 'DEF' ? 'bg-blue-400' :
+                          tp.player.position === 'MID' ? 'bg-green-400' :
+                          'bg-red-400'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-white truncate">{tp.player.name}</div>
+                          <div className="text-[10px] text-white/30">{tp.player.position} • OVR {tp.player.overall}</div>
+                        </div>
+                      </div>
+                    )) || (
+                      <div className="text-center py-4 text-white/20 text-xs">No players yet</div>
+                    )}
                   </div>
-                  {myWallet.cash < player.currentPrice && (
-                    <p className="text-xs text-red-300 mt-2">Not enough CASH</p>
-                  )}
                 </div>
-              ))}
+
+                {/* Formation Preview */}
+                <div className="glass-card p-4">
+                  <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Formation</h4>
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-[#E94560] mb-1">4-3-3</div>
+                    <div className="text-xs text-white/30">Default Formation</div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-4 gap-1 text-center text-[10px]">
+                    <div className="text-yellow-400">1 GK</div>
+                    <div className="text-blue-400">4 DEF</div>
+                    <div className="text-green-400">3 MID</div>
+                    <div className="text-red-400">3 FWD</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side - Available Players */}
+              <div className="lg:col-span-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {availablePlayers.map((player) => {
+                    const posCount = selectedTeam?.teamPlayers?.filter(tp => tp.player.position === player.position).length || 0;
+                    const maxCount = player.position === 'GK' ? 2 : player.position === 'DEF' ? 5 : player.position === 'MID' ? 5 : 4;
+                    const isNeeded = posCount < maxCount;
+                    
+                    return (
+                      <div key={player.id} className={`glass-card p-4 border ${getRarityColor(player.rarity)} ${isNeeded ? 'ring-1 ring-[#E94560]/30' : ''}`}>
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="font-bold text-white">{player.name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-white/40">{player.position}</span>
+                              {isNeeded && (
+                                <span className="px-1.5 py-0.5 bg-[#E94560]/20 text-[#E94560] text-[10px] font-bold rounded">NEEDED</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).split(' ')[0]}`}>
+                            {player.rarity}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="text-center">
+                            <div className="text-2xl font-black text-white">{player.overall}</div>
+                            <div className="text-xs text-white/30">OVR</div>
+                          </div>
+                          <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
+                            {[
+                              { label: 'PAC', value: player.pace },
+                              { label: 'SHO', value: player.shooting },
+                              { label: 'PAS', value: player.passing },
+                              { label: 'DRI', value: player.dribbling },
+                              { label: 'DEF', value: player.defending },
+                              { label: 'PHY', value: player.physical },
+                            ].map((stat) => (
+                              <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
+                                <div className="font-bold text-white">{stat.value}</div>
+                                <div className="text-[10px] text-white/30">{stat.label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                          <div className="text-lg font-black text-[#FFD700]">{player.currentPrice.toLocaleString()} CASH</div>
+                          <button
+                            onClick={() => addPlayerToTeam(player.id)}
+                            disabled={addingPlayer === player.id || myWallet.cash < player.currentPrice}
+                            className="px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-lg font-medium hover:shadow-glow transition-shadow disabled:opacity-50 text-sm"
+                          >
+                            {addingPlayer === player.id ? 'Hiring...' : 'Hire'}
+                          </button>
+                        </div>
+                        {myWallet.cash < player.currentPrice && (
+                          <p className="text-xs text-red-300 mt-2">Not enough CASH</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
