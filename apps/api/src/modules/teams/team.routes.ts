@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
+import { calculatePlayerPrice } from '../economy/marketplace.routes';
 
 const router = Router();
 
@@ -186,12 +187,33 @@ router.post(
       throw new AppError(409, 'Player already in team');
     }
 
-    const teamPlayer = await prisma.teamPlayer.create({
-      data: {
-        teamId,
-        playerId: input.playerId,
-        isStarter: input.isStarter,
-      },
+    // Charge CASH for acquiring the player based on dynamic price
+    const player = await prisma.player.findUnique({ where: { id: input.playerId } });
+    if (!player) {
+      throw new AppError(404, 'Player not found');
+    }
+    const price = calculatePlayerPrice(player);
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet || wallet.cash < price) {
+      throw new AppError(400, `Insufficient CASH. This player costs ${price.toLocaleString()} CASH`);
+    }
+
+    await prisma.$transaction(async (tx: any) => {
+      await tx.wallet.update({
+        where: { userId },
+        data: { cash: { decrement: price } },
+      });
+      await tx.teamPlayer.create({
+        data: {
+          teamId,
+          playerId: input.playerId,
+          isStarter: input.isStarter,
+        },
+      });
+    });
+
+    const teamPlayer = await prisma.teamPlayer.findFirst({
+      where: { teamId, playerId: input.playerId },
       include: { player: true },
     });
 

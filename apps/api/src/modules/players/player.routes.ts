@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { routeParam } from '../../utils/routeParams';
 
 const router = Router();
@@ -42,10 +43,15 @@ router.get(
       prisma.player.count({ where }),
     ]);
 
+    const playersWithPrice = players.map((p) => ({
+      ...p,
+      currentPrice: calculatePlayerPrice(p),
+    }));
+
     res.json({
       status: 'success',
       data: {
-        players,
+        players: playersWithPrice,
         pagination: {
           page: parseInt(page as string),
           limit: parseInt(limit as string),
@@ -92,7 +98,7 @@ router.get(
       throw new AppError(404, 'Player not found');
     }
 
-    res.json({ status: 'success', data: player });
+    res.json({ status: 'success', data: { ...player, currentPrice: calculatePlayerPrice(player) } });
   })
 );
 

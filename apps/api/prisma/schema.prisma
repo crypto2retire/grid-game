@@ -22,6 +22,7 @@ model User {
   wallet        Wallet?
   marketplaceListings MarketplaceListing[]
   matchParticipants   MatchParticipant[]
+  offers        MarketplaceOffer[]
 
   @@index([email])
   @@index([username])
@@ -86,6 +87,11 @@ model Player {
   morale        Int      @default(50)
 
   rarity        Rarity   @default(COMMON)
+
+  basePrice     Int      @default(0)
+  demandMultiplier Float @default(1.0)
+  lastSoldPrice Int?
+  priceUpdatedAt DateTime @default(now())
 
   teamPlayers   TeamPlayer[]
   matchStats    PlayerMatchStats[]
@@ -213,9 +219,34 @@ model MarketplaceListing {
   createdAt   DateTime      @default(now())
   soldAt      DateTime?
 
+  offers      MarketplaceOffer[]
+
   @@index([status])
   @@index([sellerId])
   @@index([playerId])
+}
+
+model MarketplaceOffer {
+  id          String   @id @default(uuid())
+  listingId   String
+  listing     MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId     String
+  buyer       User     @relation(fields: [buyerId], references: [id])
+  price       Int
+  status      OfferStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  respondedAt DateTime?
+
+  @@index([listingId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 }
 
 enum Role {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Search } from 'lucide-react';
+import { Users, Search, Coins, TrendingUp, TrendingDown, Minus, ShoppingCart } from 'lucide-react';
 
 interface Player {
   id: string;
@@ -16,6 +16,9 @@ interface Player {
   physical: number;
   rarity: string;
   teamPlayers: any[];
+  currentPrice: number;
+  demandMultiplier: number;
+  lastSoldPrice: number | null;
 }
 
 export default function PlayersPage() {
@@ -27,9 +30,16 @@ export default function PlayersPage() {
   const [minOverall, setMinOverall] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [myWallet, setMyWallet] = useState({ cash: 0 });
+  const [buying, setBuying] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const [myTeams, setMyTeams] = useState<any[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<string>('');
 
   useEffect(() => {
     fetchPlayers();
+    fetchWallet();
+    fetchMyTeams();
   }, [position, rarity, minOverall, page]);
 
   const fetchPlayers = async () => {
@@ -54,6 +64,69 @@ export default function PlayersPage() {
       console.error('Failed to fetch players:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWallet = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/wallet', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setMyWallet(data.data || { cash: 0 });
+      }
+    } catch (err) {
+      console.error('Failed to fetch wallet:', err);
+    }
+  };
+
+  const fetchMyTeams = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        const teams = data.data || [];
+        setMyTeams(teams);
+        if (teams.length > 0 && !selectedTeam) {
+          setSelectedTeam(teams[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch teams:', err);
+    }
+  };
+
+  const buyPlayer = async (playerId: string) => {
+    if (!selectedTeam) {
+      setBuyError('Select a team first');
+      return;
+    }
+    setBuying(playerId);
+    setBuyError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/teams/${selectedTeam}/players`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ playerId, isStarter: false }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchPlayers();
+        fetchWallet();
+        fetchMyTeams();
+      } else {
+        setBuyError(data.message || 'Purchase failed');
+      }
+    } catch (err) {
+      console.error('Failed to buy player:', err);
+      setBuyError('Network error');
+    } finally {
+      setBuying(null);
     }
   };
 
@@ -85,6 +158,18 @@ export default function PlayersPage() {
     return colors[rarity] || colors.COMMON;
   };
 
+  const getDemandIcon = (mult: number) => {
+    if (mult > 1.3) return <TrendingUp className="w-3.5 h-3.5 text-rose-400" />;
+    if (mult < 0.9) return <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />;
+    return <Minus className="w-3.5 h-3.5 text-slate-400" />;
+  };
+
+  const getDemandLabel = (mult: number) => {
+    if (mult > 1.3) return 'High demand';
+    if (mult < 0.9) return 'Low demand';
+    return 'Normal demand';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -96,16 +181,33 @@ export default function PlayersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">Players</h1>
-        <div className="text-muted-foreground">
-          <Users className="w-5 h-5 inline mr-2" />
-          {players.length} available
+        <div>
+          <h1 className="text-3xl font-bold text-white">Players</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Prices are dynamic based on overall rating, rarity, and market demand.
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-muted-foreground">
+            <Users className="w-5 h-5 inline mr-2" />
+            {players.length} available
+          </div>
+          <div className="text-sm text-yellow-400 mt-1">
+            <Coins className="w-4 h-4 inline mr-1" />
+            {myWallet.cash.toLocaleString()} CASH
+          </div>
         </div>
       </div>
 
+      {buyError && (
+        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
+          {buyError}
+        </div>
+      )}
+
       {/* Filters */}
       <div className="glass-card p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -151,6 +253,16 @@ export default function PlayersPage() {
             <option value="80">80+</option>
             <option value="90">90+</option>
           </select>
+          <select
+            value={selectedTeam}
+            onChange={(e) => setSelectedTeam(e.target.value)}
+            className="px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+          >
+            <option value="">Select team to buy for</option>
+            {myTeams.map((team) => (
+              <option key={team.id} value={team.id}>{team.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -171,6 +283,33 @@ export default function PlayersPage() {
             <p className="text-sm text-muted-foreground mb-3">
               {player.position} • {player.nationality} • Age {player.age}
             </p>
+
+            {/* Price Section */}
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3 mb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Current price</p>
+                  <p className="text-lg font-black text-yellow-400">
+                    {player.currentPrice.toLocaleString()} CASH
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-1 justify-end">
+                    {getDemandIcon(player.demandMultiplier)}
+                    <span className="text-xs text-slate-300">{getDemandLabel(player.demandMultiplier)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ×{player.demandMultiplier.toFixed(2)} multiplier
+                  </p>
+                </div>
+              </div>
+              {player.lastSoldPrice && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last sold: {player.lastSoldPrice.toLocaleString()} CASH
+                </p>
+              )}
+            </div>
+
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="text-center p-2 bg-secondary rounded">
                 <div className="font-bold text-white">{player.pace}</div>
@@ -197,10 +336,20 @@ export default function PlayersPage() {
                 <div className="text-muted-foreground">PHY</div>
               </div>
             </div>
-            {player.teamPlayers.length > 0 && (
+
+            {player.teamPlayers.length > 0 ? (
               <div className="mt-3 text-xs text-muted-foreground">
                 Owned by {player.teamPlayers[0]?.team?.name || 'a team'}
               </div>
+            ) : (
+              <button
+                onClick={() => buyPlayer(player.id)}
+                disabled={buying === player.id || !selectedTeam || myWallet.cash < player.currentPrice}
+                className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {buying === player.id ? 'Buying...' : 'Buy for team'}
+              </button>
             )}
           </div>
         ))}
