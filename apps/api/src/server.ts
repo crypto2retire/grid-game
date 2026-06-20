@@ -23,6 +23,7 @@ import { sportsRouter } from './modules/sports/sports.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 
 const app = express();
+app.set('trust proxy', 1);
 const server = createServer(app);
 
 const io = new SocketIOServer(server, {

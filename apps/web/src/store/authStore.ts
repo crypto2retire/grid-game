@@ -22,7 +22,8 @@ interface AuthState {
   checkAuth: () => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = API_ORIGIN.endsWith('/api') ? API_ORIGIN : `${API_ORIGIN}/api`;
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -48,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/me`, {
+      const res = await fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -67,7 +68,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 export async function login(email: string, password: string) {
-  const res = await fetch(`${API_URL}/api/auth/login`, {
+  const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -84,7 +85,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(email: string, username: string, password: string, displayName?: string) {
-  const res = await fetch(`${API_URL}/api/auth/register`, {
+  const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, username, password, displayName }),
