@@ -63,10 +63,11 @@ export default function TeamPage() {
   const [newTeamName, setNewTeamName] = useState('');
   const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
   const [showPlayerSelect, setShowPlayerSelect] = useState(false);
-  const [myWallet, setMyWallet] = useState({ cash: 50000 });
+  const [myWallet, setMyWallet] = useState({ cash: 0 });
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTeams();
@@ -108,6 +109,8 @@ export default function TeamPage() {
       if (res.ok) {
         const data = await res.json();
         setMyWallet(data.data || { cash: 0 });
+      } else {
+        console.error('Wallet fetch failed:', res.status);
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
@@ -116,6 +119,7 @@ export default function TeamPage() {
 
   const createTeam = async () => {
     if (!newTeamName.trim()) return;
+    setCreateError(null);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/teams', {
@@ -126,15 +130,18 @@ export default function TeamPage() {
         },
         body: JSON.stringify({ name: newTeamName }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setTeams([...teams, data.data]);
         setSelectedTeam(data.data);
         setShowCreate(false);
         setNewTeamName('');
+      } else {
+        setCreateError(data.message || `Failed to create team (${res.status})`);
       }
     } catch (err) {
       console.error('Failed to create team:', err);
+      setCreateError('Network error. Please try again.');
     }
   };
 
@@ -314,6 +321,12 @@ export default function TeamPage() {
       {showCreate && (
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Create New Team</h3>
+          {createError && (
+            <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              {createError}
+            </div>
+          )}
           <div className="flex gap-4">
             <input
               type="text"
