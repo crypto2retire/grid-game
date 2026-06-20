@@ -491,6 +491,12 @@ export default function TeamPage() {
                   <Coins className="w-4 h-4 text-[#FFD700]" />
                   <span className="text-sm font-bold text-[#FFD700]">{wallet.cash.toLocaleString()}</span>
                 </div>
+                <button
+                  onClick={topUpWallet}
+                  className="px-3 py-1.5 bg-[#E94560]/10 border border-[#E94560]/30 text-[#E94560] rounded-lg text-xs font-medium hover:bg-[#E94560]/20 transition-colors"
+                >
+                  +100K
+                </button>
                 <button onClick={() => setShowPlayerSelect(false)} className="p-2 hover:bg-white/10 rounded-lg">
                   <X className="w-5 h-5 text-white/40" />
                 </button>
