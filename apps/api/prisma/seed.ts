@@ -32,13 +32,13 @@ async function main() {
   ];
 
   const nationalities = [
-    'England', 'Spain', 'Brazil', 'Argentina', 'France', 'Germany', 'Italy', 'Portugal',
-    'Netherlands', 'Belgium', 'Croatia', 'Uruguay', 'Colombia', 'Mexico', 'USA', 'Nigeria',
-    'Senegal', 'Morocco', 'Japan', 'South Korea', 'Australia', 'Poland', 'Denmark', 'Sweden',
-    'Norway', 'Switzerland', 'Austria', 'Turkey', 'Russia', 'Ukraine'
+    'USA', 'Canada', 'Mexico', 'Germany', 'United Kingdom', 'France', 'Japan', 'Australia',
+    'Brazil', 'Nigeria', 'Ghana', 'Samoa', 'Tonga', 'Jamaica', 'Puerto Rico', 'Dominican Republic',
+    'Ireland', 'Italy', 'Spain', 'Netherlands', 'Sweden', 'Norway', 'Denmark', 'Poland',
+    'Austria', 'Switzerland', 'South Korea', 'Philippines', 'New Zealand', 'South Africa'
   ];
 
-  const positions = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD'];
+  const positions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'OL', 'OL', 'OL', 'DL', 'DL', 'LB', 'LB', 'CB', 'CB', 'S', 'K'];
   const rarities = ['COMMON', 'BRONZE', 'SILVER', 'GOLD', 'ELITE', 'LEGEND'] as const;
   const rarityWeights = [0.6, 0.25, 0.10, 0.04, 0.009, 0.001];
 
@@ -75,12 +75,12 @@ async function main() {
     const position = positions[i % positions.length];
 
     const pace = randomInt(range.min, range.max);
-    const shooting = position === 'GK' ? randomInt(20, 40) : randomInt(range.min, range.max);
+    const shooting = position === 'QB' ? randomInt(range.min, range.max) : ['RB', 'WR', 'TE', 'K'].includes(position) ? randomInt(Math.max(15, range.min - 5), range.max) : randomInt(15, Math.max(25, range.max - 15));
     const passing = randomInt(range.min, range.max);
     const dribbling = randomInt(range.min, range.max);
-    const defending = position === 'FWD' ? randomInt(20, 50) : randomInt(range.min, range.max);
+    const defending = ['DL', 'LB', 'CB', 'S'].includes(position) ? randomInt(range.min, range.max) : randomInt(15, Math.max(25, range.max - 12));
     const physical = randomInt(range.min, range.max);
-    const goalkeeping = position === 'GK' ? randomInt(range.min, range.max) : null;
+    const goalkeeping = null;
 
     const overall = Math.round((pace + shooting + passing + dribbling + defending + physical) / 6);
 

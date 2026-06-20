@@ -138,7 +138,23 @@ const startServer = async () => {
                 else console.log('Seeded:', seedOut?.trim() || 'OK');
               });
             } else {
-              console.log(`Database ready (${count} players)`);
+              const footballPositions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'OL', 'OL', 'OL', 'DL', 'DL', 'LB', 'LB', 'CB', 'CB', 'S', 'K'];
+              const oldSoccerPositions = ['GK', 'DEF', 'MID', 'FWD'];
+              prisma.player.count({ where: { position: { in: oldSoccerPositions } } }).then(async (legacyCount: number) => {
+                if (legacyCount > 0) {
+                  console.log(`Converting ${legacyCount} legacy soccer-position players to American football positions...`);
+                  const players = await prisma.player.findMany({ orderBy: { id: 'asc' }, select: { id: true } });
+                  await Promise.all(players.map((player: { id: string }, index: number) =>
+                    prisma.player.update({
+                      where: { id: player.id },
+                      data: { position: footballPositions[index % footballPositions.length] },
+                    })
+                  ));
+                  console.log('American football position conversion complete');
+                } else {
+                  console.log(`Database ready (${count} players)`);
+                }
+              }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
             }
           }).catch((countErr: any) => console.error('Count error:', countErr));
         });

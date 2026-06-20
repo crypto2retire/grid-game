@@ -1,23 +1,23 @@
 import { getSportConfig, listSports, summarizeSportEconomy } from './sports.config';
 
 describe('sport configuration foundation', () => {
-  it('ships a soccer-first roadmap with one shared GRID token across expansion sports', () => {
+  it('ships an American-football-first roadmap with one shared GRID token across expansion sports', () => {
     const sports = listSports();
 
-    expect(sports.map((sport) => sport.id)).toEqual(['soccer', 'american-football', 'basketball', 'baseball']);
+    expect(sports.map((sport) => sport.id)).toEqual(['american-football', 'soccer', 'basketball', 'baseball']);
     expect(new Set(sports.map((sport) => sport.primaryToken))).toEqual(new Set(['GRID']));
     expect(sports[0].launchPhase).toBe(1);
   });
 
   it('keeps the engine sport-agnostic through configs for rosters, stats, and economy sinks', () => {
-    const soccer = getSportConfig('soccer');
+    const football = getSportConfig('american-football');
     const basketball = getSportConfig('basketball');
 
-    expect(soccer.roster.starters).toBe(11);
+    expect(football.roster.starters).toBe(22);
     expect(basketball.roster.starters).toBe(5);
-    expect(soccer.stats).toContain('passing');
+    expect(football.stats).toContain('footballIQ');
     expect(basketball.stats).toContain('rebounding');
-    expect(soccer.economySinks).toEqual(expect.arrayContaining(['academy upgrades', 'transfer fees', 'stadium widgets']));
+    expect(football.economySinks).toEqual(expect.arrayContaining(['combine entries', 'playbook installs', 'stadium widgets']));
   });
 
   it('summarizes whale and regular user alignment without pay-to-win laddering', () => {

@@ -10,7 +10,7 @@ const router = Router();
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(50),
-  formation: z.string().default('4-3-3'),
+  formation: z.string().default('11v11'),
 });
 
 const updateTeamSchema = z.object({

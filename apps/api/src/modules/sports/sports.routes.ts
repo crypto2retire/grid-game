@@ -5,7 +5,7 @@ export const sportsRouter = Router();
 
 const commercialRoadmap = {
   positioning: 'Solana-powered multi-sport management economy with one shared GRID token.',
-  launchOrder: ['soccer', 'american-football', 'basketball', 'baseball'] as SportId[],
+  launchOrder: ['american-football', 'soccer', 'basketball', 'baseball'] as SportId[],
   tokenThesis: 'Every sport adds utility sinks, asset demand, and marketplace volume for the same primary GRID token instead of fragmenting liquidity.',
   buildPrinciples: [
     'sport-agnostic core engine',

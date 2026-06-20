@@ -32,15 +32,15 @@ async function main() {
   ];
 
   const nationalities = [
-    'England', 'Spain', 'Brazil', 'Argentina', 'France', 'Germany', 'Italy', 'Portugal',
-    'Netherlands', 'Belgium', 'Croatia', 'Uruguay', 'Colombia', 'Mexico', 'USA', 'Nigeria',
-    'Senegal', 'Morocco', 'Japan', 'South Korea', 'Australia', 'Poland', 'Denmark', 'Sweden',
-    'Norway', 'Switzerland', 'Austria', 'Turkey', 'Russia', 'Ukraine'
+    'USA', 'Canada', 'Mexico', 'Germany', 'United Kingdom', 'France', 'Japan', 'Australia',
+    'Brazil', 'Nigeria', 'Ghana', 'Samoa', 'Tonga', 'Jamaica', 'Puerto Rico', 'Dominican Republic',
+    'Ireland', 'Italy', 'Spain', 'Netherlands', 'Sweden', 'Norway', 'Denmark', 'Poland',
+    'Austria', 'Switzerland', 'South Korea', 'Philippines', 'New Zealand', 'South Africa'
   ];
 
-  // Rec league / beer league starting levels
-  // Players start at local amateur level and progress through competitive tiers
-  const positions = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD'];
+  // Rec league / beer league American football starting levels
+  // Players start at local flag/touch/beer-league level and progress through competitive tiers
+  const positions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'OL', 'OL', 'OL', 'DL', 'DL', 'LB', 'LB', 'CB', 'CB', 'S', 'K'];
   
   // Tier system: Rec → Amateur → Semi-Pro → Pro → Elite → World Class
   const tiers = [
@@ -48,8 +48,8 @@ async function main() {
     { name: 'BRONZE', weight: 0.30, min: 32, max: 48, label: 'Local Amateur' },
     { name: 'SILVER', weight: 0.15, min: 40, max: 58, label: 'Semi-Pro' },
     { name: 'GOLD', weight: 0.04, min: 50, max: 68, label: 'Professional' },
-    { name: 'ELITE', weight: 0.009, min: 60, max: 78, label: 'National Team' },
-    { name: 'LEGEND', weight: 0.001, min: 70, max: 85, label: 'World Class' },
+    { name: 'ELITE', weight: 0.009, min: 60, max: 78, label: 'All-State' },
+    { name: 'LEGEND', weight: 0.001, min: 70, max: 85, label: 'Pro Prospect' },
   ];
 
   const getRarity = () => {
@@ -78,13 +78,16 @@ async function main() {
     const position = positions[i % positions.length];
     const tier = tiers.find(t => t.name === rarity) || tiers[0];
 
-    const pace = randomInt(range.min, range.max);
-    const shooting = position === 'GK' ? randomInt(15, 30) : randomInt(range.min, range.max);
-    const passing = randomInt(range.min, range.max);
-    const dribbling = randomInt(range.min, range.max);
-    const defending = position === 'FWD' ? randomInt(15, 35) : randomInt(range.min, range.max);
-    const physical = randomInt(range.min, range.max);
-    const goalkeeping = position === 'GK' ? randomInt(range.min, range.max) : null;
+    // Existing DB stat columns are re-skinned for football:
+    // pace = speed, shooting = arm/finishing, passing = vision/route IQ,
+    // dribbling = agility, defending = tackling/coverage, physical = strength.
+    const pace = ['RB', 'WR', 'CB', 'S'].includes(position) ? randomInt(range.min, range.max) : randomInt(Math.max(15, range.min - 8), range.max);
+    const shooting = position === 'QB' ? randomInt(range.min, range.max) : ['RB', 'WR', 'TE', 'K'].includes(position) ? randomInt(Math.max(15, range.min - 5), range.max) : randomInt(15, Math.max(25, range.max - 15));
+    const passing = ['QB', 'WR', 'TE', 'S'].includes(position) ? randomInt(range.min, range.max) : randomInt(Math.max(15, range.min - 6), range.max);
+    const dribbling = ['RB', 'WR', 'CB'].includes(position) ? randomInt(range.min, range.max) : randomInt(Math.max(15, range.min - 8), range.max);
+    const defending = ['DL', 'LB', 'CB', 'S'].includes(position) ? randomInt(range.min, range.max) : randomInt(15, Math.max(25, range.max - 12));
+    const physical = ['OL', 'DL', 'TE', 'LB'].includes(position) ? randomInt(range.min, range.max) : randomInt(Math.max(15, range.min - 5), range.max);
+    const goalkeeping = null;
 
     const overall = Math.round((pace + shooting + passing + dribbling + defending + physical) / 6);
 

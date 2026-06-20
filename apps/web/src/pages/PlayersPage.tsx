@@ -240,10 +240,16 @@ export default function PlayersPage() {
                 className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 <option value="">All Positions</option>
-                <option value="GK">Goalkeeper</option>
-                <option value="DEF">Defender</option>
-                <option value="MID">Midfielder</option>
-                <option value="FWD">Forward</option>
+                <option value="QB">Quarterback</option>
+                <option value="RB">Running Back</option>
+                <option value="WR">Wide Receiver</option>
+                <option value="TE">Tight End</option>
+                <option value="OL">Offensive Line</option>
+                <option value="DL">Defensive Line</option>
+                <option value="LB">Linebacker</option>
+                <option value="CB">Cornerback</option>
+                <option value="S">Safety</option>
+                <option value="K">Kicker</option>
               </select>
             </div>
             <div>
@@ -330,27 +336,27 @@ export default function PlayersPage() {
                 <div className="flex-1 grid grid-cols-3 gap-2 text-xs">
                   <div className="text-center">
                     <div className="font-semibold text-white">{player.pace}</div>
-                    <div className="text-muted-foreground">PAC</div>
+                    <div className="text-muted-foreground">SPD</div>
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-white">{player.shooting}</div>
-                    <div className="text-muted-foreground">SHO</div>
+                    <div className="text-muted-foreground">ARM</div>
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-white">{player.passing}</div>
-                    <div className="text-muted-foreground">PAS</div>
+                    <div className="text-muted-foreground">IQ</div>
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-white">{player.dribbling}</div>
-                    <div className="text-muted-foreground">DRI</div>
+                    <div className="text-muted-foreground">AGI</div>
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-white">{player.defending}</div>
-                    <div className="text-muted-foreground">DEF</div>
+                    <div className="text-muted-foreground">TCK</div>
                   </div>
                   <div className="text-center">
                     <div className="font-semibold text-white">{player.physical}</div>
-                    <div className="text-muted-foreground">PHY</div>
+                    <div className="text-muted-foreground">STR</div>
                   </div>
                 </div>
               </div>

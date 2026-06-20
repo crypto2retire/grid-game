@@ -157,7 +157,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div className="text-center">
                       <div className="font-bold text-white">{team.goalsFor}:{team.goalsAgainst}</div>
-                      <div className="text-xs text-muted-foreground">Goals</div>
+                      <div className="text-xs text-muted-foreground">Score</div>
                     </div>
                     <div className="text-center w-16">
                       <div className="font-bold text-accent text-lg">{team.points}</div>

@@ -33,20 +33,20 @@ type SportsPayload = {
 const fallbackPayload: SportsPayload = {
   sports: [
     {
-      id: 'soccer',
-      label: 'Global Football Clubs',
+      id: 'american-football',
+      label: 'Gridiron Franchises',
       launchPhase: 1,
       primaryToken: 'GRID',
-      marketPosition: 'First launch sport: worldwide club-management economy with academies, transfers, loans, stadiums, cups, and promotion/relegation.',
-      roster: { starters: 11, bench: 7, maxRoster: 28 },
-      positions: ['GK', 'DEF', 'MID', 'FWD'],
-      stats: ['pace', 'shooting', 'passing', 'defending', 'physical', 'vision'],
-      season: { lengthDays: 30, fixturesPerWeek: 3, playoffEnabled: false },
-      regularUserLoops: ['scout youth prospects', 'train academy players', 'win amateur cups', 'sell or loan developed talent'],
-      whaleLoops: ['fund academies', 'own stadiums', 'sponsor prize cups', 'post prospect-development contracts'],
-      sharedLoops: ['scholarship rosters', 'facility rentals', 'transfer-market liquidity', 'sponsored leagues'],
-      economySinks: ['academy upgrades', 'transfer fees', 'stadium widgets', 'training recovery', 'cup entries'],
-      limitedWidgetExamples: ['Founder Kit', 'Scout Drone', 'Stadium Atmosphere', 'Academy Accelerator'],
+      marketPosition: 'Launch sport for testers familiar with American football: franchises, combines, weekly matchups, and player development.',
+      roster: { starters: 22, bench: 21, maxRoster: 43 },
+      positions: ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'],
+      stats: ['speed', 'arm', 'routeIQ', 'agility', 'tackling', 'strength', 'footballIQ'],
+      season: { lengthDays: 45, fixturesPerWeek: 1, playoffEnabled: true },
+      regularUserLoops: ['run combine drills', 'train role players', 'optimize playbooks', 'complete franchise contracts'],
+      whaleLoops: ['own franchises', 'sponsor bowls', 'rent training complexes', 'fund draft boards'],
+      sharedLoops: ['contract coaching', 'facility boosts', 'playbook marketplaces', 'sponsor-funded bowls'],
+      economySinks: ['combine entries', 'playbook installs', 'franchise dues', 'training camps', 'stadium widgets'],
+      limitedWidgetExamples: ['Founder Helmet', 'Analytics Booth', 'Prime Turf', 'Legacy Playbook'],
     },
   ],
   roadmap: {
@@ -69,7 +69,7 @@ const formatSportId = (id: string) => id.replace(/-/g, ' ').replace(/\b\w/g, (ch
 
 export default function SportsEconomyPage() {
   const [payload, setPayload] = useState<SportsPayload>(fallbackPayload);
-  const [activeSportId, setActiveSportId] = useState('soccer');
+  const [activeSportId, setActiveSportId] = useState('american-football');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +85,7 @@ export default function SportsEconomyPage() {
         if (!mounted) return;
         const data = json.data as SportsPayload;
         setPayload(data);
-        setActiveSportId(data.sports[0]?.id || 'soccer');
+        setActiveSportId(data.sports[0]?.id || 'american-football');
       })
       .catch((err) => {
         if (!mounted) return;

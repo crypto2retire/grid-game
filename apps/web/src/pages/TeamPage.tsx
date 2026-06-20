@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 
+const FOOTBALL_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
+const FOOTBALL_POSITION_TARGETS: Record<string, number> = { QB: 2, RB: 4, WR: 6, TE: 3, OL: 8, DL: 6, LB: 5, CB: 5, S: 3, K: 1 };
+const positionColor = (pos: string) => {
+  if (['QB', 'RB', 'WR', 'TE'].includes(pos)) return 'bg-[#E94560]';
+  if (['OL'].includes(pos)) return 'bg-yellow-400';
+  if (['DL', 'LB'].includes(pos)) return 'bg-blue-400';
+  if (['CB', 'S'].includes(pos)) return 'bg-green-400';
+  return 'bg-purple-400';
+};
+
 export default function TeamPage() {
   const {
     teams,
@@ -204,7 +214,7 @@ export default function TeamPage() {
           <h1 className="text-4xl font-black text-white tracking-tight">
             MY <span className="text-[#E94560]">TEAM</span>
           </h1>
-          <p className="text-white/40 mt-1">Build your squad. Players cost CASH to hire.</p>
+          <p className="text-white/40 mt-1">Build your American football roster. Players cost CASH to hire.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 bg-black/30 border border-[#FFD700]/20 rounded-xl">
@@ -242,12 +252,12 @@ export default function TeamPage() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Create Your First Team</h2>
           <p className="text-white/40 mb-6 max-w-md mx-auto">
-            Build a squad of 25 players and compete in matches to earn points and climb the leaderboard.
+            Build a football roster, fill key positions, and compete in weekly matchups to climb the leaderboard.
           </p>
           <div className="flex items-center gap-4 justify-center mb-6">
             <div className="text-center">
-              <div className="text-2xl font-black text-[#E94560]">25</div>
-              <div className="text-xs text-white/30">Players</div>
+              <div className="text-2xl font-black text-[#E94560]">43</div>
+              <div className="text-xs text-white/30">Roster Spots</div>
             </div>
             <div className="w-px h-8 bg-white/10"></div>
             <div className="text-center">
@@ -436,12 +446,12 @@ export default function TeamPage() {
                             </div>
                             <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
                               {[
-                                { label: 'PAC', value: tp.player.pace },
-                                { label: 'SHO', value: tp.player.shooting },
-                                { label: 'PAS', value: tp.player.passing },
-                                { label: 'DRI', value: tp.player.dribbling },
-                                { label: 'DEF', value: tp.player.defending },
-                                { label: 'PHY', value: tp.player.physical },
+                                { label: 'SPD', value: tp.player.pace },
+                                { label: 'ARM', value: tp.player.shooting },
+                                { label: 'IQ', value: tp.player.passing },
+                                { label: 'AGI', value: tp.player.dribbling },
+                                { label: 'TCK', value: tp.player.defending },
+                                { label: 'STR', value: tp.player.physical },
                               ].map((stat) => (
                                 <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
                                   <div className="font-bold text-white">{stat.value}</div>
@@ -540,9 +550,9 @@ export default function TeamPage() {
                   
                   {/* Position Counts */}
                   <div className="space-y-2 mb-4">
-                    {['GK', 'DEF', 'MID', 'FWD'].map((pos) => {
+                    {FOOTBALL_POSITIONS.map((pos) => {
                       const count = selectedTeam?.teamPlayers?.filter((tp: any) => tp.player.position === pos).length || 0;
-                      const maxCount = pos === 'GK' ? 2 : pos === 'DEF' ? 5 : pos === 'MID' ? 5 : 4;
+                      const maxCount = FOOTBALL_POSITION_TARGETS[pos] || 2;
                       const isNeeded = count < maxCount;
                       return (
                         <div key={pos} className={`flex items-center justify-between p-2 rounded-lg ${isNeeded ? 'bg-[#E94560]/10 border border-[#E94560]/20' : 'bg-white/5'}`}>
@@ -563,12 +573,7 @@ export default function TeamPage() {
                     <div className="text-xs text-white/30 mb-2">{selectedTeam?.teamPlayers?.length || 0} players</div>
                     {selectedTeam?.teamPlayers?.map((tp: any) => (
                       <div key={tp.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                        <div className={`w-2 h-2 rounded-full ${
-                          tp.player.position === 'GK' ? 'bg-yellow-400' :
-                          tp.player.position === 'DEF' ? 'bg-blue-400' :
-                          tp.player.position === 'MID' ? 'bg-green-400' :
-                          'bg-red-400'
-                        }`} />
+                        <div className={`w-2 h-2 rounded-full ${positionColor(tp.player.position)}`} />
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium text-white truncate">{tp.player.name}</div>
                           <div className="text-[10px] text-white/30">{tp.player.position} • OVR {tp.player.overall}</div>
@@ -582,16 +587,15 @@ export default function TeamPage() {
 
                 {/* Formation Preview */}
                 <div className="glass-card p-4">
-                  <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Formation</h4>
+                  <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Roster Build</h4>
                   <div className="text-center">
-                    <div className="text-2xl font-black text-[#E94560] mb-1">4-3-3</div>
-                    <div className="text-xs text-white/30">Default Formation</div>
+                    <div className="text-2xl font-black text-[#E94560] mb-1">11v11</div>
+                    <div className="text-xs text-white/30">Football Lineup</div>
                   </div>
-                  <div className="mt-3 grid grid-cols-4 gap-1 text-center text-[10px]">
-                    <div className="text-yellow-400">1 GK</div>
-                    <div className="text-blue-400">4 DEF</div>
-                    <div className="text-green-400">3 MID</div>
-                    <div className="text-red-400">3 FWD</div>
+                  <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[10px]">
+                    <div className="text-[#E94560]">Skill</div>
+                    <div className="text-blue-400">Defense</div>
+                    <div className="text-yellow-400">Line</div>
                   </div>
                 </div>
               </div>
@@ -600,7 +604,7 @@ export default function TeamPage() {
               <div className="lg:col-span-3">
                 {/* Position Filter */}
                 <div className="flex items-center gap-2 mb-4">
-                  {['ALL', 'GK', 'DEF', 'MID', 'FWD'].map((pos) => {
+                  {['ALL', ...FOOTBALL_POSITIONS].map((pos) => {
                     const isActive = positionFilter === pos;
                     const posCount = pos === 'ALL' ? availablePlayers.length : availablePlayers.filter((p: any) => p.position === pos).length;
                     return (
@@ -624,7 +628,7 @@ export default function TeamPage() {
                     .filter((player) => positionFilter === 'ALL' || player.position === positionFilter)
                     .map((player) => {
                     const posCount = selectedTeam?.teamPlayers?.filter((tp: any) => tp.player.position === player.position).length || 0;
-                    const maxCount = player.position === 'GK' ? 2 : player.position === 'DEF' ? 5 : player.position === 'MID' ? 5 : 4;
+                    const maxCount = FOOTBALL_POSITION_TARGETS[player.position] || 2;
                     const isNeeded = posCount < maxCount;
                     
                     return (
@@ -651,12 +655,12 @@ export default function TeamPage() {
                           </div>
                           <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
                             {[
-                              { label: 'PAC', value: player.pace },
-                              { label: 'SHO', value: player.shooting },
-                              { label: 'PAS', value: player.passing },
-                              { label: 'DRI', value: player.dribbling },
-                              { label: 'DEF', value: player.defending },
-                              { label: 'PHY', value: player.physical },
+                              { label: 'SPD', value: player.pace },
+                              { label: 'ARM', value: player.shooting },
+                              { label: 'IQ', value: player.passing },
+                              { label: 'AGI', value: player.dribbling },
+                              { label: 'TCK', value: player.defending },
+                              { label: 'STR', value: player.physical },
                             ].map((stat) => (
                               <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
                                 <div className="font-bold text-white">{stat.value}</div>

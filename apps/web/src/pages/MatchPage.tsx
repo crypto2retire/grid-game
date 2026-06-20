@@ -242,13 +242,13 @@ export default function MatchPage() {
               <thead>
                 <tr className="text-muted-foreground border-b border-border">
                   <th className="text-left py-2">Player</th>
-                  <th className="text-center py-2">Goals</th>
-                  <th className="text-center py-2">Assists</th>
-                  <th className="text-center py-2">Shots</th>
-                  <th className="text-center py-2">SoT</th>
-                  <th className="text-center py-2">Passes</th>
+                  <th className="text-center py-2">TD</th>
+                  <th className="text-center py-2">AST</th>
+                  <th className="text-center py-2">Plays</th>
+                  <th className="text-center py-2">Big</th>
+                  <th className="text-center py-2">Yards</th>
                   <th className="text-center py-2">Tackles</th>
-                  <th className="text-center py-2">Saves</th>
+                  <th className="text-center py-2">Stops</th>
                   <th className="text-center py-2">Rating</th>
                 </tr>
               </thead>

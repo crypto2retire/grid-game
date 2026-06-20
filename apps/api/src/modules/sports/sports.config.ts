@@ -29,9 +29,9 @@ export const SPORT_CONFIGS: SportConfig[] = [
   {
     id: 'soccer',
     label: 'Global Football Clubs',
-    launchPhase: 1,
+    launchPhase: 2,
     primaryToken: 'GRID',
-    marketPosition: 'Broadest worldwide sports-management wedge with academies, transfers, loans, cups, and promotion/relegation.',
+    marketPosition: 'Worldwide expansion sport after the American football pilot with academies, transfers, loans, cups, and promotion/relegation.',
     roster: { starters: 11, bench: 7, maxRoster: 28 },
     positions: ['GK', 'DEF', 'MID', 'FWD'],
     stats: ['pace', 'shooting', 'passing', 'defending', 'physical', 'vision'],
@@ -45,9 +45,9 @@ export const SPORT_CONFIGS: SportConfig[] = [
   {
     id: 'american-football',
     label: 'Gridiron Franchises',
-    launchPhase: 2,
+    launchPhase: 1,
     primaryToken: 'GRID',
-    marketPosition: 'US fantasy-football aligned expansion with franchises, combines, playbooks, and weekly high-stakes seasons.',
+    marketPosition: 'Launch sport for testers familiar with American football: US fantasy-football aligned management with franchises, combines, playbooks, and weekly high-stakes seasons.',
     roster: { starters: 22, bench: 18, maxRoster: 52 },
     positions: ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'],
     stats: ['arm', 'speed', 'catching', 'blocking', 'tackling', 'coverage', 'footballIQ'],
