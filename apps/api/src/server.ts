@@ -128,11 +128,19 @@ const startServer = async () => {
           console.log('Migrations:', stdout?.trim() || 'OK');
         }
 
-        // Always re-seed to update player stats for rec-league balance
-        console.log('Re-seeding database with rec-league player stats...');
-        exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
-          if (seedErr) console.error('Seed error:', seedErr.message);
-          else console.log('Seeded:', seedOut?.trim() || 'OK');
+        // Only seed if no players exist (first deploy or after reset)
+        import('./config/database').then(({ prisma }) => {
+          prisma.player.count().then((count: number) => {
+            if (count === 0) {
+              console.log('Database empty, seeding players...');
+              exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
+                if (seedErr) console.error('Seed error:', seedErr.message);
+                else console.log('Seeded:', seedOut?.trim() || 'OK');
+              });
+            } else {
+              console.log(`Database ready (${count} players)`);
+            }
+          }).catch((countErr: any) => console.error('Count error:', countErr));
         });
       });
     } catch (dbErr) {
