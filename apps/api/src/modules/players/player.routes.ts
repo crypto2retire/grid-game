@@ -43,7 +43,7 @@ router.get(
       prisma.player.count({ where }),
     ]);
 
-    const playersWithPrice = players.map((p) => ({
+    const playersWithPrice = players.map((p: any) => ({
       ...p,
       currentPrice: calculatePlayerPrice(p),
     }));
