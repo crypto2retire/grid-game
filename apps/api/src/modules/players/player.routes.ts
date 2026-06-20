@@ -11,7 +11,7 @@ router.get(
   '/',
   authMiddleware,
   asyncHandler(async (req, res) => {
-    const { position, rarity, minOverall, maxOverall, page = '1', limit = '20' } = req.query;
+    const { position, rarity, minOverall, maxOverall, page = '1', limit = '20', random } = req.query;
 
     const where: any = {};
     if (position) where.position = position as string;
@@ -22,14 +22,20 @@ router.get(
       if (maxOverall) where.overall.lte = parseInt(maxOverall as string);
     }
 
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const take = parseInt(limit as string);
 
-    const [players, total] = await Promise.all([
-      prisma.player.findMany({
+    let players;
+    let total;
+
+    if (random === 'true') {
+      // Random ordering - use Prisma's skip for randomness
+      total = await prisma.player.count({ where });
+      const skip = Math.floor(Math.random() * Math.max(0, total - take));
+      players = await prisma.player.findMany({
         where,
         skip,
-        take: parseInt(limit as string),
-        orderBy: { overall: 'desc' },
+        take,
+        orderBy: { id: 'asc' },
         include: {
           teamPlayers: {
             include: {
@@ -39,9 +45,28 @@ router.get(
             },
           },
         },
-      }),
-      prisma.player.count({ where }),
-    ]);
+      });
+    } else {
+      const skip = (parseInt(page as string) - 1) * take;
+      [players, total] = await Promise.all([
+        prisma.player.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { overall: 'desc' },
+          include: {
+            teamPlayers: {
+              include: {
+                team: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+        }),
+        prisma.player.count({ where }),
+      ]);
+    }
 
     const playersWithPrice = players.map((p: any) => ({
       ...p,
@@ -53,10 +78,10 @@ router.get(
       data: {
         players: playersWithPrice,
         pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
+          page: random === 'true' ? 1 : parseInt(page as string),
+          limit: take,
           total,
-          totalPages: Math.ceil(total / parseInt(limit as string)),
+          totalPages: Math.ceil(total / take),
         },
       },
     });

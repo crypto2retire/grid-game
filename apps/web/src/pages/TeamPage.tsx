@@ -98,6 +98,9 @@ export default function TeamPage() {
       const data = await res.json();
       if (res.ok) {
         setAddSuccess('Player hired successfully!');
+        // Remove hired player and fetch a new random one to replace them
+        setAvailablePlayers((prev) => prev.filter((p) => p.id !== playerId));
+        fetchNewRandomPlayer();
         refreshTeams();
         refreshWallet();
         setTimeout(() => setAddSuccess(null), 3000);
@@ -109,6 +112,25 @@ export default function TeamPage() {
       setAddError('Network error. Please try again.');
     } finally {
       setAddingPlayer(null);
+    }
+  };
+
+  const fetchNewRandomPlayer = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Fetch a single random player not already in the available list
+      const res = await fetch('/api/players?limit=1&random=true', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newPlayers = data.data?.players || [];
+        if (newPlayers.length > 0) {
+          setAvailablePlayers((prev) => [...prev, ...newPlayers]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch new random player:', err);
     }
   };
 
