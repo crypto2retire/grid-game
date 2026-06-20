@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
@@ -44,6 +45,31 @@ router.get(
     });
 
     res.json({ status: 'success', data: transactions });
+  })
+);
+
+// Admin/debug: top up wallet for testing
+router.post(
+  '/wallet/topup',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({
+      amount: z.number().int().positive().max(10000000),
+    });
+    const input = schema.parse(req.body);
+    const userId = req.user!.id;
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+
+    const updated = await prisma.wallet.update({
+      where: { userId },
+      data: { cash: { increment: input.amount } },
+    });
+
+    res.json({ status: 'success', data: updated, message: `Added ${input.amount.toLocaleString()} CASH` });
   })
 );
 

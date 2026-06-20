@@ -38,30 +38,33 @@ async function main() {
     'Norway', 'Switzerland', 'Austria', 'Turkey', 'Russia', 'Ukraine'
   ];
 
+  // Rec league / beer league starting levels
+  // Players start at local amateur level and progress through competitive tiers
   const positions = ['GK', 'DEF', 'DEF', 'DEF', 'DEF', 'MID', 'MID', 'MID', 'FWD', 'FWD', 'FWD'];
-  const rarities = ['COMMON', 'BRONZE', 'SILVER', 'GOLD', 'ELITE', 'LEGEND'];
-  const rarityWeights = [0.6, 0.25, 0.10, 0.04, 0.009, 0.001];
+  
+  // Tier system: Rec → Amateur → Semi-Pro → Pro → Elite → World Class
+  const tiers = [
+    { name: 'COMMON', weight: 0.50, min: 25, max: 40, label: 'Rec League' },
+    { name: 'BRONZE', weight: 0.30, min: 32, max: 48, label: 'Local Amateur' },
+    { name: 'SILVER', weight: 0.15, min: 40, max: 58, label: 'Semi-Pro' },
+    { name: 'GOLD', weight: 0.04, min: 50, max: 68, label: 'Professional' },
+    { name: 'ELITE', weight: 0.009, min: 60, max: 78, label: 'National Team' },
+    { name: 'LEGEND', weight: 0.001, min: 70, max: 85, label: 'World Class' },
+  ];
 
   const getRarity = () => {
     const rand = Math.random();
     let cumulative = 0;
-    for (let i = 0; i < rarities.length; i++) {
-      cumulative += rarityWeights[i];
-      if (rand <= cumulative) return rarities[i];
+    for (const tier of tiers) {
+      cumulative += tier.weight;
+      if (rand <= cumulative) return tier.name;
     }
     return 'COMMON';
   };
 
   const getAttributeRange = (rarity) => {
-    switch (rarity) {
-      case 'COMMON': return { min: 40, max: 55 };
-      case 'BRONZE': return { min: 50, max: 65 };
-      case 'SILVER': return { min: 60, max: 75 };
-      case 'GOLD': return { min: 70, max: 85 };
-      case 'ELITE': return { min: 80, max: 92 };
-      case 'LEGEND': return { min: 88, max: 99 };
-      default: return { min: 40, max: 55 };
-    }
+    const tier = tiers.find(t => t.name === rarity) || tiers[0];
+    return { min: tier.min, max: tier.max };
   };
 
   const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -73,12 +76,13 @@ async function main() {
     const rarity = getRarity();
     const range = getAttributeRange(rarity);
     const position = positions[i % positions.length];
+    const tier = tiers.find(t => t.name === rarity) || tiers[0];
 
     const pace = randomInt(range.min, range.max);
-    const shooting = position === 'GK' ? randomInt(20, 40) : randomInt(range.min, range.max);
+    const shooting = position === 'GK' ? randomInt(15, 30) : randomInt(range.min, range.max);
     const passing = randomInt(range.min, range.max);
     const dribbling = randomInt(range.min, range.max);
-    const defending = position === 'FWD' ? randomInt(20, 50) : randomInt(range.min, range.max);
+    const defending = position === 'FWD' ? randomInt(15, 35) : randomInt(range.min, range.max);
     const physical = randomInt(range.min, range.max);
     const goalkeeping = position === 'GK' ? randomInt(range.min, range.max) : null;
 
@@ -98,12 +102,21 @@ async function main() {
       goalkeeping,
       overall,
       rarity,
+      basePrice: overall * 100,
+      demandMultiplier: 1.0,
     });
   }
 
+  // Clear existing players and recreate with new rec-league stats
+  await prisma.player.deleteMany({});
   await prisma.player.createMany({ data: players });
 
   console.log(`Created ${players.length} players`);
+  console.log('Tier distribution:');
+  for (const tier of tiers) {
+    const count = players.filter(p => p.rarity === tier.name).length;
+    console.log(`  ${tier.name} (${tier.label}): ${count} players`);
+  }
   console.log('Seed complete!');
 }
 
