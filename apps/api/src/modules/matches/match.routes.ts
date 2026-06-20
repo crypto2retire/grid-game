@@ -5,6 +5,7 @@ import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
 import { runMatchSimulation, TeamState } from './simulator';
+import { routeParam } from '../../utils/routeParams';
 
 const router = Router();
 
@@ -91,8 +92,9 @@ router.get(
   '/:id',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    const matchId = routeParam(req.params.id, 'id');
     const match = await prisma.match.findUnique({
-      where: { id: req.params.id },
+      where: { id: matchId },
       include: {
         homeTeam: {
           select: {
@@ -137,13 +139,14 @@ router.post(
   '/:id/simulate',
   authMiddleware,
   asyncHandler(async (req: AuthRequest, res) => {
+    const matchId = routeParam(req.params.id, 'id');
     const match = await prisma.match.findUnique({
-      where: { id: req.params.id },
+      where: { id: matchId },
       include: {
         homeTeam: { include: { teamPlayers: { include: { player: true } } } },
         awayTeam: { include: { teamPlayers: { include: { player: true } } } },
       },
-    });
+    }) as any;
 
     if (!match) {
       throw new AppError(404, 'Match not found');

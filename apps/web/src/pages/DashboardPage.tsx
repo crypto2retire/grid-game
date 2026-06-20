@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
-import { Swords, Shield, Trophy, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { Swords, Shield, Trophy, TrendingUp, Clock, ArrowRight, Rocket } from 'lucide-react';
 
 interface Team {
   id: string;
@@ -98,6 +98,30 @@ export default function DashboardPage() {
           Manage Teams
         </Link>
       </div>
+
+      {/* Stats Cards */}
+      <Link
+        to="/sports-economy"
+        className="group block overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))] p-5 transition hover:border-cyan-300/50"
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl bg-cyan-300/10 p-3 text-cyan-200">
+              <Rocket className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.25em] text-cyan-200">New economy layer</p>
+              <h2 className="mt-1 text-2xl font-black text-white">Multi-sport GRID economy roadmap</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Soccer-first launch, then American football, basketball, and baseball — all using the same GRID token, marketplace, limited widgets, and whale/regular collaboration loops.
+              </p>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 font-bold text-cyan-200 transition group-hover:translate-x-1">
+            Open economy console <ArrowRight className="h-4 w-4" />
+          </div>
+        </div>
+      </Link>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

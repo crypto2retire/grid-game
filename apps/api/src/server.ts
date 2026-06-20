@@ -19,6 +19,7 @@ import { matchesListRouter } from './modules/matches/matches-list.routes';
 import { economyRouter } from './modules/economy/economy.routes';
 import { leaderboardRouter } from './modules/leaderboard/leaderboard.routes';
 import { marketplaceRouter } from './modules/economy/marketplace.routes';
+import { sportsRouter } from './modules/sports/sports.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 
 const app = express();
@@ -66,6 +67,7 @@ app.use('/api/matches', matchRouter);
 app.use('/api/matches', matchesListRouter);
 app.use('/api/economy', economyRouter);
 app.use('/api/marketplace', marketplaceRouter);
+app.use('/api/sports', sportsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 
 // SPA fallback - serve index.html for non-API routes
@@ -140,8 +142,8 @@ const startServer = async () => {
   }
 
   try {
-    await connectRedis();
-    console.log('Redis connected');
+    const redisConnected = await connectRedis();
+    console.log(redisConnected ? 'Redis connected' : 'Redis not configured - optional cache disabled');
   } catch {
     console.warn('Redis unavailable');
   }

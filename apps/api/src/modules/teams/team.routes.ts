@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { routeParam } from '../../utils/routeParams';
 
 const router = Router();
 
@@ -70,8 +71,9 @@ router.get(
   '/:id',
   authMiddleware,
   asyncHandler(async (req, res) => {
+    const teamId = routeParam(req.params.id, 'id');
     const team = await prisma.team.findUnique({
-      where: { id: req.params.id },
+      where: { id: teamId },
       include: {
         owner: {
           select: { id: true, username: true, displayName: true },
@@ -121,9 +123,10 @@ router.put(
   asyncHandler(async (req: AuthRequest, res) => {
     const input = updateTeamSchema.parse(req.body);
     const userId = req.user!.id;
+    const teamId = routeParam(req.params.id, 'id');
 
     const team = await prisma.team.findFirst({
-      where: { id: req.params.id, ownerId: userId },
+      where: { id: teamId, ownerId: userId },
     });
 
     if (!team) {
@@ -131,7 +134,7 @@ router.put(
     }
 
     const updated = await prisma.team.update({
-      where: { id: req.params.id },
+      where: { id: teamId },
       data: input,
       include: {
         teamPlayers: {
@@ -154,9 +157,10 @@ router.post(
     });
     const input = schema.parse(req.body);
     const userId = req.user!.id;
+    const teamId = routeParam(req.params.id, 'id');
 
     const team = await prisma.team.findFirst({
-      where: { id: req.params.id, ownerId: userId },
+      where: { id: teamId, ownerId: userId },
       include: { teamPlayers: true },
     });
 
@@ -172,7 +176,7 @@ router.post(
     const existing = await prisma.teamPlayer.findUnique({
       where: {
         teamId_playerId: {
-          teamId: req.params.id,
+          teamId,
           playerId: input.playerId,
         },
       },
@@ -184,7 +188,7 @@ router.post(
 
     const teamPlayer = await prisma.teamPlayer.create({
       data: {
-        teamId: req.params.id,
+        teamId,
         playerId: input.playerId,
         isStarter: input.isStarter,
       },
@@ -200,9 +204,11 @@ router.delete(
   authMiddleware,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.id;
+    const teamId = routeParam(req.params.id, 'id');
+    const playerId = routeParam(req.params.playerId, 'playerId');
 
     const team = await prisma.team.findFirst({
-      where: { id: req.params.id, ownerId: userId },
+      where: { id: teamId, ownerId: userId },
     });
 
     if (!team) {
@@ -212,8 +218,8 @@ router.delete(
     await prisma.teamPlayer.delete({
       where: {
         teamId_playerId: {
-          teamId: req.params.id,
-          playerId: req.params.playerId,
+          teamId,
+          playerId,
         },
       },
     });

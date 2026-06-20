@@ -6,6 +6,7 @@ import {
   Swords,
   ShoppingCart,
   Trophy,
+  Rocket,
   Wallet,
 } from 'lucide-react';
 
@@ -15,6 +16,7 @@ const navItems = [
   { path: '/players', label: 'Players', icon: Users },
   { path: '/matches', label: 'Matches', icon: Swords },
   { path: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
+  { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/wallet', label: 'Wallet', icon: Wallet },
 ];

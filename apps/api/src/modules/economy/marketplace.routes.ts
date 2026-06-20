@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { routeParam } from '../../utils/routeParams';
 
 const router = Router();
 
@@ -116,7 +117,7 @@ router.post(
     const userId = req.user!.id;
 
     const listing = await prisma.marketplaceListing.findUnique({
-      where: { id: req.params.id },
+      where: { id: routeParam(req.params.id, 'id') },
       include: {
         seller: { include: { wallet: true } },
         player: true,

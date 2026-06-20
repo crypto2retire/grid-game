@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { routeParam } from '../../utils/routeParams';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ router.get(
   authMiddleware,
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: routeParam(req.params.id, 'id') },
       select: {
         id: true,
         username: true,

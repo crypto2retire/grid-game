@@ -1,19 +1,23 @@
-import { prisma } from '../src/config/database';
+import type { PrismaClient } from '@prisma/client';
+
+let prisma: PrismaClient | null = null;
 
 beforeAll(async () => {
-  // Connect to test database
+  if (!process.env.DATABASE_URL) return;
+  const database = await import('../src/config/database');
+  prisma = database.prisma;
   await prisma.$connect();
 });
 
 afterAll(async () => {
-  // Disconnect and clean up
+  if (!prisma) return;
   await prisma.$disconnect();
 });
 
 beforeEach(async () => {
-  // Clean up test data before each test
+  if (!prisma) return;
   const tables = ['MatchParticipant', 'PlayerMatchStats', 'MatchEvent', 'Match', 'MarketplaceListing', 'TeamPlayer', 'Wallet', 'Player', 'Team', 'User'];
-  
+
   for (const table of tables) {
     await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" CASCADE;`);
   }
