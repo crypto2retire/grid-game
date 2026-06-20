@@ -253,7 +253,7 @@ export default function TeamPage() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Create Your First Team</h2>
           <p className="text-white/40 mb-6 max-w-md mx-auto">
-            Build a football roster, fill key positions, and compete in weekly matchups to climb the leaderboard.
+            Build a football roster, fill key positions, and compete in weekly games to climb the leaderboard.
           </p>
           <div className="flex items-center gap-4 justify-center mb-6">
             <div className="text-center">
@@ -263,7 +263,7 @@ export default function TeamPage() {
             <div className="w-px h-8 bg-white/10"></div>
             <div className="text-center">
               <div className="text-2xl font-black text-[#FFD700]">∞</div>
-              <div className="text-xs text-white/30">Matches</div>
+              <div className="text-xs text-white/30">Games</div>
             </div>
             <div className="w-px h-8 bg-white/10"></div>
             <div className="text-center">

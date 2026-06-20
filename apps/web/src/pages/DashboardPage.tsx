@@ -66,7 +66,7 @@ const dashboardOptions: DashboardOption[] = [
     title: 'My Team',
     eyebrow: 'Build the roster',
     description: 'Create your franchise, view players on your roster, and decide who should develop next.',
-    why: 'This is the core management loop: stronger teams unlock better match results and future marketplace value.',
+    why: 'This is the core management loop: stronger teams unlock better game results and future marketplace value.',
     start: 'Start here if you are new.',
     path: '/team',
     cta: 'Manage team',
@@ -89,13 +89,13 @@ const dashboardOptions: DashboardOption[] = [
     badge: 'Scouting',
   },
   {
-    title: 'Matches',
+    title: 'Games',
     eyebrow: 'Compete',
-    description: 'Schedule matches, review recent results, and learn which roster choices are working.',
-    why: 'Matches turn roster decisions into standings progress, reputation, and future reward eligibility.',
+    description: 'Schedule games, review recent results, and learn which roster choices are working.',
+    why: 'Games turn roster decisions into standings progress, reputation, and future reward eligibility.',
     start: 'Use once you have a team ready.',
     path: '/matches',
-    cta: 'Play matches',
+    cta: 'Play games',
     icon: Swords,
     accent: 'from-rose-500/25 via-orange-400/10 to-transparent',
     ring: 'border-rose-300/30 hover:border-rose-300/65',
@@ -146,7 +146,7 @@ const economyExplainers = [
   {
     title: 'Regular player path',
     icon: ListChecks,
-    copy: 'Scout and train players, compete in matches, then use or trade improved assets. No guaranteed profit promises — results depend on play, supply, and market demand.',
+    copy: 'Scout and train players, compete in games, then use or trade improved assets. No guaranteed profit promises — results depend on play, supply, and market demand.',
   },
   {
     title: 'Whale / capital path',
@@ -196,10 +196,10 @@ export default function DashboardPage() {
           const data = await matchesResult.value.json();
           setRecentMatches((data.data?.matches || []).filter((match: any) => (match.sportId || 'american-football') === activeSportId));
         } else if (matchesResult.status === 'fulfilled') {
-          // Matches are helpful context, but they should not block the whole dashboard.
-          console.warn(`Matches API returned ${matchesResult.value.status}`);
+          // Games are helpful context, but they should not block the whole dashboard.
+          console.warn(`Games API returned ${matchesResult.value.status}`);
         } else {
-          console.warn('Failed to fetch matches:', matchesResult.reason);
+          console.warn('Failed to fetch games:', matchesResult.reason);
         }
 
         setLastUpdated(new Date());
@@ -270,14 +270,14 @@ export default function DashboardPage() {
               Welcome back, {user?.displayName || user?.username || 'Coach'}.
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
-              This {getSportLabel(activeSportId)} dashboard separates the game into clear choices: build your roster, compete in matches, trade assets, study the economy, and track your wallet. Each card explains what the option does and why it matters.
+              This {getSportLabel(activeSportId)} dashboard separates the game into clear choices: build your roster, compete in games, trade assets, study the economy, and track your wallet. Each card explains what the option does and why it matters.
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-300">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-300" /> {stats.teams > 0 ? 'Team active' : 'Team setup needed'}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2">
-                <Gauge className="h-4 w-4 text-cyan-300" /> {stats.matchesPlayed} matches tracked
+                <Gauge className="h-4 w-4 text-cyan-300" /> {stats.matchesPlayed} games tracked
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2">
                 <Clock className="h-4 w-4 text-amber-300" /> {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Live data'}
@@ -293,7 +293,7 @@ export default function DashboardPage() {
                   <Shield className="mb-4 h-10 w-10 text-accent" />
                   <h2 className="text-2xl font-black text-white">Create your first team</h2>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    Teams are the starting point for everything else: players, matches, points, and marketplace strategy.
+                    Teams are the starting point for everything else: players, games, points, and marketplace strategy.
                   </p>
                   <Link to="/team" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 py-3 font-bold text-white transition hover:bg-accent/90">
                     Start team setup <ArrowRight className="h-4 w-4" />
@@ -304,7 +304,7 @@ export default function DashboardPage() {
                   <Swords className="mb-4 h-10 w-10 text-accent" />
                   <h2 className="text-2xl font-black text-white">Play or review games</h2>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    You have a team foundation. Use matches to test lineup quality, build points, and find gaps to fix through scouting or the market.
+                    You have a team foundation. Use games to test lineup quality, build points, and find gaps to fix through scouting or the market.
                   </p>
                   <Link to="/matches" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-4 py-3 font-bold text-white transition hover:bg-accent/90">
                     Go to games <ArrowRight className="h-4 w-4" />
@@ -327,7 +327,7 @@ export default function DashboardPage() {
           { label: 'Teams', value: stats.teams, detail: 'Teams you control', icon: Shield, color: 'text-blue-300' },
           { label: 'Players', value: stats.totalPlayers, detail: 'Rostered athletes', icon: Users, color: 'text-emerald-300' },
           { label: 'Points', value: stats.totalPoints, detail: 'Earned from results', icon: Trophy, color: 'text-yellow-300' },
-          { label: 'Matches', value: stats.matchesPlayed, detail: 'Record history', icon: CalendarDays, color: 'text-rose-300' },
+          { label: 'Games', value: stats.matchesPlayed, detail: 'Record history', icon: CalendarDays, color: 'text-rose-300' },
           { label: 'Win Rate', value: `${stats.winRate}%`, detail: 'Wins / completed games', icon: LineChart, color: 'text-cyan-300' },
         ].map((stat, i) => (
           <motion.div

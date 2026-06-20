@@ -223,7 +223,7 @@ export default function LeaderboardPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-accent">{player.matchStats.length}</div>
-                    <div className="text-xs text-muted-foreground">Matches</div>
+                    <div className="text-xs text-muted-foreground">Games</div>
                   </div>
                 </div>
               ))}

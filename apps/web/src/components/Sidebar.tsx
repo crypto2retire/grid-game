@@ -14,7 +14,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/team', label: 'My Team', icon: Shield },
   { path: '/players', label: 'Players', icon: Users },
-  { path: '/matches', label: 'Matches', icon: Swords },
+  { path: '/matches', label: 'Games', icon: Swords },
   { path: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
