@@ -21,7 +21,20 @@ interface LeaderboardPlayer {
   position: string;
   overall: number;
   rarity: string;
-  matchStats: any[];
+  form?: number;
+  fatigue?: number;
+  morale?: number;
+  seasonStats?: {
+    gamesPlayed: number;
+    touchdowns: number;
+    passingTouchdowns: number;
+    fieldGoals: number;
+    yards: number;
+    tackles: number;
+    turnoversForced: number;
+    ratingAverage: number;
+    mvpScore: number;
+  };
 }
 
 export default function LeaderboardPage() {
@@ -32,15 +45,17 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [playerSort, setPlayerSort] = useState('mvpScore');
 
   useEffect(() => {
+    setLoading(true);
     if (activeTab === 'teams') fetchTeams();
     else fetchPlayers();
-  }, [activeTab, page, activeSportId]);
+  }, [activeTab, page, activeSportId, playerSort]);
 
   const fetchTeams = async () => {
     try {
-      const res = await fetch(`/api/leaderboard/teams?page=${page}&limit=20`);
+      const res = await fetch(`/api/leaderboard/teams?page=${page}&limit=20&sportId=${activeSportId}`);
       if (res.ok) {
         const data = await res.json();
         setTeams(data.data?.teams || []);
@@ -55,7 +70,7 @@ export default function LeaderboardPage() {
 
   const fetchPlayers = async () => {
     try {
-      const res = await fetch(`/api/leaderboard/players?page=${page}&limit=20`);
+      const res = await fetch(`/api/leaderboard/players?page=${page}&limit=20&sportId=${activeSportId}&sortBy=${playerSort}`);
       if (res.ok) {
         const data = await res.json();
         setPlayers(data.data?.players || []);
@@ -94,7 +109,6 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
@@ -104,7 +118,6 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-border pb-1">
         {[
           { id: 'teams' as const, label: 'Teams', icon: Trophy },
@@ -125,7 +138,6 @@ export default function LeaderboardPage() {
         ))}
       </div>
 
-      {/* Teams Tab */}
       {activeTab === 'teams' && (
         <div className="glass-card p-6">
           {teams.length === 0 ? (
@@ -137,20 +149,11 @@ export default function LeaderboardPage() {
           ) : (
             <div className="space-y-3">
               {teams.map((team, index) => (
-                <div
-                  key={team.id}
-                  className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
-                    index < 3 ? 'bg-secondary/50' : 'bg-secondary/30'
-                  }`}
-                >
-                  <div className="w-8 flex justify-center">
-                    {getRankIcon((page - 1) * 20 + index + 1)}
-                  </div>
+                <div key={team.id} className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${index < 3 ? 'bg-secondary/50' : 'bg-secondary/30'}`}>
+                  <div className="w-8 flex justify-center">{getRankIcon((page - 1) * 20 + index + 1)}</div>
                   <div className="flex-1">
                     <div className="font-semibold text-white">{team.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {team.owner.displayName || team.owner.username} • {team._count.teamPlayers} players
-                    </div>
+                    <div className="text-sm text-muted-foreground">{team.owner.displayName || team.owner.username} • {team._count.teamPlayers} players</div>
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <div className="text-center">
@@ -171,88 +174,72 @@ export default function LeaderboardPage() {
               ))}
             </div>
           )}
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-border">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Players Tab */}
       {activeTab === 'players' && (
         <div className="glass-card p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">Rank by:</span>
+            {[
+              ['mvpScore', 'MVP'], ['touchdowns', 'TD'], ['yards', 'Yards'], ['tackles', 'Tackles'], ['turnoversForced', 'Turnovers'], ['ratingAverage', 'Rating'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => { setPlayerSort(id); setPage(1); }}
+                className={`rounded-lg px-3 py-1 text-sm font-bold ${playerSort === id ? 'bg-accent text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {players.length === 0 ? (
             <div className="text-center py-8">
               <Medal className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-white font-medium mb-1">No players ranked yet</p>
-              <p className="text-muted-foreground text-sm">Play games to earn stats</p>
+              <p className="text-muted-foreground text-sm">Complete games to create season stats</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {players.map((player, index) => (
-                <div
-                  key={player.id}
-                  className="flex items-center gap-4 p-4 bg-secondary/30 rounded-lg"
-                >
-                  <div className="w-8 flex justify-center">
-                    {getRankIcon((page - 1) * 20 + index + 1)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-white">{player.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {player.position} • OVR {player.overall}
+              {players.map((player, index) => {
+                const s = player.seasonStats;
+                return (
+                  <div key={player.id} className="grid gap-4 rounded-lg bg-secondary/30 p-4 md:grid-cols-[auto_1fr_repeat(6,minmax(58px,auto))] md:items-center">
+                    <div className="w-8 flex justify-center">{getRankIcon((page - 1) * 20 + index + 1)}</div>
+                    <div>
+                      <div className="font-semibold text-white">{player.name}</div>
+                      <div className="text-sm text-muted-foreground">{player.position} • OVR {player.overall} • Form {player.form ?? '—'} • Morale {player.morale ?? '—'} • Fatigue {player.fatigue ?? '—'}</div>
                     </div>
+                    <Stat label="MVP" value={Math.round(s?.mvpScore || 0)} />
+                    <Stat label="GP" value={s?.gamesPlayed || 0} />
+                    <Stat label="TD" value={(s?.touchdowns || 0) + (s?.passingTouchdowns || 0)} />
+                    <Stat label="YDS" value={s?.yards || 0} />
+                    <Stat label="TCK" value={s?.tackles || 0} />
+                    <Stat label="RAT" value={s?.ratingAverage?.toFixed(1) || '—'} />
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-accent">{player.matchStats.length}</div>
-                    <div className="text-xs text-muted-foreground">Games</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-border">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(totalPages, page + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50"
-              >
-                Next
-              </button>
+                );
+              })}
             </div>
           )}
         </div>
       )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50">Previous</button>
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="px-4 py-2 bg-secondary border border-border rounded-lg text-white disabled:opacity-50">Next</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="text-center">
+      <div className="font-bold text-accent">{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }

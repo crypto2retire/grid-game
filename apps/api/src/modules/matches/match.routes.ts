@@ -7,6 +7,7 @@ import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
 import { runMatchSimulation, TeamState } from './simulator';
 import { routeParam } from '../../utils/routeParams';
 import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
+import { applyPostGameProgression } from './progression';
 
 const router = Router();
 
@@ -265,6 +266,23 @@ router.post(
               rating: stats.rating,
             },
           },
+        })),
+      });
+
+      await applyPostGameProgression(tx, {
+        sportId: match.sportId,
+        season: 'beta',
+        matchId: match.id,
+        players: Object.entries(result.playerStats).map(([playerId, stats]) => ({
+          playerId,
+          teamId: match.homeTeam.teamPlayers.some((tp: any) => tp.player.id === playerId)
+            ? match.homeTeamId
+            : match.awayTeamId,
+          position: [
+            ...match.homeTeam.teamPlayers,
+            ...match.awayTeam.teamPlayers,
+          ].find((tp: any) => tp.player.id === playerId)?.player.position,
+          stats,
         })),
       });
 

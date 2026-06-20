@@ -4,18 +4,39 @@ import { asyncHandler } from '../../middleware/errorHandler';
 
 const router = Router();
 
+const numeric = (value: unknown, fallback: number) => {
+  const parsed = parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const playerSortMap: Record<string, string> = {
+  mvpScore: 'mvpScore',
+  touchdowns: 'touchdowns',
+  passingTouchdowns: 'passingTouchdowns',
+  yards: 'yards',
+  tackles: 'tackles',
+  turnoversForced: 'turnoversForced',
+  fieldGoals: 'fieldGoals',
+  ratingAverage: 'ratingAverage',
+  gamesPlayed: 'gamesPlayed',
+};
+
 router.get(
   '/teams',
   asyncHandler(async (req, res) => {
-    const { page = '1', limit = '20' } = req.query;
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const { page = '1', limit = '20', sportId = 'american-football' } = req.query;
+    const take = numeric(limit, 20);
+    const skip = (numeric(page, 1) - 1) * take;
+    const where = { sportId: sportId as string };
 
     const [teams, total] = await Promise.all([
       prisma.team.findMany({
+        where,
         skip,
-        take: parseInt(limit as string),
+        take,
         orderBy: [
           { points: 'desc' },
+          { wins: 'desc' },
           { goalsFor: 'desc' },
         ],
         include: {
@@ -27,7 +48,7 @@ router.get(
           },
         },
       }),
-      prisma.team.count(),
+      prisma.team.count({ where }),
     ]);
 
     res.json({
@@ -35,10 +56,10 @@ router.get(
       data: {
         teams,
         pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
+          page: numeric(page, 1),
+          limit: take,
           total,
-          totalPages: Math.ceil(total / parseInt(limit as string)),
+          totalPages: Math.ceil(total / take),
         },
       },
     });
@@ -48,36 +69,81 @@ router.get(
 router.get(
   '/players',
   asyncHandler(async (req, res) => {
-    const { page = '1', limit = '20', sortBy = 'overall' } = req.query;
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const { page = '1', limit = '20', sortBy = 'mvpScore', sportId = 'american-football', season = 'beta' } = req.query;
+    const take = numeric(limit, 20);
+    const skip = (numeric(page, 1) - 1) * take;
+    const sortField = playerSortMap[String(sortBy)] || 'mvpScore';
+    const where = { sportId: sportId as string, season: season as string };
 
-    const orderBy: any = {};
-    orderBy[sortBy as string] = 'desc';
-
-    const [players, total] = await Promise.all([
-      prisma.player.findMany({
+    const [rows, total] = await Promise.all([
+      prisma.playerSeasonStats.findMany({
+        where,
         skip,
-        take: parseInt(limit as string),
-        orderBy,
+        take,
+        orderBy: [
+          { [sortField]: 'desc' },
+          { ratingAverage: 'desc' },
+          { gamesPlayed: 'desc' },
+        ] as any,
         include: {
-          matchStats: {
-            orderBy: { match: { completedAt: 'desc' } },
-            take: 1,
+          player: {
+            select: {
+              id: true,
+              name: true,
+              sportId: true,
+              position: true,
+              overall: true,
+              rarity: true,
+              form: true,
+              fatigue: true,
+              morale: true,
+              pace: true,
+              shooting: true,
+              passing: true,
+              dribbling: true,
+              defending: true,
+              physical: true,
+            },
           },
         },
       }),
-      prisma.player.count(),
+      prisma.playerSeasonStats.count({ where }),
     ]);
+
+    const players = rows.map((row) => ({
+      ...row.player,
+      seasonStats: {
+        id: row.id,
+        season: row.season,
+        gamesPlayed: row.gamesPlayed,
+        starts: row.starts,
+        touchdowns: row.touchdowns,
+        passingTouchdowns: row.passingTouchdowns,
+        fieldGoals: row.fieldGoals,
+        yards: row.yards,
+        plays: row.plays,
+        assists: row.assists,
+        tackles: row.tackles,
+        stops: row.stops,
+        turnoversForced: row.turnoversForced,
+        ratingAverage: row.ratingAverage,
+        mvpScore: row.mvpScore,
+        stats: row.stats,
+      },
+      matchStats: [],
+    }));
 
     res.json({
       status: 'success',
       data: {
         players,
+        sortBy: sortField,
+        season,
         pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
+          page: numeric(page, 1),
+          limit: take,
           total,
-          totalPages: Math.ceil(total / parseInt(limit as string)),
+          totalPages: Math.ceil(total / take),
         },
       },
     });

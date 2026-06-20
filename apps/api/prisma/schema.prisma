@@ -103,6 +103,7 @@ model Player {
 
   teamPlayers   TeamPlayer[]
   matchStats    PlayerMatchStats[]
+  seasonStats   PlayerSeasonStats[]
   marketplaceListings MarketplaceListing[]
 
   createdAt     DateTime @default(now())
@@ -206,6 +207,41 @@ model PlayerMatchStats {
   @@unique([matchId, playerId])
   @@index([matchId])
   @@index([playerId])
+}
+
+
+model PlayerSeasonStats {
+  id              String   @id @default(uuid())
+  playerId        String
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  sportId         String   @default("american-football")
+  season          String   @default("beta")
+
+  gamesPlayed     Int      @default(0)
+  starts          Int      @default(0)
+  touchdowns      Int      @default(0)
+  passingTouchdowns Int    @default(0)
+  fieldGoals      Int      @default(0)
+  yards           Int      @default(0)
+  plays           Int      @default(0)
+  assists         Int      @default(0)
+  tackles         Int      @default(0)
+  stops           Int      @default(0)
+  turnoversForced Int      @default(0)
+  ratingTotal     Float    @default(0)
+  ratingAverage   Float    @default(6.0)
+  mvpScore        Float    @default(0)
+  stats           Json     @default("{}")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([playerId, sportId, season])
+  @@index([sportId, season, mvpScore])
+  @@index([sportId, season, touchdowns])
+  @@index([sportId, season, yards])
+  @@index([sportId, season, tackles])
+  @@index([sportId, season, ratingAverage])
 }
 
 model MatchParticipant {
