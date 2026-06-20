@@ -117,10 +117,17 @@ export default function TeamPage() {
       const token = localStorage.getItem('token');
       const res = await fetch('/api/economy/wallet/topup', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount: 100000 }),
       });
       if (res.ok) {
         refreshWallet();
+      } else {
+        const data = await res.json();
+        console.error('Top up failed:', data.message);
       }
     } catch (err) {
       console.error('Failed to top up wallet:', err);
