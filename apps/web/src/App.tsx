@@ -19,6 +19,8 @@ import SponsorshipsPage from './pages/SponsorshipsPage';
 import TrainingPage from './pages/TrainingPage';
 import EquipmentPage from './pages/EquipmentPage';
 import StakingPage from './pages/StakingPage';
+import TeamCatalogPage from './pages/TeamCatalogPage';
+import TeamMarketplacePage from './pages/TeamMarketplacePage';
 
 function App() {
   const { checkAuth } = useAuthStore();
@@ -46,6 +48,8 @@ function App() {
         <Route path="/training" element={<TrainingPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
         <Route path="/staking" element={<StakingPage />} />
+        <Route path="/team-catalog" element={<TeamCatalogPage />} />
+        <Route path="/team-marketplace" element={<TeamMarketplacePage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/wallet" element={<WalletPage />} />
       </Route>

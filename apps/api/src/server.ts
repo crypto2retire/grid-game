@@ -27,6 +27,8 @@ import { equipmentRouter } from './modules/equipment/equipment.routes';
 import { treasuryRouter } from './modules/treasury/treasury.routes';
 import { solanaRouter } from './modules/solana/solana.routes';
 import { stakingRouter } from './modules/staking/staking.routes';
+import { teamCatalogRouter } from './modules/team-catalog/team-catalog.routes';
+import { teamMarketplaceRouter } from './modules/team-marketplace/team-marketplace.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 
 const app = express();
@@ -89,6 +91,8 @@ app.use('/api/equipment', equipmentRouter);
 app.use('/api/treasury', treasuryRouter);
 app.use('/api/solana', solanaRouter);
 app.use('/api/staking', stakingRouter);
+app.use('/api/teams/catalog', teamCatalogRouter);
+app.use('/api/team-marketplace', teamMarketplaceRouter);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {

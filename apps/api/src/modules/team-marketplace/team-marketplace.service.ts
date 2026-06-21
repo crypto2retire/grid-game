@@ -1,0 +1,297 @@
+import { prisma } from '../../config/database';
+import { recordCurrencyLedger } from '../economy/ledger';
+import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
+
+const FOUNDATION_TAX_PCT = 0.15; // 15% to game
+const BURN_PCT = 0.05; // 5% burned
+const SELLER_PCT = 0.80; // 80% to seller
+
+const COOLDOWN_DAYS = 90; // 90-day price floor after initial purchase
+
+/**
+ * List a team for sale on the marketplace.
+ */
+export async function listTeamForSale(
+  sellerId: string,
+  teamId: string,
+  price: number,
+  currency: 'GRID' | 'SOL'
+) {
+  if (price <= 0) {
+    throw new Error('Price must be greater than 0');
+  }
+
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, ownerId: sellerId },
+  });
+
+  if (!team) {
+    throw new Error('Team not found or you do not own it');
+  }
+
+  if (team.isForSale) {
+    throw new Error('Team is already listed for sale');
+  }
+
+  // Check 90-day price floor (only for initial sale from game)
+  const daysSincePurchase =
+    (new Date().getTime() - new Date(team.purchasedAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSincePurchase < COOLDOWN_DAYS && team.purchasePrice > 0) {
+    const minPrice = Math.floor(team.purchasePrice * 0.75);
+    if (price < minPrice) {
+      throw new Error(
+        `Price floor active. Minimum sale price: ${minPrice.toLocaleString()} ${currency}. ${Math.ceil(COOLDOWN_DAYS - daysSincePurchase)} days remaining.`
+      );
+    }
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    // Mark team as for sale
+    await tx.team.update({
+      where: { id: teamId },
+      data: {
+        isForSale: true,
+        salePrice: price,
+        saleCurrency: currency,
+        saleListedAt: new Date(),
+      },
+    });
+
+    // Create marketplace listing
+    const foundationTax = Math.floor(price * FOUNDATION_TAX_PCT);
+    const burnAmount = Math.floor(price * BURN_PCT);
+    const sellerReceives = Math.floor(price * SELLER_PCT);
+
+    const listing = await tx.teamMarketplaceListing.create({
+      data: {
+        sellerId,
+        teamId,
+        price,
+        currency,
+        foundationTaxPaid: foundationTax,
+        burnAmount,
+        sellerReceives,
+        status: 'ACTIVE',
+      },
+    });
+
+    return { listing, foundationTax, burnAmount, sellerReceives };
+  });
+}
+
+/**
+ * Buy a team from the marketplace (player-to-player).
+ */
+export async function buyTeamFromMarketplace(buyerId: string, listingId: string) {
+  const listing = await prisma.teamMarketplaceListing.findFirst({
+    where: { id: listingId, status: 'ACTIVE' },
+    include: { team: true, seller: { include: { wallet: true } } },
+  });
+
+  if (!listing) {
+    throw new Error('Listing not found or no longer active');
+  }
+
+  if (listing.sellerId === buyerId) {
+    throw new Error('Cannot buy your own team');
+  }
+
+  const buyerWallet = await prisma.wallet.findUnique({ where: { userId: buyerId } });
+  if (!buyerWallet) {
+    throw new Error('Buyer wallet not found');
+  }
+
+  const price = listing.price;
+  const currency = listing.currency as 'GRID' | 'SOL';
+
+  if (currency === 'GRID' && buyerWallet.gridTokens < price) {
+    throw new Error(`Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+  }
+  if (currency === 'SOL' && buyerWallet.solBalance < price) {
+    throw new Error(`Insufficient SOL. Need ${price.toLocaleString()} SOL`);
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    // Deduct from buyer
+    const updatedBuyerWallet = await tx.wallet.update({
+      where: { userId: buyerId },
+      data: currency === 'GRID'
+        ? { gridTokens: { decrement: price } }
+        : { solBalance: { decrement: price } },
+    });
+
+    await recordCurrencyLedger(tx, {
+      userId: buyerId,
+      currency,
+      amount: -price,
+      balanceAfter: currency === 'GRID' ? updatedBuyerWallet.gridTokens : Math.round(updatedBuyerWallet.solBalance),
+      reason: 'MARKETPLACE_TEAM_PURCHASE',
+      sourceType: 'TEAM_MARKETPLACE',
+      sourceId: listingId,
+      metadata: { teamId: listing.teamId, sellerId: listing.sellerId, price, currency },
+    });
+
+    // Pay seller (80%)
+    if (listing.sellerReceives > 0) {
+      const sellerWallet = await tx.wallet.update({
+        where: { userId: listing.sellerId },
+        data: currency === 'GRID'
+          ? { gridTokens: { increment: listing.sellerReceives } }
+          : { solBalance: { increment: listing.sellerReceives } },
+      });
+
+      await recordCurrencyLedger(tx, {
+        userId: listing.sellerId,
+        currency,
+        amount: listing.sellerReceives,
+        balanceAfter: currency === 'GRID' ? sellerWallet.gridTokens : Math.round(sellerWallet.solBalance),
+        reason: 'MARKETPLACE_TEAM_SALE',
+        sourceType: 'TEAM_MARKETPLACE',
+        sourceId: listingId,
+        metadata: { teamId: listing.teamId, buyerId, price: listing.sellerReceives, currency },
+      });
+    }
+
+    // Foundation tax (15%) → rewards pool if GRID, operations if SOL
+    if (listing.foundationTaxPaid > 0) {
+      if (currency === 'GRID') {
+        await processTreasuryInflow(tx, 'GRID', Math.round(listing.foundationTaxPaid * 0.5), 'TEAM_MARKETPLACE_TAX', listingId);
+        await processBurn(tx, 'GRID', Math.round(listing.foundationTaxPaid * 0.5), 'TEAM_MARKETPLACE_TAX', listingId);
+      }
+      // SOL tax goes to game operations
+    }
+
+    // Burn (5%)
+    if (listing.burnAmount > 0 && currency === 'GRID') {
+      await processBurn(tx, 'GRID', listing.burnAmount, 'TEAM_MARKETPLACE_BURN', listingId);
+    }
+
+    // Transfer team ownership
+    await tx.team.update({
+      where: { id: listing.teamId },
+      data: {
+        ownerId: buyerId,
+        isForSale: false,
+        salePrice: 0,
+        purchasePrice: price,
+        purchaseCurrency: currency,
+        purchasedAt: new Date(),
+      },
+    });
+
+    // Update listing
+    const updatedListing = await tx.teamMarketplaceListing.update({
+      where: { id: listingId },
+      data: { status: 'SOLD', soldAt: new Date() },
+    });
+
+    // Mark buyer as paid if not already
+    await tx.user.update({
+      where: { id: buyerId },
+      data: { hasPaidPurchase: true },
+    });
+
+    return { listing: updatedListing, teamId: listing.teamId, price, currency };
+  });
+}
+
+/**
+ * Cancel a team listing.
+ */
+export async function cancelTeamListing(sellerId: string, listingId: string) {
+  const listing = await prisma.teamMarketplaceListing.findFirst({
+    where: { id: listingId, sellerId, status: 'ACTIVE' },
+  });
+
+  if (!listing) {
+    throw new Error('Listing not found or not active');
+  }
+
+  return prisma.$transaction(async (tx: any) => {
+    await tx.team.update({
+      where: { id: listing.teamId },
+      data: { isForSale: false, salePrice: 0 },
+    });
+
+    return tx.teamMarketplaceListing.update({
+      where: { id: listingId },
+      data: { status: 'CANCELLED' },
+    });
+  });
+}
+
+/**
+ * Get all active team marketplace listings.
+ */
+export async function getTeamMarketplaceListings(filters?: { tier?: string; sportId?: string }) {
+  const where: any = { status: 'ACTIVE' };
+  if (filters?.sportId) where.sportId = filters.sportId;
+
+  const listings = await prisma.teamMarketplaceListing.findMany({
+    where,
+    include: {
+      seller: { select: { id: true, username: true, displayName: true } },
+      team: {
+        select: {
+          id: true,
+          name: true,
+          tier: true,
+          sportId: true,
+          wins: true,
+          losses: true,
+          points: true,
+          teamPlayers: { include: { player: { select: { id: true, name: true, position: true, overall: true } } } },
+          venue: { select: { name: true, capacity: true, tier: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Filter by tier if specified (need to do in JS since team.tier is a relation field)
+  if (filters?.tier) {
+    return listings.filter((l: any) => l.team?.tier === filters.tier);
+  }
+
+  return listings;
+}
+
+/**
+ * Get a single marketplace listing with full details.
+ */
+export async function getTeamMarketplaceListing(listingId: string) {
+  return prisma.teamMarketplaceListing.findUnique({
+    where: { id: listingId },
+    include: {
+      seller: { select: { id: true, username: true, displayName: true } },
+      team: {
+        include: {
+          teamPlayers: { include: { player: true } },
+          venue: true,
+          transportationAssets: true,
+          leagueMemberships: { include: { league: true } },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Get teams listed for sale by a specific user.
+ */
+export async function getUserTeamListings(userId: string) {
+  return prisma.teamMarketplaceListing.findMany({
+    where: { sellerId: userId, status: 'ACTIVE' },
+    include: {
+      team: {
+        select: {
+          id: true,
+          name: true,
+          tier: true,
+          teamPlayers: { include: { player: { select: { name: true, overall: true } } } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}

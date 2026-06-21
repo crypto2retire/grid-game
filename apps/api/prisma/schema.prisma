@@ -26,6 +26,8 @@ model User {
   currencyLedger CurrencyLedger[]
   solanaPurchases SolanaPurchase[]
   userStakes      UserStake[]
+  hasPaidPurchase Boolean @default(false)
+  teamMarketplaceListings TeamMarketplaceListing[]
 
   @@index([email])
   @@index([username])
@@ -209,6 +211,21 @@ model Team {
   ownerId       String
   owner         User     @relation(fields: [ownerId], references: [id])
 
+  // ─── Team Tier & Purchase Info ───
+  tier          String   @default("STATE_COLLEGE") // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
+  isFree        Boolean  @default(false)
+  purchasePrice Int      @default(0)
+  purchaseCurrency String? // GRID | SOL | FREE
+  purchasedAt   DateTime @default(now())
+  seasonsPlayed Int      @default(0)
+  // ─── Marketplace Listing ───
+  isForSale     Boolean  @default(false)
+  salePrice     Int      @default(0)
+  saleCurrency  String   @default("GRID") // GRID | SOL
+  saleListedAt  DateTime?
+  // ─── Original Game Catalog Source ───
+  catalogId     String?
+
   formation     String   @default("4-3-3")
   style         String   @default("balanced")
   pressing      String   @default("medium")
@@ -225,6 +242,7 @@ model Team {
   financeSnapshots TeamFinanceSnapshot[]
   playerTrainings PlayerTraining[]
   teamEquipments TeamEquipment[]
+  teamMarketplaceListings TeamMarketplaceListing[]
 
   wins          Int      @default(0)
   draws         Int      @default(0)
@@ -240,6 +258,8 @@ model Team {
   @@index([ownerId])
   @@index([sportId])
   @@index([sportId, ownerId])
+  @@index([tier])
+  @@index([isForSale])
 }
 
 model Player {
@@ -653,4 +673,65 @@ model SolanaPurchase {
   @@index([userId])
   @@index([type])
   @@index([isInitialSale])
+}
+
+// ─── Team Catalog (Initial Sale from Game) ───
+
+model TeamCatalog {
+  id            String   @id @default(uuid())
+  sportId       String   @default("american-football")
+  name          String
+  description   String   @default("")
+  tier          String   // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
+  // ─── Pricing (Dual: GRID premium, SOL discount) ───
+  gridPrice     Int      @default(0)
+  solPrice      Float    @default(0) // SOL amount
+  // ─── Team Composition ───
+  playerCount   Int      @default(22)
+  minOverall    Int      @default(65)
+  maxOverall    Int      @default(75)
+  // ─── Included Stadium ───
+  stadiumTier   String   @default("PARK_FIELD") // PARK_FIELD | COMMUNITY | SMALL_STADIUM | REGIONAL | PRO | ELITE
+  stadiumCapacity Int    @default(5000)
+  // ─── Requirements ───
+  requiresSeasons Int    @default(0) // Seasons required at previous tier
+  requiresWinPct Float  @default(0.0) // Min win % to advance
+  active        Boolean  @default(true)
+  soldCount     Int      @default(0)
+  maxSupply     Int?     // NULL = unlimited, otherwise limited edition
+  createdAt     DateTime @default(now())
+
+  @@index([sportId, tier])
+  @@index([active])
+}
+
+// ─── Team Marketplace (Player-to-Player) ───
+
+model TeamMarketplaceListing {
+  id          String        @id @default(uuid())
+  sportId     String        @default("american-football")
+  sellerId    String
+  seller      User          @relation(fields: [sellerId], references: [id])
+  teamId      String
+  team        Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  price       Int
+  currency    String        @default("GRID") // GRID | SOL
+  status      TeamListingStatus @default(ACTIVE)
+  foundationTaxPaid Int    @default(0) // 15% of sale price
+  burnAmount  Int          @default(0) // 5% of sale price
+  sellerReceives Int       @default(0) // 80% of sale price
+  createdAt   DateTime    @default(now())
+  soldAt      DateTime?
+
+  @@index([status])
+  @@index([sportId])
+  @@index([sellerId])
+  @@index([teamId])
+}
+
+enum TeamListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
 }
