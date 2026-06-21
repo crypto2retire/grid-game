@@ -7,6 +7,7 @@ import { routeParam } from '../../utils/routeParams';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
 import { getSportConfig, SportId } from '../sports/sports.config';
+import { generateAndCreatePlayerTx } from '../players/player.generator';
 
 const router = Router();
 
@@ -294,6 +295,12 @@ router.post(
           isStarter: input.isStarter,
         },
       });
+
+      // Generate a replacement player to keep the pool at 200
+      await generateAndCreatePlayerTx(tx, {
+        sportId: team.sportId,
+        position: player.position, // Same position as the hired player for balance
+      });
     });
 
     const teamPlayer = await prisma.teamPlayer.findFirst({
@@ -301,7 +308,23 @@ router.post(
       include: { player: true },
     });
 
-    res.status(201).json({ status: 'success', data: teamPlayer });
+    // Get the newly generated replacement player
+    const replacementPlayer = await prisma.player.findFirst({
+      where: {
+        sportId: team.sportId,
+        teamPlayers: { none: {} }, // Not on any team
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        hired: teamPlayer,
+        replacement: replacementPlayer,
+        message: 'Player hired. A new prospect has been added to the pool.',
+      },
+    });
   })
 );
 

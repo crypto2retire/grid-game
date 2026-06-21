@@ -108,13 +108,20 @@ export default function TeamPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setAddSuccess('Player hired successfully!');
-        // Remove hired player and fetch a new random one to replace them
-        setAvailablePlayers((prev) => prev.filter((p) => p.id !== playerId));
-        fetchNewRandomPlayer();
+        const hiredName = data.data?.hired?.player?.name || 'Player';
+        const replacement = data.data?.replacement;
+        setAddSuccess(`${hiredName} hired! A new prospect has been added to the pool.`);
+        // Remove hired player and add the backend-generated replacement
+        setAvailablePlayers((prev) => {
+          const filtered = prev.filter((p) => p.id !== playerId);
+          if (replacement && !filtered.find((p) => p.id === replacement.id)) {
+            return [...filtered, { ...replacement, currentPrice: replacement.overall * 100 }];
+          }
+          return filtered;
+        });
         refreshTeams();
         refreshWallet();
-        setTimeout(() => setAddSuccess(null), 3000);
+        setTimeout(() => setAddSuccess(null), 4000);
       } else {
         setAddError(data.message || 'Failed to hire player');
       }

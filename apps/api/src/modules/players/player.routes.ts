@@ -4,6 +4,7 @@ import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { routeParam } from '../../utils/routeParams';
+import { generateAndCreatePlayer, maintainPlayerPool } from './player.generator';
 
 const router = Router();
 
@@ -124,6 +125,25 @@ router.get(
     }
 
     res.json({ status: 'success', data: { ...player, currentPrice: calculatePlayerPrice(player) } });
+  })
+);
+
+router.post(
+  '/refresh-pool',
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const sportId = (req.query.sportId as string) || 'american-football';
+    const count = await maintainPlayerPool(200);
+    res.json({
+      status: 'success',
+      data: {
+        generated: count,
+        sportId,
+        message: count > 0
+          ? `Generated ${count} new player(s) to maintain the pool.`
+          : 'Pool is already at target size. No new players needed.',
+      },
+    });
   })
 );
 
