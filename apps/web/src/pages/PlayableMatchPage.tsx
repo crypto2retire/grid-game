@@ -338,15 +338,6 @@ export default function PlayableMatchPage() {
   const isUserPossession = gameState?.possessionTeamId === gameState?.userTeamId;
   const userTeam = gameState?.userTeamId === gameState?.homeTeamId ? gameState?.homeTeam : gameState?.awayTeam;
 
-  // ─── Loading ───
-  if (phase === 'LOADING') {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-12 h-12 animate-spin text-accent" />
-      </div>
-    );
-  }
-
   // ─── Error ───
   if (error) {
     return (
@@ -359,6 +350,15 @@ export default function PlayableMatchPage() {
             Back to Matches
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ─── Loading ───
+  if (phase === 'LOADING') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-12 h-12 animate-spin text-[#E94560]" />
       </div>
     );
   }
@@ -659,7 +659,7 @@ export default function PlayableMatchPage() {
         {/* AI Turn / Sim Options */}
         {phase === 'PLAYING' && !isUserTurn && (
           <div className="glass-card p-6 text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-accent mx-auto mb-3" />
+            <Loader2 className="w-8 h-8 animate-spin text-[#E94560] mx-auto mb-3" />
             <p className="text-white font-medium">Opponent is calling a play...</p>
             <button
               onClick={simRemainder}
@@ -773,5 +773,17 @@ export default function PlayableMatchPage() {
     );
   }
 
-  return null;
+  // Fallback - should never reach here
+  return (
+    <div className="p-6">
+      <div className="glass-card p-6 text-center">
+        <Zap className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground mb-4">Phase: {phase}</p>
+        <button onClick={() => navigate('/matches')} className="btn-primary px-4 py-2 rounded-lg">
+          Back to Matches
+        </button>
+      </div>
+    </div>
+  );
 }
