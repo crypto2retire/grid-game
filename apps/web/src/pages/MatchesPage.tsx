@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Swords, Calendar, ArrowRight, AlertCircle, Trophy, Clock } from 'lucide-react';
+import {
+  Swords,
+  Calendar,
+  ArrowRight,
+  AlertCircle,
+  Trophy,
+  Clock,
+  Users,
+  Bot,
+  Star,
+  Shield,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
 
 interface Match {
@@ -17,6 +31,36 @@ interface Match {
 interface Team {
   id: string;
   name: string;
+  tier: string;
+}
+
+interface LiveOpponent {
+  id: string;
+  name: string;
+  tier: string;
+  owner: { username: string; displayName: string | null };
+  wins: number;
+  losses: number;
+  overall: number;
+}
+
+interface AIOpponent {
+  id: string;
+  name: string;
+  tier: string;
+  aiDifficulty: string;
+  aiStrategy: string;
+  wins: number;
+  losses: number;
+  overall: number;
+  purchasePrice: number;
+  purchaseCurrency: string;
+}
+
+interface MatchmakingData {
+  userTeam: { id: string; name: string; tier: string; wins: number; losses: number };
+  liveOpponents: LiveOpponent[];
+  aiOpponents: AIOpponent[];
 }
 
 export default function MatchesPage() {
@@ -25,11 +69,14 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedHomeTeam, setSelectedHomeTeam] = useState('');
-  const [selectedAwayTeam, setSelectedAwayTeam] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [matchmaking, setMatchmaking] = useState<MatchmakingData | null>(null);
+  const [matchmakingLoading, setMatchmakingLoading] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null);
+  const [showLive, setShowLive] = useState(true);
+  const [showAI, setShowAI] = useState(true);
 
   useEffect(() => {
     fetchMatches();
@@ -61,53 +108,94 @@ export default function MatchesPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTeams((data.data || []).filter((team: any) => (team.sportId || 'american-football') === activeSportId));
+        const userTeams = (data.data || []).filter((team: any) => (team.sportId || 'american-football') === activeSportId);
+        setTeams(userTeams);
+        if (userTeams.length === 1) {
+          setSelectedTeam(userTeams[0].id);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
     }
   };
 
-  const scheduleMatch = async () => {
-    if (!selectedHomeTeam || !selectedAwayTeam) {
-      setScheduleError('Select both teams');
+  const findOpponents = async () => {
+    if (!selectedTeam) {
+      setScheduleError('Select a team first');
       return;
     }
-    if (selectedHomeTeam === selectedAwayTeam) {
-      setScheduleError('Cannot schedule a game against yourself');
-      return;
+    setScheduleError(null);
+    setScheduleSuccess(null);
+    setMatchmakingLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/ai-teams/matchmaking/${selectedTeam}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMatchmaking(data.data);
+      } else {
+        const data = await res.json();
+        setScheduleError(data.message || 'Failed to find opponents');
+      }
+    } catch (err) {
+      console.error('Failed to find opponents:', err);
+      setScheduleError('Network error');
+    } finally {
+      setMatchmakingLoading(false);
     }
+  };
 
+  const scheduleLive = async (opponentId: string) => {
     setScheduleError(null);
     setScheduleSuccess(null);
     setScheduling(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/matches', {
+      const res = await fetch('/api/ai-teams/schedule/live', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          homeTeamId: selectedHomeTeam,
-          awayTeamId: selectedAwayTeam,
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ homeTeamId: selectedTeam, awayTeamId: opponentId }),
       });
-
       const data = await res.json();
       if (res.ok) {
-        setScheduleSuccess('Match scheduled!');
-        setSelectedHomeTeam('');
-        setSelectedAwayTeam('');
+        setScheduleSuccess('Match scheduled vs live opponent!');
         fetchMatches();
+        setMatchmaking(null);
         setTimeout(() => setScheduleSuccess(null), 3000);
       } else {
-        setScheduleError(data.message || 'Failed to schedule match');
+        setScheduleError(data.message || 'Failed to schedule');
       }
     } catch (err) {
-      console.error('Failed to schedule match:', err);
-      setScheduleError('Network error. Please try again.');
+      setScheduleError('Network error');
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const scheduleAI = async (opponentId: string) => {
+    setScheduleError(null);
+    setScheduleSuccess(null);
+    setScheduling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/ai-teams/schedule/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userTeamId: selectedTeam, aiTeamId: opponentId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setScheduleSuccess('Match scheduled vs AI opponent!');
+        fetchMatches();
+        setMatchmaking(null);
+        setTimeout(() => setScheduleSuccess(null), 3000);
+      } else {
+        setScheduleError(data.message || 'Failed to schedule');
+      }
+    } catch (err) {
+      setScheduleError('Network error');
     } finally {
       setScheduling(false);
     }
@@ -124,6 +212,18 @@ export default function MatchesPage() {
       default:
         return <span className="px-2 py-1 rounded text-xs bg-gray-400/10 text-gray-400">{status}</span>;
     }
+  };
+
+  const getDifficultyColor = (diff: string) => {
+    if (diff === 'rookie') return 'text-green-400';
+    if (diff === 'veteran') return 'text-blue-400';
+    if (diff === 'elite') return 'text-purple-400';
+    return 'text-red-400';
+  };
+
+  const getDifficultyStars = (diff: string) => {
+    const stars = { rookie: 1, veteran: 2, elite: 3, legend: 4 };
+    return stars[diff as keyof typeof stars] || 1;
   };
 
   if (loading) {
@@ -166,12 +266,12 @@ export default function MatchesPage() {
           Schedule New Game
         </h2>
 
-        {teams.length < 2 ? (
+        {teams.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-border rounded-xl">
             <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-white font-medium mb-1">Need more teams</p>
+            <p className="text-white font-medium mb-1">No teams yet</p>
             <p className="text-muted-foreground text-sm mb-4">
-              Create at least 2 teams in this sport to schedule a game
+              Create a team to start playing
             </p>
             <button
               onClick={() => navigate('/team')}
@@ -181,12 +281,12 @@ export default function MatchesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Home Team</label>
+              <label className="text-sm text-muted-foreground mb-1 block">Select Your Team</label>
               <select
-                value={selectedHomeTeam}
-                onChange={(e) => setSelectedHomeTeam(e.target.value)}
+                value={selectedTeam}
+                onChange={(e) => { setSelectedTeam(e.target.value); setMatchmaking(null); }}
                 className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 <option value="">Select team...</option>
@@ -195,27 +295,133 @@ export default function MatchesPage() {
                 ))}
               </select>
             </div>
+
+            <button
+              onClick={findOpponents}
+              disabled={matchmakingLoading || !selectedTeam}
+              className="w-full px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 disabled:opacity-50"
+            >
+              {matchmakingLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Finding opponents...
+                </span>
+              ) : (
+                'Find Opponents'
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Matchmaking Results */}
+        {matchmaking && (
+          <div className="mt-6 space-y-4">
+            {/* Live Opponents */}
             <div>
-              <label className="text-sm text-muted-foreground mb-1 block">Away Team</label>
-              <select
-                value={selectedAwayTeam}
-                onChange={(e) => setSelectedAwayTeam(e.target.value)}
-                className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="">Select team...</option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="sm:col-span-2">
               <button
-                onClick={scheduleMatch}
-                disabled={scheduling || !selectedHomeTeam || !selectedAwayTeam}
-                className="w-full px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 disabled:opacity-50"
+                onClick={() => setShowLive(!showLive)}
+                className="flex items-center justify-between w-full p-3 bg-secondary/50 rounded-lg"
               >
-                {scheduling ? 'Scheduling...' : 'Schedule Game'}
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-green-400" />
+                  <span className="font-semibold text-white">Live Players</span>
+                  <span className="text-sm text-muted-foreground">({matchmaking.liveOpponents.length})</span>
+                </div>
+                {showLive ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </button>
+
+              {showLive && (
+                <div className="mt-2 space-y-2">
+                  {matchmaking.liveOpponents.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No live players available in your tier. Try an AI opponent below.
+                    </div>
+                  ) : (
+                    matchmaking.liveOpponents.map((opp) => (
+                      <div key={opp.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Shield className="w-8 h-8 text-blue-400" />
+                          <div>
+                            <div className="font-medium text-white">{opp.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Owner: {opp.owner.displayName || opp.owner.username} • {opp.wins}-{opp.losses}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-white">OVR {opp.overall}</div>
+                          </div>
+                          <button
+                            onClick={() => scheduleLive(opp.id)}
+                            disabled={scheduling}
+                            className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Challenge
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* AI Opponents */}
+            <div>
+              <button
+                onClick={() => setShowAI(!showAI)}
+                className="flex items-center justify-between w-full p-3 bg-secondary/50 rounded-lg"
+              >
+                <div className="flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-purple-400" />
+                  <span className="font-semibold text-white">AI Opponents</span>
+                  <span className="text-sm text-muted-foreground">({matchmaking.aiOpponents.length})</span>
+                </div>
+                {showAI ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </button>
+
+              {showAI && (
+                <div className="mt-2 space-y-2">
+                  {matchmaking.aiOpponents.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No AI opponents available right now.
+                    </div>
+                  ) : (
+                    matchmaking.aiOpponents.map((opp) => (
+                      <div key={opp.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Bot className="w-8 h-8 text-purple-400" />
+                          <div>
+                            <div className="font-medium text-white">{opp.name}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <span className={getDifficultyColor(opp.aiDifficulty)}>
+                                {Array.from({ length: getDifficultyStars(opp.aiDifficulty) }).map((_, i) => (
+                                  <Star key={i} className="w-3 h-3 inline" />
+                                ))} {opp.aiDifficulty}
+                              </span>
+                              <span>• {opp.aiStrategy}</span>
+                              <span>• {opp.wins}-{opp.losses}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-white">OVR {opp.overall}</div>
+                            <div className="text-xs text-muted-foreground">{opp.purchasePrice.toLocaleString()} {opp.purchaseCurrency}</div>
+                          </div>
+                          <button
+                            onClick={() => scheduleAI(opp.id)}
+                            disabled={scheduling}
+                            className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Play
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
