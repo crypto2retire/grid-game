@@ -717,9 +717,10 @@ model TeamMarketplaceListing {
   price       Int
   currency    String        @default("GRID") // GRID | SOL
   status      TeamListingStatus @default(ACTIVE)
-  foundationTaxPaid Int    @default(0) // 15% of sale price
-  burnAmount  Int          @default(0) // 5% of sale price
-  sellerReceives Int       @default(0) // 80% of sale price
+  foundationTaxPaid Int    @default(0)
+  burnAmount  Int          @default(0)
+  sellerReceives Int       @default(0)
+  daysHeld    Int          @default(0) // days seller owned the team before listing
   createdAt   DateTime    @default(now())
   soldAt      DateTime?
 

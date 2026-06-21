@@ -4,6 +4,7 @@ import {
   Coins,
   Zap,
   Loader2,
+  Clock,
 } from 'lucide-react';
 
 interface MarketplaceListing {
@@ -13,6 +14,8 @@ interface MarketplaceListing {
   foundationTaxPaid: number;
   burnAmount: number;
   sellerReceives: number;
+  daysHeld: number;
+  taxTier: string;
   createdAt: string;
   seller: { id: string; username: string; displayName: string | null };
   team: {
@@ -252,11 +255,26 @@ export default function TeamMarketplacePage() {
                   </div>
                 )}
 
-                {/* Tax Breakdown */}
+                {/* Hold Time & Tax Breakdown */}
                 <div className="bg-secondary/30 p-3 rounded-lg mb-3 text-xs">
-                  <div className="text-muted-foreground mb-1">Fee Breakdown:</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span>Held for {listing.daysHeld} days</span>
+                    </div>
+                    <span className={`font-medium ${
+                      listing.daysHeld <= 30 ? 'text-red-400' :
+                      listing.daysHeld <= 60 ? 'text-orange-400' :
+                      listing.daysHeld <= 90 ? 'text-yellow-400' :
+                      'text-green-400'
+                    }`}>
+                      {listing.taxTier}
+                    </span>
+                  </div>
                   <div className="flex justify-between">
-                    <span className="text-red-400">Foundation Tax (15%): {listing.foundationTaxPaid.toLocaleString()}</span>
+                    <span className="text-red-400">
+                      Foundation Tax ({Math.round((listing.foundationTaxPaid / listing.price) * 100)}%): {listing.foundationTaxPaid.toLocaleString()}
+                    </span>
                     <span className="text-orange-400">Burn (5%): {listing.burnAmount.toLocaleString()}</span>
                   </div>
                   <div className="text-green-400 mt-1">

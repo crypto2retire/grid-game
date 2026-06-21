@@ -2,14 +2,34 @@ import { prisma } from '../../config/database';
 import { recordCurrencyLedger } from '../economy/ledger';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
 
-const FOUNDATION_TAX_PCT = 0.15; // 15% to game
-const BURN_PCT = 0.05; // 5% burned
-const SELLER_PCT = 0.80; // 80% to seller
-
+const BURN_PCT = 0.05; // 5% burned (static)
 const COOLDOWN_DAYS = 90; // 90-day price floor after initial purchase
 
 /**
+ * Calculate foundation tax rate based on days held.
+ * Decreasing tax rewards long-term holders, punishes flippers.
+ * 0-30 days: 15% | 31-60 days: 12% | 61-90 days: 8% | 90+ days: 5%
+ */
+export function getFoundationTaxRate(daysHeld: number): number {
+  if (daysHeld <= 30) return 0.15;
+  if (daysHeld <= 60) return 0.12;
+  if (daysHeld <= 90) return 0.08;
+  return 0.05;
+}
+
+/**
+ * Get a human-readable tax tier label.
+ */
+export function getTaxTierLabel(daysHeld: number): string {
+  if (daysHeld <= 30) return 'Short-term Flip';
+  if (daysHeld <= 60) return 'Early Seller';
+  if (daysHeld <= 90) return 'Hodler';
+  return 'Diamond Hands';
+}
+
+/**
  * List a team for sale on the marketplace.
+ * Tax is calculated dynamically based on how long the seller has held the team.
  */
 export async function listTeamForSale(
   sellerId: string,
@@ -33,9 +53,13 @@ export async function listTeamForSale(
     throw new Error('Team is already listed for sale');
   }
 
+  // Calculate how long the seller has held this team
+  const daysHeld = Math.floor(
+    (new Date().getTime() - new Date(team.purchasedAt).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
   // Check 90-day price floor (only for initial sale from game)
-  const daysSincePurchase =
-    (new Date().getTime() - new Date(team.purchasedAt).getTime()) / (1000 * 60 * 60 * 24);
+  const daysSincePurchase = daysHeld;
   if (daysSincePurchase < COOLDOWN_DAYS && team.purchasePrice > 0) {
     const minPrice = Math.floor(team.purchasePrice * 0.75);
     if (price < minPrice) {
@@ -44,6 +68,12 @@ export async function listTeamForSale(
       );
     }
   }
+
+  // Dynamic tax calculation based on hold time
+  const taxRate = getFoundationTaxRate(daysHeld);
+  const foundationTax = Math.floor(price * taxRate);
+  const burnAmount = Math.floor(price * BURN_PCT);
+  const sellerReceives = price - foundationTax - burnAmount;
 
   return prisma.$transaction(async (tx: any) => {
     // Mark team as for sale
@@ -57,11 +87,6 @@ export async function listTeamForSale(
       },
     });
 
-    // Create marketplace listing
-    const foundationTax = Math.floor(price * FOUNDATION_TAX_PCT);
-    const burnAmount = Math.floor(price * BURN_PCT);
-    const sellerReceives = Math.floor(price * SELLER_PCT);
-
     const listing = await tx.teamMarketplaceListing.create({
       data: {
         sellerId,
@@ -71,11 +96,20 @@ export async function listTeamForSale(
         foundationTaxPaid: foundationTax,
         burnAmount,
         sellerReceives,
+        daysHeld,
         status: 'ACTIVE',
       },
     });
 
-    return { listing, foundationTax, burnAmount, sellerReceives };
+    return {
+      listing,
+      daysHeld,
+      taxRate: parseFloat((taxRate * 100).toFixed(1)),
+      taxTier: getTaxTierLabel(daysHeld),
+      foundationTax,
+      burnAmount,
+      sellerReceives,
+    };
   });
 }
 
