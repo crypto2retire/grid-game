@@ -24,6 +24,7 @@ model User {
   matchParticipants   MatchParticipant[]
   offers        MarketplaceOffer[]
   currencyLedger CurrencyLedger[]
+  solanaPurchases SolanaPurchase[]
 
   @@index([email])
   @@index([username])
@@ -35,6 +36,7 @@ model Wallet {
   user          User     @relation(fields: [userId], references: [id])
   cash          Int      @default(50000)
   gridTokens    Int      @default(0)
+  solBalance    Float    @default(0) // SOL balance for whale purchases
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -174,6 +176,8 @@ model Team {
   transportationAssets TransportationAsset[]
   sponsorships Sponsorship[]
   financeSnapshots TeamFinanceSnapshot[]
+  playerTrainings PlayerTraining[]
+  teamEquipments TeamEquipment[]
 
   wins          Int      @default(0)
   draws         Int      @default(0)
@@ -224,6 +228,7 @@ model Player {
   matchStats    PlayerMatchStats[]
   seasonStats   PlayerSeasonStats[]
   marketplaceListings MarketplaceListing[]
+  playerTrainings PlayerTraining[]
 
   createdAt     DateTime @default(now())
 
@@ -467,4 +472,138 @@ enum ListingStatus {
   SOLD
   CANCELLED
   EXPIRED
+}
+
+// ─── Training System ───
+
+model TrainingPackage {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  focusType   String   // POSITION_GROUP | INDIVIDUAL | OFFENSE | DEFENSE | ALL
+  targetPosition String? // For POSITION_GROUP focus (QB, RB, etc.)
+  durationDays Int     @default(7)
+  costGrid    Int      @default(0)
+  costCash    Int      @default(0)
+  statBoosts  Json     @default("{}")
+  maxUsesPerPlayer Int @default(3)
+  cooldownHours Int   @default(24)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  trainings   PlayerTraining[]
+
+  @@index([focusType])
+  @@index([active])
+}
+
+model PlayerTraining {
+  id                String   @id @default(uuid())
+  playerId          String
+  player            Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  teamId            String
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  trainingPackageId String
+  trainingPackage   TrainingPackage @relation(fields: [trainingPackageId], references: [id], onDelete: Cascade)
+  status            String   @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  startedAt         DateTime @default(now())
+  completedAt     DateTime?
+  statImprovements  Json     @default("{}")
+  costGrid          Int      @default(0)
+  costCash          Int      @default(0)
+
+  @@index([playerId])
+  @@index([teamId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+// ─── Equipment System ───
+
+model EquipmentType {
+  id          String   @id @default(uuid())
+  name        String
+  category    String   // TRAINING | FACILITY | MEDICAL | ANALYSIS
+  tier        Int      @default(1)
+  description String
+  baseCostGrid Int     @default(0)
+  baseCostCash Int     @default(0)
+  effects     Json     @default("{}")
+  upgradeFromId String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  teamEquipments TeamEquipment[]
+
+  @@index([category])
+  @@index([tier])
+  @@index([active])
+}
+
+model TeamEquipment {
+  id              String   @id @default(uuid())
+  teamId          String
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  equipmentTypeId String
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id], onDelete: Cascade)
+  level           Int      @default(1)
+  purchasedAt     DateTime @default(now())
+  activeEffects   Json     @default("{}")
+
+  @@index([teamId])
+  @@index([equipmentTypeId])
+}
+
+// ─── Treasury & Burn System ───
+
+model GameTreasury {
+  id            String   @id @default(uuid())
+  currency      String   // GRID | CASH | SOL
+  balance       Int      @default(0)
+  totalInflows  Int      @default(0)
+  totalOutflows Int      @default(0)
+  totalBurned   Int      @default(0)
+  lastUpdatedAt DateTime @updatedAt
+
+  transactions  TreasuryTransaction[]
+
+  @@index([currency])
+}
+
+model TreasuryTransaction {
+  id            String   @id @default(uuid())
+  treasuryId    String
+  treasury      GameTreasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+  type          String   // INFLOW | OUTFLOW | BURN
+  amount        Int
+  currency      String
+  reason        String
+  sourceType    String?
+  sourceId      String?
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([treasuryId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ─── Solana Whale Purchase System ───
+
+model SolanaPurchase {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String   // TEAM | STADIUM | FACILITY | EQUIPMENT | TRANSPORT
+  itemId          String
+  itemName        String
+  purchasePriceSol Float   @default(0)
+  isInitialSale   Boolean  @default(true)
+  resaleTaxPaid   Float    @default(0)
+  sellerId        String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([isInitialSale])
 }

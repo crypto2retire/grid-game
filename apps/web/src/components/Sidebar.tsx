@@ -10,6 +10,8 @@ import {
   Wallet,
   Home,
   Handshake,
+  Dumbbell,
+  Wrench,
 } from 'lucide-react';
 
 const navItems = [
@@ -20,6 +22,8 @@ const navItems = [
   { path: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
   { path: '/assets', label: 'Assets', icon: Home },
   { path: '/sponsorships', label: 'Sponsorships', icon: Handshake },
+  { path: '/training', label: 'Training', icon: Dumbbell },
+  { path: '/equipment', label: 'Equipment', icon: Wrench },
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/wallet', label: 'Wallet', icon: Wallet },
