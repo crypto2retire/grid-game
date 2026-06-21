@@ -20,6 +20,8 @@ import { economyRouter } from './modules/economy/economy.routes';
 import { leaderboardRouter } from './modules/leaderboard/leaderboard.routes';
 import { marketplaceRouter } from './modules/economy/marketplace.routes';
 import { sportsRouter } from './modules/sports/sports.routes';
+import { sponsorshipRouter } from './modules/sponsorships/sponsorship.routes';
+import { promotionRouter } from './modules/promotion/promotion.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 
 const app = express();
@@ -75,6 +77,8 @@ app.use('/api/economy', economyRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/sports', sportsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
+app.use('/api/sponsorships', sponsorshipRouter);
+app.use('/api/promotion', promotionRouter);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {

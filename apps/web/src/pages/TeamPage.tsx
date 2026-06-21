@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight } from 'lucide-react';
+import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight, Award } from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
 
 const FOOTBALL_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
@@ -36,6 +36,10 @@ export default function TeamPage() {
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
+  const [promotionData, setPromotionData] = useState<any>(null);
+  const [promotionLoading, setPromotionLoading] = useState(false);
+  const [promotionMessage, setPromotionMessage] = useState<string | null>(null);
+
   // Load data on mount if not already loaded
   useEffect(() => {
     if (teams.length === 0 && !teamsLoading) {
@@ -45,6 +49,58 @@ export default function TeamPage() {
       refreshWallet();
     }
   }, []);
+
+  useEffect(() => {
+    if (selectedTeam) {
+      loadPromotionData();
+    }
+  }, [selectedTeam?.id]);
+
+  const loadPromotionData = async () => {
+    if (!selectedTeam) return;
+    setPromotionLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/teams/${selectedTeam.id}/promotion-eligibility`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPromotionData(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load promotion data:', err);
+    } finally {
+      setPromotionLoading(false);
+    }
+  };
+
+  const promoteTeam = async () => {
+    if (!selectedTeam) return;
+    setPromotionLoading(true);
+    setPromotionMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/teams/${selectedTeam.id}/promote`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.data?.newTier) {
+        setPromotionMessage(`Promoted to ${data.data.newTier.replace(/_/g, ' ')}!`);
+        refreshTeams();
+        loadPromotionData();
+      } else {
+        setPromotionMessage(data.message || 'Promotion failed');
+      }
+    } catch (err) {
+      console.error('Failed to promote team:', err);
+      setPromotionMessage('Network error');
+    } finally {
+      setPromotionLoading(false);
+      setTimeout(() => setPromotionMessage(null), 5000);
+    }
+  };
 
   const createTeam = async () => {
     if (!newTeamName.trim()) return;
@@ -130,25 +186,6 @@ export default function TeamPage() {
       setAddError('Network error. Please try again.');
     } finally {
       setAddingPlayer(null);
-    }
-  };
-
-  const fetchNewRandomPlayer = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      // Fetch a single random player not already in the available list
-      const res = await fetch(`/api/players?limit=1&random=true&sportId=${activeSportId}`,  {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const newPlayers = data.data?.players || [];
-        if (newPlayers.length > 0) {
-          setAvailablePlayers((prev) => [...prev, ...newPlayers]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch new random player:', err);
     }
   };
 
@@ -354,6 +391,77 @@ export default function TeamPage() {
                     <span className="text-sm font-bold text-white">{selectedTeam.teamPlayers?.length || 0}/25</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Promotion Card */}
+            {selectedTeam && (
+              <div className="glass-card p-4">
+                <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">League Promotion</h3>
+                {promotionLoading && !promotionData ? (
+                  <div className="animate-pulse h-16 bg-white/5 rounded-lg" />
+                ) : promotionData ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/40">Current Tier</span>
+                      <span className="text-sm font-bold text-white">{promotionData.currentTier.replace(/_/g, ' ')}</span>
+                    </div>
+                    {promotionData.nextTier ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-white/40">Next Tier</span>
+                          <span className="text-sm font-bold text-[#E94560]">{promotionData.nextTier.replace(/_/g, ' ')}</span>
+                        </div>
+                        <div className="w-full bg-white/5 rounded-full h-2 mt-2">
+                          <div
+                            className="bg-gradient-to-r from-[#E94560] to-[#FF6B6B] h-2 rounded-full transition-all"
+                            style={{ width: `${promotionData.progress}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-white/30 text-center">{promotionData.progress}% to promotion</div>
+
+                        {/* Requirements checklist */}
+                        <div className="space-y-1 mt-2">
+                          {Object.entries(promotionData.checks || {}).map(([key, check]: [string, any]) => (
+                            <div key={key} className="flex items-center justify-between text-xs">
+                              <span className={check.met ? 'text-white/40' : 'text-red-300'}>
+                                {key === 'teamOverall' ? 'Team OVR' : key.charAt(0).toUpperCase() + key.slice(1)}
+                              </span>
+                              <span className={check.met ? 'text-emerald-400' : 'text-red-400'}>
+                                {check.met ? '✓' : '✗'} {check.value}/{check.required}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {promotionData.eligible ? (
+                          <button
+                            onClick={promoteTeam}
+                            disabled={promotionLoading}
+                            className="w-full mt-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-400 text-white rounded-xl font-bold text-sm hover:shadow-glow transition-shadow disabled:opacity-50"
+                          >
+                            <Award className="w-4 h-4 inline mr-1" />
+                            Promote Team
+                          </button>
+                        ) : (
+                          <div className="text-xs text-white/30 mt-2 text-center">
+                            Complete all requirements to promote
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-2">
+                        <div className="text-lg font-black text-[#FFD700]">PRO</div>
+                        <div className="text-xs text-white/30">Maximum tier reached</div>
+                      </div>
+                    )}
+                    {promotionMessage && (
+                      <div className={`text-xs text-center mt-2 ${promotionMessage.includes('Promoted') ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {promotionMessage}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

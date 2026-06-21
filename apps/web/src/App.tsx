@@ -15,6 +15,7 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import WalletPage from './pages/WalletPage';
 import SportsEconomyPage from './pages/SportsEconomyPage';
 import AssetsPage from './pages/AssetsPage';
+import SponsorshipsPage from './pages/SponsorshipsPage';
 
 function App() {
   const { checkAuth } = useAuthStore();
@@ -38,6 +39,7 @@ function App() {
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/sports-economy" element={<SportsEconomyPage />} />
         <Route path="/assets" element={<AssetsPage />} />
+        <Route path="/sponsorships" element={<SponsorshipsPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/wallet" element={<WalletPage />} />
       </Route>

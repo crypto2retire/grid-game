@@ -9,6 +9,7 @@ import {
   Rocket,
   Wallet,
   Home,
+  Handshake,
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { path: '/matches', label: 'Games', icon: Swords },
   { path: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
   { path: '/assets', label: 'Assets', icon: Home },
+  { path: '/sponsorships', label: 'Sponsorships', icon: Handshake },
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/wallet', label: 'Wallet', icon: Wallet },
