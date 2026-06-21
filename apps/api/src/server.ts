@@ -30,6 +30,7 @@ import { stakingRouter } from './modules/staking/staking.routes';
 import { teamCatalogRouter } from './modules/team-catalog/team-catalog.routes';
 import { teamMarketplaceRouter } from './modules/team-marketplace/team-marketplace.routes';
 import { playGameRouter } from './modules/play-game/play-game.routes';
+import { aiTeamsRouter } from './modules/ai-teams/ai-teams.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 
 const app = express();
@@ -95,6 +96,7 @@ app.use('/api/staking', stakingRouter);
 app.use('/api/teams/catalog', teamCatalogRouter);
 app.use('/api/team-marketplace', teamMarketplaceRouter);
 app.use('/api/play-game', playGameRouter);
+app.use('/api/ai-teams', aiTeamsRouter);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {
@@ -155,7 +157,13 @@ const startServer = async () => {
               console.log('Database empty, seeding players...');
               exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
                 if (seedErr) console.error('Seed error:', seedErr.message);
-                else console.log('Seeded:', seedOut?.trim() || 'OK');
+                else {
+                  console.log('Seeded:', seedOut?.trim() || 'OK');
+                  // Generate AI teams after seed
+                  import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
+                    generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                  });
+                }
               });
             } else {
               const footballPositions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'OL', 'OL', 'OL', 'DL', 'DL', 'LB', 'LB', 'CB', 'CB', 'S', 'K'];
@@ -171,8 +179,16 @@ const startServer = async () => {
                     })
                   ));
                   console.log('American football position conversion complete');
+                  // Generate AI teams after conversion
+                  import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
+                    generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                  });
                 } else {
                   console.log(`Database ready (${count} players)`);
+                  // Generate AI teams
+                  import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
+                    generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                  });
                 }
               }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
             }

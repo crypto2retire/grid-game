@@ -223,6 +223,11 @@ model Team {
   salePrice     Int      @default(0)
   saleCurrency  String   @default("GRID") // GRID | SOL
   saleListedAt  DateTime?
+  // ─── AI Team Fields ───
+  isAI          Boolean  @default(false)
+  aiDifficulty  String   @default("rookie") // rookie | veteran | elite | legend
+  aiStrategy    String   @default("balanced") // balanced | runHeavy | passHeavy | aggressive | conservative
+
   // ─── Original Game Catalog Source ───
   catalogId     String?
 
@@ -259,6 +264,7 @@ model Team {
   @@index([sportId])
   @@index([sportId, ownerId])
   @@index([tier])
+  @@index([isAI])
   @@index([isForSale])
 }
 
