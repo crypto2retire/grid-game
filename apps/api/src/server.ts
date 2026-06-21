@@ -26,6 +26,7 @@ import { trainingRouter } from './modules/training/training.routes';
 import { equipmentRouter } from './modules/equipment/equipment.routes';
 import { treasuryRouter } from './modules/treasury/treasury.routes';
 import { solanaRouter } from './modules/solana/solana.routes';
+import { stakingRouter } from './modules/staking/staking.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 
 const app = express();
@@ -87,6 +88,7 @@ app.use('/api/training', trainingRouter);
 app.use('/api/equipment', equipmentRouter);
 app.use('/api/treasury', treasuryRouter);
 app.use('/api/solana', solanaRouter);
+app.use('/api/staking', stakingRouter);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {

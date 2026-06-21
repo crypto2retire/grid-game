@@ -25,9 +25,56 @@ model User {
   offers        MarketplaceOffer[]
   currencyLedger CurrencyLedger[]
   solanaPurchases SolanaPurchase[]
+  userStakes      UserStake[]
 
   @@index([email])
   @@index([username])
+}
+// ─── Rewards Pool System ───
+
+model RewardsPool {
+  id                    String   @id @default("main")
+  totalStaked           Int      @default(0)
+  rewardRatePerDay      Float    @default(0.005) // 0.5% daily base rate
+  totalRewardsDistributed Int    @default(0)
+  totalRewardsFunded    Int      @default(0)
+  lastDistributionAt    DateTime @default(now())
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  userStakes            UserStake[]
+  rewardDistributions   RewardDistribution[]
+}
+
+model UserStake {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  poolId            String   @default("main")
+  pool              RewardsPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  amount            Int
+  stakedAt          DateTime @default(now())
+  lastClaimedAt     DateTime @default(now())
+  totalClaimed      Int      @default(0)
+  status            String   @default("ACTIVE") // ACTIVE | UNSTAKING
+  unstakeRequestedAt DateTime?
+
+  @@index([userId])
+  @@index([poolId])
+  @@index([status])
+}
+
+model RewardDistribution {
+  id            String   @id @default(uuid())
+  poolId        String   @default("main")
+  pool          RewardsPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  amount        Int
+  reason        String   @default("DAILY_REWARD")
+  distributedAt DateTime @default(now())
+
+  @@index([poolId])
+  @@index([distributedAt])
 }
 
 model Wallet {

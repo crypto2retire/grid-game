@@ -18,6 +18,7 @@ import AssetsPage from './pages/AssetsPage';
 import SponsorshipsPage from './pages/SponsorshipsPage';
 import TrainingPage from './pages/TrainingPage';
 import EquipmentPage from './pages/EquipmentPage';
+import StakingPage from './pages/StakingPage';
 
 function App() {
   const { checkAuth } = useAuthStore();
@@ -44,6 +45,7 @@ function App() {
         <Route path="/sponsorships" element={<SponsorshipsPage />} />
         <Route path="/training" element={<TrainingPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
+        <Route path="/staking" element={<StakingPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/wallet" element={<WalletPage />} />
       </Route>

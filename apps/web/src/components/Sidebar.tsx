@@ -12,6 +12,7 @@ import {
   Handshake,
   Dumbbell,
   Wrench,
+  PiggyBank,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +25,7 @@ const navItems = [
   { path: '/sponsorships', label: 'Sponsorships', icon: Handshake },
   { path: '/training', label: 'Training', icon: Dumbbell },
   { path: '/equipment', label: 'Equipment', icon: Wrench },
+  { path: '/staking', label: 'Staking', icon: PiggyBank },
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/wallet', label: 'Wallet', icon: Wallet },
