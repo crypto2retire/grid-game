@@ -115,7 +115,8 @@ function getQuarterLabel(q: number): string {
 }
 
 export default function PlayableMatchPage() {
-  const { matchId } = useParams<{ matchId: string }>();
+  const { id } = useParams<{ id: string }>();
+  const matchId = id;
   const navigate = useNavigate();
   const [phase, setPhase] = useState<'LOADING' | 'INIT' | 'PREGAME' | 'PLAYING' | 'RESULT' | 'POSTGAME'>('LOADING');
   const [gameState, setGameState] = useState<GameState | null>(null);
