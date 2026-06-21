@@ -4,7 +4,7 @@ import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { routeParam } from '../../utils/routeParams';
-import { generateAndCreatePlayer, maintainPlayerPool } from './player.generator';
+import { maintainPlayerPool } from './player.generator';
 
 const router = Router();
 

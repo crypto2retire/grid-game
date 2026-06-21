@@ -13,7 +13,7 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const authMiddleware = async (req: AuthRequest, _res: Response, next: NextFunction): Promise<void> => {
+export const authMiddleware = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
 
@@ -37,7 +37,7 @@ export const authMiddleware = async (req: AuthRequest, _res: Response, next: Nex
       throw new AppError(401, 'User not found');
     }
 
-    req.user = user;
+    (req as AuthRequest).user = user;
     next();
   } catch (error) {
     if (error instanceof AppError) {
@@ -49,11 +49,12 @@ export const authMiddleware = async (req: AuthRequest, _res: Response, next: Nex
 };
 
 export const requireRole = (...roles: string[]) => {
-  return (req: AuthRequest, _res: Response, next: NextFunction): void => {
-    if (!req.user) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
       throw new AppError(401, 'Authentication required');
     }
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(authReq.user.role)) {
       throw new AppError(403, 'Insufficient permissions');
     }
     next();

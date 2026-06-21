@@ -73,7 +73,6 @@ export function generatePlayerData(options: GeneratePlayerOptions = {}) {
   const position = options.position || footballPositions[randomInt(0, footballPositions.length - 1)];
   const rarity = getRarity();
   const range = getAttributeRange(rarity);
-  const tier = tiers.find(t => t.name === rarity) || tiers[0];
 
   const firstName = firstNames[randomInt(0, firstNames.length - 1)];
   const lastName = lastNames[randomInt(0, lastNames.length - 1)];
@@ -138,6 +137,9 @@ export function generatePlayerData(options: GeneratePlayerOptions = {}) {
     attributes,
     overall,
     rarity,
+    form: 50,
+    fatigue: 0,
+    morale: 50,
     basePrice: overall * 100,
     demandMultiplier: 1.0,
   };
@@ -149,7 +151,7 @@ export function generatePlayerData(options: GeneratePlayerOptions = {}) {
  */
 export async function generateAndCreatePlayer(options: GeneratePlayerOptions = {}) {
   const data = generatePlayerData(options);
-  return prisma.player.create({ data });
+  return prisma.player.create({ data: data as any });
 }
 
 /**
@@ -158,7 +160,7 @@ export async function generateAndCreatePlayer(options: GeneratePlayerOptions = {
  */
 export async function generateAndCreatePlayerTx(tx: any, options: GeneratePlayerOptions = {}) {
   const data = generatePlayerData(options);
-  return tx.player.create({ data });
+  return tx.player.create({ data: data as any });
 }
 
 /**
@@ -177,7 +179,7 @@ export async function maintainPlayerPool(targetSize: number = 200) {
   const toCreate = targetSize - freeAgentCount;
   if (toCreate > 0) {
     const players = Array.from({ length: toCreate }, () => generatePlayerData());
-    await prisma.player.createMany({ data: players });
+    await prisma.player.createMany({ data: players as any });
     return toCreate;
   }
   return 0;
