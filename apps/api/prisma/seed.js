@@ -69,6 +69,23 @@ async function main() {
 
   const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+  // Seed default leagues for American football
+  const leagues = [
+    { id: 'local-rec-football', sportId: 'american-football', name: 'Local Rec Football League', tier: 'LOCAL_REC', level: 1 },
+    { id: 'regional-football', sportId: 'american-football', name: 'Regional Football League', tier: 'REGIONAL', level: 1 },
+    { id: 'semi-pro-football', sportId: 'american-football', name: 'Semi-Pro Football League', tier: 'SEMI_PRO', level: 1 },
+    { id: 'pro-football', sportId: 'american-football', name: 'Pro Football League', tier: 'PRO', level: 1 },
+  ];
+
+  for (const league of leagues) {
+    await prisma.league.upsert({
+      where: { id: league.id },
+      update: {},
+      create: league,
+    });
+  }
+  console.log(`Seeded ${leagues.length} leagues`);
+
   const players = [];
   for (let i = 0; i < 200; i++) {
     const firstName = firstNames[randomInt(0, firstNames.length - 1)];

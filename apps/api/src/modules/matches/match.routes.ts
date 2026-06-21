@@ -7,6 +7,7 @@ import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
 import { runMatchSimulation, TeamState } from './simulator';
 import { routeParam } from '../../utils/routeParams';
 import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
+import { calculateGameEconomics } from '../economy/gameEconomics';
 import { applyPostGameProgression } from './progression';
 
 const router = Router();
@@ -150,8 +151,26 @@ router.post(
     const match = await prisma.match.findUnique({
       where: { id: matchId },
       include: {
-        homeTeam: { include: { teamPlayers: { include: { player: true } } } },
-        awayTeam: { include: { teamPlayers: { include: { player: true } } } },
+        homeTeam: {
+          include: {
+            owner: true,
+            teamPlayers: { include: { player: true } },
+            venue: true,
+            transportationAssets: true,
+            sponsorships: { where: { active: true } },
+            leagueMemberships: { include: { league: true } },
+          },
+        },
+        awayTeam: {
+          include: {
+            owner: true,
+            teamPlayers: { include: { player: true } },
+            venue: true,
+            transportationAssets: true,
+            sponsorships: { where: { active: true } },
+            leagueMemberships: { include: { league: true } },
+          },
+        },
       },
     }) as any;
 
@@ -170,22 +189,22 @@ router.post(
       players: team.teamPlayers.map((tp: any) => {
         const attributes = legacyAttributesFromPlayer(tp.player);
         return {
-        playerId: tp.player.id,
-        name: tp.player.name,
-        position: tp.player.position,
-        stats: {
-          pace: attributes.speed,
-          shooting: attributes.arm,
-          passing: attributes.footballIQ,
-          dribbling: attributes.agility,
-          defending: attributes.tackling,
-          physical: attributes.strength,
-          goalkeeping: tp.player.goalkeeping || 0,
-        },
-        condition: 100 - tp.player.fatigue,
-        morale: tp.player.morale,
-        isActive: tp.isStarter,
-      };
+          playerId: tp.player.id,
+          name: tp.player.name,
+          position: tp.player.position,
+          stats: {
+            pace: attributes.speed,
+            shooting: attributes.arm,
+            passing: attributes.footballIQ,
+            dribbling: attributes.agility,
+            defending: attributes.tackling,
+            physical: attributes.strength,
+            goalkeeping: tp.player.goalkeeping || 0,
+          },
+          condition: 100 - tp.player.fatigue,
+          morale: tp.player.morale,
+          isActive: tp.isStarter,
+        };
       }),
       formation: team.formation,
       style: 'balanced',
@@ -200,6 +219,44 @@ router.post(
     const awayState = buildTeamState(match.awayTeam);
 
     const result = await runMatchSimulation(match.sportId, match.id, match.seed!, homeState, awayState);
+
+    const homeWon = result.homeScore > result.awayScore;
+    const awayWon = result.awayScore > result.homeScore;
+    const draw = result.homeScore === result.awayScore;
+
+    // Calculate game-day economics for both teams
+    const homeLeagueTier = match.homeTeam.leagueMemberships[0]?.league?.tier || 'LOCAL_REC';
+    const awayLeagueTier = match.awayTeam.leagueMemberships[0]?.league?.tier || 'LOCAL_REC';
+    const homeTransport = match.homeTeam.transportationAssets[0] || null;
+    const awayTransport = match.awayTeam.transportationAssets[0] || null;
+
+    const homeEconomics = calculateGameEconomics({
+      team: match.homeTeam,
+      opponent: match.awayTeam,
+      venue: match.homeTeam.venue,
+      transport: homeTransport,
+      sponsorships: match.homeTeam.sponsorships,
+      isHome: true,
+      didWin: homeWon,
+      didTie: draw,
+      scoreFor: result.homeScore,
+      scoreAgainst: result.awayScore,
+      leagueTier: homeLeagueTier,
+    });
+
+    const awayEconomics = calculateGameEconomics({
+      team: match.awayTeam,
+      opponent: match.homeTeam,
+      venue: null,
+      transport: awayTransport,
+      sponsorships: match.awayTeam.sponsorships,
+      isHome: false,
+      didWin: awayWon,
+      didTie: draw,
+      scoreFor: result.awayScore,
+      scoreAgainst: result.homeScore,
+      leagueTier: awayLeagueTier,
+    });
 
     // Update match with results
     await prisma.$transaction(async (tx: any) => {
@@ -217,7 +274,7 @@ router.post(
 
       // Create events
       await tx.matchEvent.createMany({
-        data: result.events.map(e => ({
+        data: result.events.map((e: any) => ({
           matchId: match.id,
           timestamp: e.timestamp,
           tick: e.tick,
@@ -230,7 +287,7 @@ router.post(
 
       // Create player stats
       await tx.playerMatchStats.createMany({
-        data: Object.entries(result.playerStats).map(([playerId, stats]) => ({
+        data: Object.entries(result.playerStats).map(([playerId, stats]: [string, any]) => ({
           matchId: match.id,
           playerId,
           teamId: match.homeTeam.teamPlayers.some((tp: any) => tp.player.id === playerId)
@@ -273,7 +330,7 @@ router.post(
         sportId: match.sportId,
         season: 'beta',
         matchId: match.id,
-        players: Object.entries(result.playerStats).map(([playerId, stats]) => ({
+        players: Object.entries(result.playerStats).map(([playerId, stats]: [string, any]) => ({
           playerId,
           teamId: match.homeTeam.teamPlayers.some((tp: any) => tp.player.id === playerId)
             ? match.homeTeamId
@@ -287,10 +344,6 @@ router.post(
       });
 
       // Update team records
-      const homeWon = result.homeScore > result.awayScore;
-      const awayWon = result.awayScore > result.homeScore;
-      const draw = result.homeScore === result.awayScore;
-
       await tx.team.update({
         where: { id: match.homeTeamId },
         data: {
@@ -315,38 +368,84 @@ router.post(
         },
       });
 
-      // Distribute rewards
-      const homeReward = homeWon ? 5000 : draw ? 2000 : 1000;
-      const awayReward = awayWon ? 5000 : draw ? 2000 : 1000;
-
+      // Apply game-day economics — net revenue (not fixed rewards)
       const homeWalletAfter = await tx.wallet.update({
         where: { userId: match.homeTeam.ownerId },
-        data: { cash: { increment: homeReward } },
+        data: { cash: { increment: homeEconomics.net } },
       });
       await recordCurrencyLedger(tx, {
         userId: match.homeTeam.ownerId,
         currency: 'CASH',
-        amount: homeReward,
+        amount: homeEconomics.net,
         balanceAfter: homeWalletAfter.cash,
-        reason: homeWon ? 'MATCH_WIN_REWARD' : draw ? 'MATCH_DRAW_REWARD' : 'MATCH_PARTICIPATION_REWARD',
-        sourceType: 'MATCH',
+        reason: 'GAME_DAY_NET_REVENUE',
+        sourceType: 'MATCH_ECONOMICS',
         sourceId: match.id,
-        metadata: { teamId: match.homeTeamId, side: 'HOME', sportId: match.sportId },
+        metadata: {
+          teamId: match.homeTeamId,
+          side: 'HOME',
+          sportId: match.sportId,
+          revenue: homeEconomics.revenue,
+          expenses: homeEconomics.expenses,
+          net: homeEconomics.net,
+          breakdown: homeEconomics.breakdown,
+        },
       });
 
       const awayWalletAfter = await tx.wallet.update({
         where: { userId: match.awayTeam.ownerId },
-        data: { cash: { increment: awayReward } },
+        data: { cash: { increment: awayEconomics.net } },
       });
       await recordCurrencyLedger(tx, {
         userId: match.awayTeam.ownerId,
         currency: 'CASH',
-        amount: awayReward,
+        amount: awayEconomics.net,
         balanceAfter: awayWalletAfter.cash,
-        reason: awayWon ? 'MATCH_WIN_REWARD' : draw ? 'MATCH_DRAW_REWARD' : 'MATCH_PARTICIPATION_REWARD',
-        sourceType: 'MATCH',
+        reason: 'GAME_DAY_NET_REVENUE',
+        sourceType: 'MATCH_ECONOMICS',
         sourceId: match.id,
-        metadata: { teamId: match.awayTeamId, side: 'AWAY', sportId: match.sportId },
+        metadata: {
+          teamId: match.awayTeamId,
+          side: 'AWAY',
+          sportId: match.sportId,
+          revenue: awayEconomics.revenue,
+          expenses: awayEconomics.expenses,
+          net: awayEconomics.net,
+          breakdown: awayEconomics.breakdown,
+        },
+      });
+
+      // Create TeamFinanceSnapshot for both teams
+      await tx.teamFinanceSnapshot.create({
+        data: {
+          teamId: match.homeTeamId,
+          matchId: match.id,
+          category: 'GAME_DAY',
+          revenue: homeEconomics.revenue,
+          expense: homeEconomics.expenses,
+          net: homeEconomics.net,
+          metadata: {
+            side: 'HOME',
+            sportId: match.sportId,
+            breakdown: homeEconomics.breakdown,
+          },
+        },
+      });
+
+      await tx.teamFinanceSnapshot.create({
+        data: {
+          teamId: match.awayTeamId,
+          matchId: match.id,
+          category: 'GAME_DAY',
+          revenue: awayEconomics.revenue,
+          expense: awayEconomics.expenses,
+          net: awayEconomics.net,
+          metadata: {
+            side: 'AWAY',
+            sportId: match.sportId,
+            breakdown: awayEconomics.breakdown,
+          },
+        },
       });
     });
 
@@ -357,6 +456,8 @@ router.post(
           homeScore: result.homeScore,
           awayScore: result.awayScore,
           events: result.events.length,
+          homeEconomics,
+          awayEconomics,
         },
       },
     });

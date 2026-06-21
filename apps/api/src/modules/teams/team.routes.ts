@@ -36,22 +36,80 @@ router.post(
       throw new AppError(400, 'Maximum team limit reached (3)');
     }
 
-    const team = await prisma.team.create({
-      data: {
-        name: input.name,
+    // Ensure default leagues exist for this sport
+    const defaultLeague = await prisma.league.upsert({
+      where: { id: 'local-rec-football' },
+      update: {},
+      create: {
+        id: 'local-rec-football',
         sportId: input.sportId,
-        formation: input.formation,
-        tactics: { formation: input.formation, sportId: input.sportId },
-        ownerId: userId,
-      },
-      include: {
-        teamPlayers: {
-          include: { player: true },
-        },
+        name: 'Local Rec Football League',
+        tier: 'LOCAL_REC',
+        level: 1,
       },
     });
 
-    res.status(201).json({ status: 'success', data: team });
+    const team = await prisma.$transaction(async (tx: any) => {
+      const newTeam = await tx.team.create({
+        data: {
+          name: input.name,
+          sportId: input.sportId,
+          formation: input.formation,
+          tactics: { formation: input.formation, sportId: input.sportId },
+          ownerId: userId,
+        },
+      });
+
+      // Create starter venue
+      await tx.venue.create({
+        data: {
+          teamId: newTeam.id,
+          sportId: input.sportId,
+          name: `${input.name} Community Field`,
+          tier: 'PARK_FIELD',
+          capacity: 250,
+          ticketPrice: 8,
+          condition: 70,
+          prestige: 10,
+        },
+      });
+
+      // Create starter transportation
+      await tx.transportationAsset.create({
+        data: {
+          teamId: newTeam.id,
+          tier: 'CARPOOL',
+          name: 'Carpool / Rental Vans',
+          operatingCost: 100,
+          fatigueReduction: 0,
+          prestige: 0,
+        },
+      });
+
+      // Attach to local rec league
+      await tx.teamLeagueMembership.create({
+        data: {
+          teamId: newTeam.id,
+          leagueId: defaultLeague.id,
+          season: 'beta',
+          status: 'ACTIVE',
+        },
+      });
+
+      return newTeam;
+    });
+
+    const fullTeam = await prisma.team.findUnique({
+      where: { id: team.id },
+      include: {
+        teamPlayers: { include: { player: true } },
+        venue: true,
+        transportationAssets: true,
+        leagueMemberships: { include: { league: true } },
+      },
+    });
+
+    res.status(201).json({ status: 'success', data: fullTeam });
   })
 );
 
@@ -62,9 +120,9 @@ router.get(
     const teams = await prisma.team.findMany({
       where: { ownerId: req.user!.id },
       include: {
-        teamPlayers: {
-          include: { player: true },
-        },
+        teamPlayers: { include: { player: true } },
+        venue: true,
+        transportationAssets: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -88,6 +146,9 @@ router.get(
           include: { player: true },
           orderBy: { player: { position: 'asc' } },
         },
+        venue: true,
+        transportationAssets: true,
+        leagueMemberships: { include: { league: true } },
         matchesHome: {
           where: { status: 'COMPLETED' },
           orderBy: { completedAt: 'desc' },

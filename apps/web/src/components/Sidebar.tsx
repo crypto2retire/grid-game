@@ -8,6 +8,7 @@ import {
   Trophy,
   Rocket,
   Wallet,
+  Home,
 } from 'lucide-react';
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { path: '/players', label: 'Players', icon: Users },
   { path: '/matches', label: 'Games', icon: Swords },
   { path: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
+  { path: '/assets', label: 'Assets', icon: Home },
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/wallet', label: 'Wallet', icon: Wallet },

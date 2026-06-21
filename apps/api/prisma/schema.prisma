@@ -39,6 +39,120 @@ model Wallet {
   updatedAt     DateTime @updatedAt
 }
 
+model League {
+  id          String   @id @default(uuid())
+  sportId     String   @default("american-football")
+  name        String
+  tier        String
+  level       Int      @default(1)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships TeamLeagueMembership[]
+  sponsorships Sponsorship[]
+
+  @@index([sportId, tier])
+}
+
+model TeamLeagueMembership {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  leagueId  String
+  league    League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season    String   @default("beta")
+  status    String   @default("ACTIVE")
+  joinedAt  DateTime @default(now())
+
+  @@unique([teamId, leagueId, season])
+  @@index([teamId])
+  @@index([leagueId, season])
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  teamId      String?  @unique
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  ownerId     String?
+  sportId     String   @default("american-football")
+  name        String
+  tier        String   @default("PARK_FIELD")
+  capacity    Int      @default(250)
+  ticketPrice Int      @default(8)
+  condition   Int      @default(70)
+  prestige    Int      @default(10)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  upgrades StadiumUpgrade[]
+
+  @@index([sportId, tier])
+  @@index([ownerId])
+}
+
+model StadiumUpgrade {
+  id        String   @id @default(uuid())
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  type      String
+  level     Int      @default(1)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([venueId])
+}
+
+model TransportationAsset {
+  id             String   @id @default(uuid())
+  teamId         String
+  team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tier           String   @default("CARPOOL")
+  name           String
+  operatingCost  Int      @default(100)
+  fatigueReduction Int    @default(0)
+  prestige       Int      @default(0)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([teamId])
+}
+
+model Sponsorship {
+  id        String   @id @default(uuid())
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  leagueId  String?
+  league    League?  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  sponsorName String
+  amountPerGame Int  @default(0)
+  amountPerSeason Int @default(0)
+  bonusRules Json    @default("{}")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([teamId])
+  @@index([leagueId])
+}
+
+model TeamFinanceSnapshot {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  matchId     String?
+  category    String
+  revenue     Int      @default(0)
+  expense     Int      @default(0)
+  net         Int      @default(0)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([teamId, createdAt])
+  @@index([matchId])
+}
+
 model Team {
   id            String   @id @default(uuid())
   name          String
@@ -55,6 +169,11 @@ model Team {
   teamPlayers   TeamPlayer[]
   matchesHome   Match[]  @relation("HomeTeam")
   matchesAway   Match[]  @relation("AwayTeam")
+  leagueMemberships TeamLeagueMembership[]
+  venue Venue?
+  transportationAssets TransportationAsset[]
+  sponsorships Sponsorship[]
+  financeSnapshots TeamFinanceSnapshot[]
 
   wins          Int      @default(0)
   draws         Int      @default(0)

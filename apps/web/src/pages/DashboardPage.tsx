@@ -146,17 +146,17 @@ const economyExplainers = [
   {
     title: 'Regular player path',
     icon: ListChecks,
-    copy: 'Scout and train players, compete in games, then use or trade improved assets. No guaranteed profit promises — results depend on play, supply, and market demand.',
+    copy: 'Scout and train players, compete in games, then use or trade improved assets. Revenue comes from ticket sales, sponsor deals, and league standings — not from taking opponent fees.',
   },
   {
     title: 'Whale / capital path',
     icon: Crown,
-    copy: 'Fund facilities, sponsor cups, rentals, contracts, and prize pools once the ledger and escrow systems are live.',
+    copy: 'Fund stadiums, training facilities, sponsor cups, and transport upgrades. Infrastructure creates revenue streams that all players benefit from.',
   },
   {
     title: 'Where value comes from',
     icon: HandCoins,
-    copy: 'Entry fees, marketplace activity, sponsorship escrow, limited widgets, and upgrade sinks create transparent in-game economic loops.',
+    copy: 'Game-day revenue (tickets, concessions, merch), sponsorship deals, league standing bonuses, and limited-widget marketplace demand create transparent economic loops.',
   },
 ];
 

@@ -37,7 +37,7 @@ export const SPORT_CONFIGS: SportConfig[] = [
     stats: ['pace', 'shooting', 'passing', 'defending', 'physical', 'vision'],
     season: { lengthDays: 30, fixturesPerWeek: 3, playoffEnabled: false },
     regularUserLoops: ['scout youth prospects', 'train academy players', 'win amateur cups', 'sell or loan developed talent'],
-    whaleLoops: ['fund academies', 'own stadiums', 'sponsor prize cups', 'post prospect-development contracts'],
+    whaleLoops: ['fund academies', 'own stadiums', 'sponsor cups', 'post prospect-development contracts'],
     sharedLoops: ['scholarship rosters', 'facility rentals', 'transfer-market liquidity', 'sponsored leagues'],
     economySinks: ['academy upgrades', 'transfer fees', 'stadium widgets', 'training recovery', 'cup entries'],
     limitedWidgetExamples: ['Founder Kit', 'Scout Drone', 'Stadium Atmosphere', 'Academy Accelerator'],

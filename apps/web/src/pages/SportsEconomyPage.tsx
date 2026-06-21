@@ -106,8 +106,8 @@ export default function SportsEconomyPage() {
   );
 
   const economyCards = [
-    { label: 'Regular path', value: 'Effort → assets → earnings', icon: Users, copy: 'Scouting, training, amateur cups, service contracts, and prospect sales.' },
-    { label: 'Whale path', value: 'Capital → infrastructure', icon: Crown, copy: 'Facilities, franchises, sponsor cups, scholarships, and premium widgets.' },
+    { label: 'Regular path', value: 'Effort → assets → earnings', icon: Users, copy: 'Scouting, training, amateur cups, service contracts, and prospect sales. All earnings come from game-day revenue, sponsors, and league standings.' },
+    { label: 'Whale path', value: 'Capital → infrastructure', icon: Crown, copy: 'Facilities, franchises, sponsor cups, scholarships, and premium widgets. Infrastructure creates revenue streams that all players use.' },
     { label: 'Shared token', value: '$GRID across sports', icon: BadgeDollarSign, copy: payload.roadmap.tokenThesis },
     { label: 'AI layer', value: 'AI scouts + leagues', icon: BrainCircuit, copy: 'AI keeps fixtures, scouting boards, and market activity moving when users are offline.' },
   ];
@@ -119,7 +119,7 @@ export default function SportsEconomyPage() {
         <div className="relative grid gap-8 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">
-              <Sparkles className="h-4 w-4" /> Commercial economy foundation live
+              <Sparkles className="h-4 w-4" /> Commercial economy roadmap
             </div>
             <h1 className="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
               Build a sports empire where effort, capital, and ownership all compound.
@@ -143,8 +143,8 @@ export default function SportsEconomyPage() {
             </div>
             <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-5">
               <Trophy className="mb-4 h-10 w-10 text-emerald-300" />
-              <h2 className="text-2xl font-black text-white">Global Soccer Clubs</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">The first theme uses the broadest sports market and maps naturally to scouting, academies, transfers, loans, stadiums, limited kits, and sponsor cups.</p>
+              <h2 className="text-2xl font-black text-white">Gridiron Franchises</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300">The first theme uses American football: franchises, combines, playbooks, weekly matchups, and player development. Revenue comes from ticket sales, sponsors, and league standings—not entry fees or prize pools.</p>
             </div>
           </div>
         </div>

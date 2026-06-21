@@ -18,7 +18,23 @@ interface Transaction {
   createdAt: string;
 }
 
-const formatReason = (reason: string) => reason
+const REASON_LABELS: Record<string, string> = {
+  GAME_DAY_NET_REVENUE: 'Game Day Revenue',
+  MATCH_WIN_REWARD: 'Match Win Reward',
+  MATCH_DRAW_REWARD: 'Match Draw Reward',
+  MATCH_PARTICIPATION_REWARD: 'Match Participation',
+  PLAYER_HIRE: 'Player Hire',
+  PLAYER_SALE: 'Player Sale',
+  MARKETPLACE_PURCHASE: 'Marketplace Purchase',
+  MARKETPLACE_FEE: 'Marketplace Fee',
+  SPONSOR_REWARD: 'Sponsor Reward',
+  LEAGUE_BONUS: 'League Bonus',
+  STADIUM_UPGRADE: 'Stadium Upgrade',
+  TRANSPORTATION_PURCHASE: 'Transportation Purchase',
+  PLAYER_DEVELOPMENT: 'Player Development',
+};
+
+const formatReason = (reason: string) => REASON_LABELS[reason] || reason
   .toLowerCase()
   .split('_')
   .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
