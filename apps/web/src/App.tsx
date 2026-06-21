@@ -21,6 +21,7 @@ import EquipmentPage from './pages/EquipmentPage';
 import StakingPage from './pages/StakingPage';
 import TeamCatalogPage from './pages/TeamCatalogPage';
 import TeamMarketplacePage from './pages/TeamMarketplacePage';
+import PlayableMatchPage from './pages/PlayableMatchPage';
 
 function App() {
   const { checkAuth } = useAuthStore();
@@ -50,6 +51,7 @@ function App() {
         <Route path="/staking" element={<StakingPage />} />
         <Route path="/team-catalog" element={<TeamCatalogPage />} />
         <Route path="/team-marketplace" element={<TeamMarketplacePage />} />
+        <Route path="/matches/:id/play" element={<PlayableMatchPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/wallet" element={<WalletPage />} />
       </Route>

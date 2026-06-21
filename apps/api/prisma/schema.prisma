@@ -335,12 +335,31 @@ model Match {
   awayTactics   Json?
   metadata      Json         @default("{}")
 
+  // ─── Playable Match State ───
+  isPlayable    Boolean      @default(false)
+  gamePhase     String       @default("SCHEDULED") // SCHEDULED | PREGAME | IN_PROGRESS | COMPLETED
+  currentQuarter Int         @default(1)
+  gameClock     Int          @default(900) // seconds remaining in quarter (15 min = 900s)
+  possessionTeamId String?   // which team has the ball
+  ballPosition  Int          @default(25) // yard line (0-100, 0=own goal, 50=midfield, 100=opponent goal)
+  down          Int          @default(1) // 1-4
+  yardsToGo     Int          @default(10)
+  offensiveLineup Json?       // user's chosen offensive starters
+  defensiveLineup Json?       // user's chosen defensive starters
+  offensiveStyle String?     @default("balanced") // balanced | runHeavy | passHeavy
+  defensiveStyle String?      @default("balanced") // balanced | aggressive | conservative
+  playHistory   Json?         @default("[]")
+  lastPlayResult Json?       // result of the last play submitted
+  userTeamId    String?       // which team the user is controlling (if any)
+
   seed          String?
   seedHash      String?
 
   events        MatchEvent[]
   playerStats   PlayerMatchStats[]
   participants  MatchParticipant[]
+  matchPlays    MatchPlay[]
+  developmentLogs PlayerDevelopmentLog[]
 
   scheduledAt   DateTime
   startedAt     DateTime?
@@ -728,4 +747,45 @@ model TeamMarketplaceListing {
   @@index([sportId])
   @@index([sellerId])
   @@index([teamId])
+}
+
+// ─── Playable Match Plays ───
+
+model MatchPlay {
+  id          String   @id @default(uuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  quarter     Int
+  gameClock   Int      // seconds remaining in quarter when play started
+  down        Int
+  yardsToGo   Int
+  ballPosition Int     // yard line
+  playType    String   // RUN_LEFT | RUN_MIDDLE | RUN_RIGHT | QB_DRAW | SHORT_PASS | MEDIUM_PASS | DEEP_BALL | SCREEN | PUNT | FIELD_GOAL
+  direction   String?  // LEFT | MIDDLE | RIGHT | TARGET_PLAYER_ID
+  result      String   // GAIN | LOSS | TOUCHDOWN | TURNOVER | INCOMPLETE | SACK | FIELD_GOAL | PUNT | INTERCEPTION | FUMBLE
+  yardsGained Int      @default(0)
+  playerId    String?  // primary player involved (ball carrier or QB)
+  targetId    String?  // receiver for passes, rusher for sacks
+  description String   // human-readable play description
+  animationData Json?  // data for frontend animation
+  createdAt   DateTime @default(now())
+
+  @@index([matchId, quarter])
+  @@index([matchId, createdAt])
+}
+
+// ─── Player Development from Games ───
+
+model PlayerDevelopmentLog {
+  id          String   @id @default(uuid())
+  playerId    String
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  statGained  String   // pace | shooting | passing | dribbling | defending | physical | overall
+  amount      Int      // how much the stat increased
+  reason      String   // PLAYED_WELL | BIG_PLAY | CLUTCH_PERFORMANCE | BREAKOUT_GAME
+  createdAt   DateTime @default(now())
+
+  @@index([playerId, matchId])
+  @@index([playerId, createdAt])
 }

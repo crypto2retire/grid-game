@@ -262,7 +262,20 @@ export default function MatchesPage() {
                     <div className="font-semibold text-white">{match.awayTeam.name}</div>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                <div className="flex items-center gap-2">
+                  {match.status === 'SCHEDULED' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/matches/${match.id}/play`);
+                      }}
+                      className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-xs font-medium rounded-lg transition-colors"
+                    >
+                      Play Game
+                    </button>
+                  )}
+                  <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                </div>
               </div>
             ))}
           </div>
