@@ -716,7 +716,7 @@ model TeamMarketplaceListing {
   team        Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   price       Int
   currency    String        @default("GRID") // GRID | SOL
-  status      TeamListingStatus @default(ACTIVE)
+  status      String        @default("ACTIVE") // ACTIVE | SOLD | CANCELLED | EXPIRED
   foundationTaxPaid Int    @default(0)
   burnAmount  Int          @default(0)
   sellerReceives Int       @default(0)
@@ -728,11 +728,4 @@ model TeamMarketplaceListing {
   @@index([sportId])
   @@index([sellerId])
   @@index([teamId])
-}
-
-enum TeamListingStatus {
-  ACTIVE
-  SOLD
-  CANCELLED
-  EXPIRED
 }
