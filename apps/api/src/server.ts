@@ -264,10 +264,8 @@ const startServer = async () => {
                     generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
                   });
                   // Seed equipment types and marketplace listings
-                  import('./config/database').then(({ prisma }) => {
-                    seedEquipmentTypes(prisma).catch((e: any) => console.error('Equipment seed error:', e));
-                    seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
-                  });
+                  seedEquipmentTypes(prisma).catch((e: any) => console.error('Equipment seed error:', e));
+                  seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
                 }
               }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
             }
