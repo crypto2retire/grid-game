@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGameStore } from '../store/gameStore';
 import {
   Trophy,
   Lock,
@@ -11,6 +12,7 @@ import {
   Users,
   Star,
   Building,
+  Plus,
 } from 'lucide-react';
 
 interface CatalogEntry {
@@ -125,9 +127,29 @@ export default function TeamCatalogPage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
+        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
+    }
+  };
+
+  const topupGrid = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/economy/wallet/topup-grid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: 100000 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWallet(data.data);
+        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
+        showMessage('success', 'Added 100,000 Test GRID');
+      }
+    } catch (err) {
+      console.error('Failed to topup GRID:', err);
     }
   };
 
@@ -251,11 +273,19 @@ export default function TeamCatalogPage() {
       )}
 
       {/* Wallet Info */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-center">
         <div className="glass-card px-4 py-2 flex items-center gap-2">
           <Coins className="w-4 h-4 text-yellow-400" />
           <span className="text-sm text-white">{wallet.gridTokens.toLocaleString()} GRID</span>
         </div>
+        <button
+          onClick={topupGrid}
+          className="glass-card px-3 py-2 flex items-center gap-2 text-sm text-purple-400 hover:bg-purple-400/10 transition-colors"
+          title="Add 100,000 Test GRID"
+        >
+          <Plus className="w-4 h-4" />
+          Get GRID
+        </button>
         <div className="glass-card px-4 py-2 flex items-center gap-2">
           <Zap className="w-4 h-4 text-blue-400" />
           <span className="text-sm text-white">{wallet.solBalance.toLocaleString()} SOL</span>
