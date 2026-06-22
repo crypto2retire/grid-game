@@ -556,6 +556,10 @@ export async function completeGame(matchId: string) {
     throw new Error('Match not found');
   }
 
+  if (match.status === 'COMPLETED') {
+    throw new Error('Match already completed');
+  }
+
   const playerStats: Record<string, { yards: number; td: number; bigPlays: number; plays: number }> = {};
 
   for (const play of match.matchPlays) {
@@ -652,25 +656,33 @@ export async function completeGame(matchId: string) {
 
     const homeWins = match.homeScore > match.awayScore ? 1 : 0;
     const homeLosses = match.homeScore < match.awayScore ? 1 : 0;
+    const awayWins = match.awayScore > match.homeScore ? 1 : 0;
+    const awayLosses = match.awayScore < match.homeScore ? 1 : 0;
+    const isDraw = match.homeScore === match.awayScore ? 1 : 0;
+    const homePoints = homeWins * 3 + isDraw * 1;
+    const awayPoints = awayWins * 3 + isDraw * 1;
+
     await tx.team.update({
       where: { id: match.homeTeamId },
       data: {
         wins: { increment: homeWins },
+        draws: { increment: isDraw },
         losses: { increment: homeLosses },
         goalsFor: { increment: match.homeScore },
         goalsAgainst: { increment: match.awayScore },
+        points: { increment: homePoints },
       },
     });
 
-    const awayWins = match.awayScore > match.homeScore ? 1 : 0;
-    const awayLosses = match.awayScore < match.homeScore ? 1 : 0;
     await tx.team.update({
       where: { id: match.awayTeamId },
       data: {
         wins: { increment: awayWins },
+        draws: { increment: isDraw },
         losses: { increment: awayLosses },
         goalsFor: { increment: match.awayScore },
         goalsAgainst: { increment: match.homeScore },
+        points: { increment: awayPoints },
       },
     });
   });
