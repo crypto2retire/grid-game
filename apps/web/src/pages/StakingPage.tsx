@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useGameStore } from '../store/gameStore';
 import {
   Coins,
   TrendingUp,
@@ -115,6 +116,7 @@ export default function StakingPage() {
       if (res.ok) {
         const data = await res.json();
         setWalletGrid(data.data?.gridTokens || 0);
+        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);

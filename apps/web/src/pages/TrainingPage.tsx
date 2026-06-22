@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchApi } from '../lib/api';
+import { useGameStore } from '../store/gameStore';
 import { Users, Target, Shield, Zap, PersonStanding, Coins, CheckCircle } from 'lucide-react';
 
 interface TrainingPackage {
@@ -68,7 +69,11 @@ export default function TrainingPage() {
       fetchApi('/teams/mine').then((r) => setTeams(r.data || [])),
       fetchApi('/training/packages').then((r) => setPackages(r.data || [])),
       fetchApi('/training/history').then((r) => setHistory(r.data || [])),
-      fetchApi('/economy/wallet').then((r) => setWallet(r.data || { cash: 0, gridTokens: 0 })),
+      fetchApi('/economy/wallet').then((r) => {
+        const w = r.data || { cash: 0, gridTokens: 0 };
+        setWallet(w);
+        useGameStore.getState().setWallet(w);
+      }),
     ])
       .catch(console.error)
       .finally(() => setLoading(false));

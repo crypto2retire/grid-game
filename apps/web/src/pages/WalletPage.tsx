@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowDown, ArrowUp, Clock, Coins, Plus, Zap } from 'lucide-react';
+import { useGameStore } from '../store/gameStore';
 
 interface WalletData {
   cash: number;
@@ -93,6 +94,7 @@ export default function WalletPage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
+        useGameStore.getState().setWallet(data.data); // sync to gameStore
       }
     } catch (err) {
       console.error('Failed to topup CASH:', err);
@@ -110,6 +112,7 @@ export default function WalletPage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
+        useGameStore.getState().setWallet(data.data); // sync to gameStore
       }
     } catch (err) {
       console.error('Failed to topup GRID:', err);

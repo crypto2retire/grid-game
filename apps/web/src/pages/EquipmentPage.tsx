@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchApi } from '../lib/api';
+import { useGameStore } from '../store/gameStore';
 import { Wrench, Dumbbell, HeartPulse, Monitor, Coins, Zap } from 'lucide-react';
 
 interface EquipmentType {
@@ -54,7 +55,11 @@ export default function EquipmentPage() {
     Promise.all([
       fetchApi('/teams/mine').then((r) => setTeams(r.data || [])),
       fetchApi('/equipment/types').then((r) => setEquipmentTypes(r.data || [])),
-      fetchApi('/economy/wallet').then((r) => setWallet(r.data || { cash: 0, gridTokens: 0 })),
+      fetchApi('/economy/wallet').then((r) => {
+        const w = r.data || { cash: 0, gridTokens: 0 };
+        setWallet(w);
+        useGameStore.getState().setWallet(w);
+      }),
     ])
       .catch(console.error)
       .finally(() => setLoading(false));
