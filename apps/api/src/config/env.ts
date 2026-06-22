@@ -9,6 +9,7 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DAILY_SALT: z.string().optional(),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+  GAME_OWNER_USER_ID: z.string().default('ai-system-owner-001'),
 });
 
 export const env = envSchema.parse(process.env);

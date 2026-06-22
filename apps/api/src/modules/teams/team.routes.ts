@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
+import { env } from '../../config/env';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
@@ -410,11 +411,20 @@ router.post(
           prestige: prestigeMap[input.tier] || 10,
         },
       });
-      // Deduct cash
+      // Deduct cash from buyer
       await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: input.cost } },
       });
+      // Credit game owner (infrastructure revenue)
+      const gameOwnerId = env.GAME_OWNER_USER_ID;
+      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
+      if (gameOwnerWallet) {
+        await tx.wallet.update({
+          where: { userId: gameOwnerId },
+          data: { cash: { increment: input.cost } },
+        });
+      }
       // Record ledger
       await recordCurrencyLedger(tx, {
         userId,
@@ -477,11 +487,20 @@ router.post(
           prestige: input.prestige,
         },
       });
-      // Deduct cash
+      // Deduct cash from buyer
       await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: input.cost } },
       });
+      // Credit game owner (infrastructure revenue)
+      const gameOwnerId = env.GAME_OWNER_USER_ID;
+      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
+      if (gameOwnerWallet) {
+        await tx.wallet.update({
+          where: { userId: gameOwnerId },
+          data: { cash: { increment: input.cost } },
+        });
+      }
       // Record ledger
       await recordCurrencyLedger(tx, {
         userId,

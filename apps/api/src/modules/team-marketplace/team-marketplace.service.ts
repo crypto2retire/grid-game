@@ -165,36 +165,25 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
       metadata: { teamId: listing.teamId, sellerId: listing.sellerId, price, currency },
     });
 
-    // Pay seller (net of tax/burn) — AI sales go to treasury, player resales go to seller
+    // Pay seller (net of tax/burn) — AI sales credit the game owner wallet, player resales credit the seller
     if (listing.sellerReceives > 0) {
-      if (listing.team.isAI) {
-        // AI team sale → proceeds go to treasury (game-owned)
-        if (currency === 'GRID') {
-          await processTreasuryInflow(tx, 'GRID', listing.sellerReceives, 'AI_TEAM_SALE', listingId);
-        } else {
-          // SOL: also route to treasury
-          await processTreasuryInflow(tx, 'SOL', listing.sellerReceives, 'AI_TEAM_SALE', listingId);
-        }
-      } else {
-        // Player resale → normal seller payout
-        const sellerWallet = await tx.wallet.update({
-          where: { userId: listing.sellerId },
-          data: currency === 'GRID'
-            ? { gridTokens: { increment: listing.sellerReceives } }
-            : { solBalance: { increment: listing.sellerReceives } },
-        });
+      const sellerWallet = await tx.wallet.update({
+        where: { userId: listing.sellerId },
+        data: currency === 'GRID'
+          ? { gridTokens: { increment: listing.sellerReceives } }
+          : { solBalance: { increment: listing.sellerReceives } },
+      });
 
-        await recordCurrencyLedger(tx, {
-          userId: listing.sellerId,
-          currency,
-          amount: listing.sellerReceives,
-          balanceAfter: currency === 'GRID' ? sellerWallet.gridTokens : Math.round(sellerWallet.solBalance),
-          reason: 'MARKETPLACE_TEAM_SALE',
-          sourceType: 'TEAM_MARKETPLACE',
-          sourceId: listingId,
-          metadata: { teamId: listing.teamId, buyerId, price: listing.sellerReceives, currency },
-        });
-      }
+      await recordCurrencyLedger(tx, {
+        userId: listing.sellerId,
+        currency,
+        amount: listing.sellerReceives,
+        balanceAfter: currency === 'GRID' ? sellerWallet.gridTokens : Math.round(sellerWallet.solBalance),
+        reason: listing.team.isAI ? 'AI_TEAM_PRIMARY_SALE' : 'MARKETPLACE_TEAM_SALE',
+        sourceType: 'TEAM_MARKETPLACE',
+        sourceId: listingId,
+        metadata: { teamId: listing.teamId, buyerId, price: listing.sellerReceives, currency, isAI: listing.team.isAI },
+      });
     }
 
     // Foundation tax (15%) → rewards pool if GRID, operations if SOL
