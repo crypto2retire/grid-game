@@ -8,6 +8,23 @@ interface Team {
   draws: number;
   losses: number;
   points: number;
+  venue?: {
+    id: string;
+    name: string;
+    tier: string;
+    capacity: number;
+    ticketPrice: number;
+    condition: number;
+    prestige: number;
+  };
+  transportationAssets?: {
+    id: string;
+    name: string;
+    tier: string;
+    operatingCost: number;
+    fatigueReduction: number;
+    prestige: number;
+  }[];
   teamPlayers: {
     id: string;
     isStarter: boolean;

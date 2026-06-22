@@ -32,6 +32,80 @@ import { teamMarketplaceRouter } from './modules/team-marketplace/team-marketpla
 import { playGameRouter } from './modules/play-game/play-game.routes';
 import { aiTeamsRouter } from './modules/ai-teams/ai-teams.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
+import { PrismaClient } from '@prisma/client';
+
+// ─── Seed Functions ───
+async function seedEquipmentTypes(prisma: PrismaClient) {
+  const count = await prisma.equipmentType.count();
+  if (count > 0) return;
+
+  const equipmentTypes = [
+    { id: 'eq-training-1', name: 'Basic Weight Room', category: 'TRAINING', tier: 1, description: 'Standard weights and benches for strength training', baseCostGrid: 0, baseCostCash: 5000, effects: { strengthBonus: 2 } },
+    { id: 'eq-training-2', name: 'Advanced Fitness Center', category: 'TRAINING', tier: 2, description: 'Modern equipment with recovery stations', baseCostGrid: 0, baseCostCash: 15000, effects: { strengthBonus: 5, paceBonus: 2 } },
+    { id: 'eq-facility-1', name: 'Film Room', category: 'FACILITY', tier: 1, description: 'Review game tape and analyze opponents', baseCostGrid: 0, baseCostCash: 3000, effects: { iqBonus: 3 } },
+    { id: 'eq-facility-2', name: 'Strategy Center', category: 'FACILITY', tier: 2, description: 'Advanced analytics and play design tools', baseCostGrid: 0, baseCostCash: 12000, effects: { iqBonus: 6, passingBonus: 2 } },
+    { id: 'eq-medical-1', name: 'Trainer Station', category: 'MEDICAL', tier: 1, description: 'Basic injury prevention and treatment', baseCostGrid: 0, baseCostCash: 4000, effects: { injuryReduction: 10 } },
+    { id: 'eq-medical-2', name: 'Sports Medicine Center', category: 'MEDICAL', tier: 2, description: 'Full rehab facility with cryo therapy', baseCostGrid: 0, baseCostCash: 18000, effects: { injuryReduction: 25, recoverySpeed: 15 } },
+    { id: 'eq-analysis-1', name: 'Stats Workstation', category: 'ANALYSIS', tier: 1, description: 'Track player performance metrics', baseCostGrid: 0, baseCostCash: 2500, effects: { scoutingBonus: 5 } },
+    { id: 'eq-analysis-2', name: 'Scouting Department', category: 'ANALYSIS', tier: 2, description: 'Professional scouting and player evaluation', baseCostGrid: 0, baseCostCash: 10000, effects: { scoutingBonus: 12, developmentBonus: 5 } },
+  ];
+
+  for (const type of equipmentTypes) {
+    await prisma.equipmentType.upsert({
+      where: { id: type.id },
+      update: {},
+      create: type,
+    });
+  }
+  console.log(`Seeded ${equipmentTypes.length} equipment types`);
+}
+
+async function seedMarketplaceListings(prisma: PrismaClient) {
+  const listingCount = await prisma.marketplaceListing.count({ where: { status: 'ACTIVE' } });
+  if (listingCount > 0) return;
+
+  // Find any user to act as seller (prefer system/AI user)
+  const seller = await prisma.user.findFirst({
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (!seller) {
+    console.log('No users found yet, skipping marketplace seed');
+    return;
+  }
+
+  // Get players not on any team
+  const freePlayers = await prisma.player.findMany({
+    where: { teamPlayers: { none: {} } },
+    take: 20,
+  });
+
+  if (freePlayers.length === 0) {
+    console.log('No free players for marketplace seed');
+    return;
+  }
+
+  for (const player of freePlayers) {
+    const basePrice = player.overall * 100;
+    const demandMult = player.rarity === 'LEGEND' ? 3.0 :
+      player.rarity === 'ELITE' ? 2.5 :
+      player.rarity === 'GOLD' ? 2.0 :
+      player.rarity === 'SILVER' ? 1.5 :
+      player.rarity === 'BRONZE' ? 1.2 : 1.0;
+    const price = Math.round(basePrice * demandMult);
+
+    await prisma.marketplaceListing.create({
+      data: {
+        sportId: 'american-football',
+        sellerId: seller.id,
+        playerId: player.id,
+        price,
+        status: 'ACTIVE',
+      },
+    });
+  }
+  console.log(`Seeded ${freePlayers.length} marketplace listings`);
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -188,6 +262,11 @@ const startServer = async () => {
                   // Generate AI teams
                   import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
                     generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                  });
+                  // Seed equipment types and marketplace listings
+                  import('./config/database').then(({ prisma }) => {
+                    seedEquipmentTypes(prisma).catch((e: any) => console.error('Equipment seed error:', e));
+                    seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
                   });
                 }
               }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));

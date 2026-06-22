@@ -8,13 +8,10 @@ import {
   Trophy,
   Rocket,
   Wallet,
-  Home,
-  Handshake,
-  Dumbbell,
-  Wrench,
-  PiggyBank,
   Store,
   Building2,
+  Dumbbell,
+  PiggyBank,
 } from 'lucide-react';
 
 const navItems = [
@@ -25,10 +22,7 @@ const navItems = [
   { path: '/players', label: 'Players', icon: Users },
   { path: '/matches', label: 'Games', icon: Swords },
   { path: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
-  { path: '/assets', label: 'Assets', icon: Home },
-  { path: '/sponsorships', label: 'Sponsorships', icon: Handshake },
   { path: '/training', label: 'Training', icon: Dumbbell },
-  { path: '/equipment', label: 'Equipment', icon: Wrench },
   { path: '/staking', label: 'Staking', icon: PiggyBank },
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },

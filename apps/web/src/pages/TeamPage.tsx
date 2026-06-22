@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight, Award } from 'lucide-react';
+import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight, Award, Home, Handshake, Wrench, Bus, RefreshCw } from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
 
 const FOOTBALL_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
@@ -39,6 +39,108 @@ export default function TeamPage() {
   const [promotionData, setPromotionData] = useState<any>(null);
   const [promotionLoading, setPromotionLoading] = useState(false);
   const [promotionMessage, setPromotionMessage] = useState<string | null>(null);
+
+  // Tab state for team management sections
+  const [activeTab, setActiveTab] = useState<'roster' | 'assets' | 'sponsorships' | 'equipment'>('roster');
+  const [teamSponsorships, setTeamSponsorships] = useState<any[]>([]);
+  const [sponsorOffers, setSponsorOffers] = useState<any[]>([]);
+  const [sponsorLoading, setSponsorLoading] = useState(false);
+  const [teamEquipment, setTeamEquipment] = useState<any[]>([]);
+  const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
+  const [equipLoading, setEquipLoading] = useState(false);
+
+  // Load sponsorships and equipment when tab changes
+  useEffect(() => {
+    if (!selectedTeam) return;
+    if (activeTab === 'sponsorships') {
+      loadSponsorships();
+    } else if (activeTab === 'equipment') {
+      loadEquipment();
+    }
+  }, [activeTab, selectedTeam?.id]);
+
+  const loadSponsorships = async () => {
+    setSponsorLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/teams/${selectedTeam.id}/sponsorships`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTeamSponsorships(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load sponsorships:', err);
+    } finally {
+      setSponsorLoading(false);
+    }
+  };
+
+  const refreshSponsorOffers = async () => {
+    setSponsorLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/teams/${selectedTeam.id}/sponsorships/refresh`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSponsorOffers(data.data?.offers || []);
+      }
+    } catch (err) {
+      console.error('Failed to refresh offers:', err);
+    } finally {
+      setSponsorLoading(false);
+    }
+  };
+
+  const acceptSponsorOffer = async (offer: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/teams/${selectedTeam.id}/sponsorships`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sponsorName: offer.sponsorName,
+          tier: offer.tier,
+          amountPerGame: offer.amountPerGame,
+          amountPerSeason: offer.amountPerSeason,
+          bonusRules: offer.bonusRules,
+        }),
+      });
+      if (res.ok) {
+        loadSponsorships();
+        setSponsorOffers([]);
+      }
+    } catch (err) {
+      console.error('Failed to accept offer:', err);
+    }
+  };
+
+  const loadEquipment = async () => {
+    setEquipLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const [equipRes, typesRes] = await Promise.all([
+        fetch(`/api/equipment/team/${selectedTeam.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/equipment/types', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (equipRes.ok) {
+        const data = await equipRes.json();
+        setTeamEquipment(data.data || []);
+      }
+      if (typesRes.ok) {
+        const data = await typesRes.json();
+        setEquipmentTypes(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load equipment:', err);
+    } finally {
+      setEquipLoading(false);
+    }
+  };
 
   // Load data on mount if not already loaded
   useEffect(() => {
@@ -512,82 +614,339 @@ export default function TeamPage() {
                   </div>
                 </div>
 
-                {/* Roster Section */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Users className="w-5 h-5 text-[#E94560]" />
-                      Roster ({selectedTeam.teamPlayers?.length || 0}/43)
-                    </h3>
-                    {(selectedTeam.teamPlayers?.length || 0) < 43 && (
+                {/* Tab Navigation */}
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {[
+                    { key: 'roster', label: 'Roster', icon: Users },
+                    { key: 'assets', label: 'Assets', icon: Home },
+                    { key: 'sponsorships', label: 'Sponsorships', icon: Handshake },
+                    { key: 'equipment', label: 'Equipment', icon: Wrench },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.key;
+                    return (
                       <button
-                        onClick={openPlayerSelect}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-medium hover:shadow-glow transition-shadow"
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key as any)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                          isActive
+                            ? 'bg-[#E94560]/20 text-[#E94560] border border-[#E94560]/30'
+                            : 'bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60'
+                        }`}
                       >
-                        <Plus className="w-4 h-4" />
-                        {selectedTeam.teamPlayers?.length === 0 ? 'Hire Your First Player' : 'Hire Player'}
+                        <Icon className="w-4 h-4" />
+                        {tab.label}
                       </button>
+                    );
+                  })}
+                </div>
+
+                {/* Roster Tab */}
+                {activeTab === 'roster' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Users className="w-5 h-5 text-[#E94560]" />
+                        Roster ({selectedTeam.teamPlayers?.length || 0}/43)
+                      </h3>
+                      {(selectedTeam.teamPlayers?.length || 0) < 43 && (
+                        <button
+                          onClick={openPlayerSelect}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-medium hover:shadow-glow transition-shadow"
+                        >
+                          <Plus className="w-4 h-4" />
+                          {selectedTeam.teamPlayers?.length === 0 ? 'Hire Your First Player' : 'Hire Player'}
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedTeam.teamPlayers?.length === 0 ? (
+                      <div className="glass-card p-12 text-center border-2 border-dashed border-white/10">
+                        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                          <Users className="w-8 h-8 text-white/20" />
+                        </div>
+                        <p className="text-white font-medium mb-1">No players yet</p>
+                        <p className="text-white/30 text-sm">Click "Hire Player" to add your first roster player</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {selectedTeam.teamPlayers.map((tp) => (
+                          <div
+                            key={tp.id}
+                            className={`glass-card p-4 card-lift border ${getRarityColor(tp.player.rarity)}`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <div className="font-bold text-white">{tp.player.name}</div>
+                                <div className="text-sm text-white/40">{tp.player.position}</div>
+                              </div>
+                              <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(tp.player.rarity)} ${getRarityColor(tp.player.rarity).split(' ')[0]}`}>
+                                {tp.player.rarity}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="text-center">
+                                <div className="text-2xl font-black text-white">{tp.player.overall}</div>
+                                <div className="text-xs text-white/30">OVR</div>
+                              </div>
+                              <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
+                                {[
+                                  { label: 'SPD', value: tp.player.pace },
+                                  { label: 'ARM', value: tp.player.shooting },
+                                  { label: 'IQ', value: tp.player.passing },
+                                  { label: 'AGI', value: tp.player.dribbling },
+                                  { label: 'TCK', value: tp.player.defending },
+                                  { label: 'STR', value: tp.player.physical },
+                                ].map((stat) => (
+                                  <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
+                                    <div className="font-bold text-white">{stat.value}</div>
+                                    <div className="text-[10px] text-white/30">{stat.label}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {tp.isStarter && (
+                              <div className="flex items-center gap-1 text-xs text-[#E94560]">
+                                <Star className="w-3 h-3" />
+                                Starter
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
+                )}
 
-                  {selectedTeam.teamPlayers?.length === 0 ? (
-                    <div className="glass-card p-12 text-center border-2 border-dashed border-white/10">
-                      <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Users className="w-8 h-8 text-white/20" />
-                      </div>
-                      <p className="text-white font-medium mb-1">No players yet</p>
-                      <p className="text-white/30 text-sm">Click "Hire Player" to add your first roster player</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {selectedTeam.teamPlayers.map((tp) => (
-                        <div
-                          key={tp.id}
-                          className={`glass-card p-4 card-lift border ${getRarityColor(tp.player.rarity)}`}
-                        >
-                          <div className="flex items-start justify-between mb-3">
+                {/* Assets Tab */}
+                {activeTab === 'assets' && (
+                  <div className="space-y-6">
+                    {/* Venue / Stadium */}
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-4">Stadium</h3>
+                      {selectedTeam.venue ? (
+                        <div className="glass-card p-6">
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-[#E94560]/20 to-purple-600/20 rounded-xl flex items-center justify-center">
+                              <Home className="w-6 h-6 text-[#E94560]" />
+                            </div>
                             <div>
-                              <div className="font-bold text-white">{tp.player.name}</div>
-                              <div className="text-sm text-white/40">{tp.player.position}</div>
-                            </div>
-                            <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(tp.player.rarity)} ${getRarityColor(tp.player.rarity).split(' ')[0]}`}>
-                              {tp.player.rarity}
+                              <div className="font-bold text-white">{selectedTeam.venue.name}</div>
+                              <div className="text-sm text-white/40">{selectedTeam.venue.tier?.replace(/_/g, ' ') || 'Standard'}</div>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="text-center">
-                              <div className="text-2xl font-black text-white">{tp.player.overall}</div>
-                              <div className="text-xs text-white/30">OVR</div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="text-center bg-white/5 rounded-xl p-3">
+                              <div className="text-xl font-bold text-white">{selectedTeam.venue.capacity?.toLocaleString()}</div>
+                              <div className="text-xs text-white/30">Capacity</div>
                             </div>
-                            <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
-                              {[
-                                { label: 'SPD', value: tp.player.pace },
-                                { label: 'ARM', value: tp.player.shooting },
-                                { label: 'IQ', value: tp.player.passing },
-                                { label: 'AGI', value: tp.player.dribbling },
-                                { label: 'TCK', value: tp.player.defending },
-                                { label: 'STR', value: tp.player.physical },
-                              ].map((stat) => (
-                                <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
-                                  <div className="font-bold text-white">{stat.value}</div>
-                                  <div className="text-[10px] text-white/30">{stat.label}</div>
-                                </div>
-                              ))}
+                            <div className="text-center bg-white/5 rounded-xl p-3">
+                              <div className="text-xl font-bold text-[#FFD700]">${selectedTeam.venue.ticketPrice}</div>
+                              <div className="text-xs text-white/30">Ticket Price</div>
+                            </div>
+                            <div className="text-center bg-white/5 rounded-xl p-3">
+                              <div className="text-xl font-bold text-white">{selectedTeam.venue.condition}%</div>
+                              <div className="text-xs text-white/30">Condition</div>
+                            </div>
+                            <div className="text-center bg-white/5 rounded-xl p-3">
+                              <div className="text-xl font-bold text-white">{selectedTeam.venue.prestige}</div>
+                              <div className="text-xs text-white/30">Prestige</div>
                             </div>
                           </div>
-
-                          {tp.isStarter && (
-                            <div className="flex items-center gap-1 text-xs text-[#E94560]">
-                              <Star className="w-3 h-3" />
-                              Starter
-                            </div>
-                          )}
                         </div>
-                      ))}
+                      ) : (
+                        <div className="glass-card p-8 text-center border-2 border-dashed border-white/10">
+                          <Home className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                          <p className="text-white/40">No venue assigned</p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+
+                    {/* Transportation */}
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-4">Transportation</h3>
+                      {selectedTeam.transportationAssets && selectedTeam.transportationAssets.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {selectedTeam.transportationAssets.map((transport: any) => (
+                            <div key={transport.id} className="glass-card p-4">
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center">
+                                  <Bus className="w-5 h-5 text-white/40" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">{transport.name}</div>
+                                  <div className="text-xs text-white/30">{transport.tier}</div>
+                                </div>
+                              </div>
+                              <div className="flex gap-4 text-xs text-white/40">
+                                <span>Op. Cost: {transport.operatingCost} CASH</span>
+                                <span>Fatigue: -{transport.fatigueReduction}%</span>
+                                <span>Prestige: +{transport.prestige}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="glass-card p-8 text-center border-2 border-dashed border-white/10">
+                          <Bus className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                          <p className="text-white/40">No transportation assigned</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sponsorships Tab */}
+                {activeTab === 'sponsorships' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-white">Sponsorships</h3>
+                      <button
+                        onClick={refreshSponsorOffers}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 text-white rounded-xl text-sm hover:bg-white/10 transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Find Offers
+                      </button>
+                    </div>
+
+                    {sponsorLoading && (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E94560]" />
+                      </div>
+                    )}
+
+                    {/* Active Sponsorships */}
+                    {!sponsorLoading && teamSponsorships.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Active ({teamSponsorships.length}/3)</h4>
+                        {teamSponsorships.map((s: any) => (
+                          <div key={s.id} className="glass-card p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-white">{s.sponsorName}</div>
+                                <div className="text-sm text-white/40">
+                                  {s.amountPerGame.toLocaleString()} CASH/game • {s.amountPerSeason.toLocaleString()} CASH/season
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xs text-emerald-400">Active</div>
+                                {s.bonusRules?.winBonus && (
+                                  <div className="text-xs text-[#FFD700]">Win Bonus: {s.bonusRules.winBonus.toLocaleString()}</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Available Offers */}
+                    {!sponsorLoading && sponsorOffers.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Available Offers</h4>
+                        {sponsorOffers.map((offer: any, idx: number) => (
+                          <div key={idx} className="glass-card p-4 border border-[#FFD700]/20">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-white">{offer.sponsorName}</div>
+                                <div className="text-xs text-white/40">{offer.tier}</div>
+                                <div className="text-sm text-[#FFD700]">
+                                  {offer.amountPerGame.toLocaleString()} CASH/game • {offer.amountPerSeason.toLocaleString()} CASH/season
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => acceptSponsorOffer(offer)}
+                                className="px-4 py-2 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 transition-colors"
+                              >
+                                Accept
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!sponsorLoading && teamSponsorships.length === 0 && sponsorOffers.length === 0 && (
+                      <div className="glass-card p-12 text-center border-2 border-dashed border-white/10">
+                        <Handshake className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                        <p className="text-white font-medium mb-1">No sponsorships yet</p>
+                        <p className="text-white/30 text-sm">Click "Find Offers" to discover sponsors</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Equipment Tab */}
+                {activeTab === 'equipment' && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-white">Equipment</h3>
+                    </div>
+
+                    {equipLoading && (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E94560]" />
+                      </div>
+                    )}
+
+                    {/* Owned Equipment */}
+                    {!equipLoading && teamEquipment.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Owned</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {teamEquipment.map((eq: any) => (
+                            <div key={eq.id} className="glass-card p-4">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center">
+                                  <Wrench className="w-4 h-4 text-white/40" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">{eq.equipmentType.name}</div>
+                                  <div className="text-xs text-white/30">{eq.equipmentType.category} • Level {eq.level}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Available Equipment */}
+                    {!equipLoading && equipmentTypes.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Available</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {equipmentTypes.map((type: any) => (
+                            <div key={type.id} className="glass-card p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-medium text-white">{type.name}</div>
+                                <div className="text-xs text-white/30">{type.category}</div>
+                              </div>
+                              <div className="text-sm text-white/40 mb-3">{type.description}</div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-[#FFD700]">{type.baseCostCash.toLocaleString()} CASH</span>
+                                <button className="px-3 py-1.5 bg-[#E94560] text-white rounded-lg text-xs font-medium hover:bg-[#E94560]/80 transition-colors">
+                                  Purchase
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!equipLoading && teamEquipment.length === 0 && equipmentTypes.length === 0 && (
+                      <div className="glass-card p-12 text-center border-2 border-dashed border-white/10">
+                        <Wrench className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                        <p className="text-white font-medium mb-1">No equipment available</p>
+                        <p className="text-white/30 text-sm">Equipment types will be added soon</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
