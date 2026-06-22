@@ -762,6 +762,55 @@ export default function TeamPage() {
                           <p className="text-white/40">No venue assigned</p>
                         </div>
                       )}
+
+                      {/* Upgrade Stadium Options */}
+                      <div className="mt-4 space-y-3">
+                        <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Upgrade Stadium</h4>
+                        {[
+                          { tier: 'PARK_FIELD', name: 'Community Park', capacity: 5000, ticketPrice: 10, cost: 5000, prestige: 10 },
+                          { tier: 'COMMUNITY', name: 'Community Stadium', capacity: 12000, ticketPrice: 15, cost: 25000, prestige: 25 },
+                          { tier: 'SMALL_STADIUM', name: 'Small Stadium', capacity: 35000, ticketPrice: 25, cost: 100000, prestige: 40 },
+                          { tier: 'REGIONAL', name: 'Regional Stadium', capacity: 25000, ticketPrice: 35, cost: 300000, prestige: 50 },
+                          { tier: 'PRO', name: 'Pro Stadium', capacity: 65000, ticketPrice: 50, cost: 1000000, prestige: 65 },
+                          { tier: 'ELITE', name: 'Elite Stadium', capacity: 100000, ticketPrice: 75, cost: 5000000, prestige: 85 },
+                        ].map((venue) => (
+                          <div key={venue.tier} className="glass-card p-4 flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-white">{venue.name}</div>
+                              <div className="text-xs text-white/40">
+                                {venue.capacity.toLocaleString()} seats • ${venue.ticketPrice}/ticket • Prestige {venue.prestige}
+                              </div>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const res = await fetch(`/api/teams/${selectedTeam.id}/venue`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                    body: JSON.stringify({
+                                      name: venue.name,
+                                      tier: venue.tier,
+                                      capacity: venue.capacity,
+                                      ticketPrice: venue.ticketPrice,
+                                      cost: venue.cost,
+                                    }),
+                                  });
+                                  if (res.ok) {
+                                    refreshTeams();
+                                    refreshWallet();
+                                  }
+                                } catch (err) {
+                                  console.error('Failed to buy venue:', err);
+                                }
+                              }}
+                              className="px-4 py-2 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 transition-colors"
+                            >
+                              {venue.cost.toLocaleString()} CASH
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Transportation */}
@@ -794,6 +843,54 @@ export default function TeamPage() {
                           <p className="text-white/40">No transportation assigned</p>
                         </div>
                       )}
+
+                      {/* Upgrade Transportation Options */}
+                      <div className="mt-4 space-y-3">
+                        <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Upgrade Transportation</h4>
+                        {[
+                          { tier: 'CARPOOL', name: 'Carpool / Rental Vans', operatingCost: 100, fatigueReduction: 0, prestige: 0, cost: 2000 },
+                          { tier: 'BUS', name: 'Team Bus', operatingCost: 300, fatigueReduction: 10, prestige: 5, cost: 10000 },
+                          { tier: 'CHARTER', name: 'Team Charter', operatingCost: 1000, fatigueReduction: 20, prestige: 20, cost: 50000 },
+                          { tier: 'LUXURY', name: 'Private Jet', operatingCost: 5000, fatigueReduction: 30, prestige: 50, cost: 250000 },
+                        ].map((transport) => (
+                          <div key={transport.tier} className="glass-card p-4 flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-white">{transport.name}</div>
+                              <div className="text-xs text-white/40">
+                                Op. Cost: {transport.operatingCost} CASH • Fatigue: -{transport.fatigueReduction}% • Prestige: +{transport.prestige}
+                              </div>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const res = await fetch(`/api/teams/${selectedTeam.id}/transportation`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                    body: JSON.stringify({
+                                      name: transport.name,
+                                      tier: transport.tier,
+                                      operatingCost: transport.operatingCost,
+                                      fatigueReduction: transport.fatigueReduction,
+                                      prestige: transport.prestige,
+                                      cost: transport.cost,
+                                    }),
+                                  });
+                                  if (res.ok) {
+                                    refreshTeams();
+                                    refreshWallet();
+                                  }
+                                } catch (err) {
+                                  console.error('Failed to buy transportation:', err);
+                                }
+                              }}
+                              className="px-4 py-2 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 transition-colors"
+                            >
+                              {transport.cost.toLocaleString()} CASH
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -35,6 +35,77 @@ import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
 
 // ─── Seed Functions ───
+async function seedTeamMarketplaceListings(prisma: PrismaClient) {
+  const listingCount = await prisma.teamMarketplaceListing.count({ where: { status: 'ACTIVE' } });
+  if (listingCount > 0) return;
+
+  // Find AI owner to act as seller
+  const seller = await prisma.user.findFirst({
+    where: { email: 'ai@grid-game.system' },
+  });
+
+  if (!seller) {
+    console.log('No AI owner found, skipping team marketplace seed');
+    return;
+  }
+
+  // Find AI teams that are not already for sale and not owned by real users
+  const aiTeams = await prisma.team.findMany({
+    where: { isAI: true, isForSale: false },
+    take: 10,
+    orderBy: { createdAt: 'desc' },
+    include: { venue: true },
+  });
+
+  if (aiTeams.length === 0) {
+    console.log('No AI teams available for marketplace seed');
+    return;
+  }
+
+  const tierPrices: Record<string, number> = {
+    STATE_COLLEGE: 5000,
+    MID_COLLEGE: 25000,
+    TOP_COLLEGE: 75000,
+    REGIONAL_PRO: 300000,
+    PRO_ENTRY: 1500000,
+    PRO_ELITE: 8000000,
+  };
+
+  for (const team of aiTeams) {
+    const basePrice = tierPrices[team.tier] || 10000;
+    const price = Math.round(basePrice * (0.8 + Math.random() * 0.4)); // ±20% variance
+
+    // Calculate tax based on hold time (AI teams are "old" so low tax)
+    const taxRate = 0.05; // 5% for old teams
+    const burnRate = 0.05; // 5% burn
+    const foundationTax = Math.round(price * taxRate);
+    const burnAmount = Math.round(price * burnRate);
+    const sellerReceives = price - foundationTax - burnAmount;
+
+    await prisma.teamMarketplaceListing.create({
+      data: {
+        sportId: 'american-football',
+        sellerId: seller.id,
+        teamId: team.id,
+        price,
+        currency: 'GRID',
+        status: 'ACTIVE',
+        foundationTaxPaid: foundationTax,
+        burnAmount,
+        sellerReceives,
+        daysHeld: 999, // AI teams held "forever"
+      },
+    });
+
+    await prisma.team.update({
+      where: { id: team.id },
+      data: { isForSale: true, salePrice: price, saleCurrency: 'GRID', saleListedAt: new Date() },
+    });
+  }
+
+  console.log(`Seeded ${aiTeams.length} team marketplace listings`);
+}
+
 async function seedEquipmentTypes(prisma: PrismaClient) {
   const count = await prisma.equipmentType.count();
   if (count > 0) return;
@@ -266,6 +337,7 @@ const startServer = async () => {
                   // Seed equipment types and marketplace listings
                   seedEquipmentTypes(prisma).catch((e: any) => console.error('Equipment seed error:', e));
                   seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
+                  seedTeamMarketplaceListings(prisma).catch((e: any) => console.error('Team marketplace seed error:', e));
                 }
               }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
             }

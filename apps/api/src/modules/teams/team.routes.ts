@@ -357,4 +357,146 @@ router.delete(
   })
 );
 
+router.post(
+  '/:id/venue',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+    const schema = z.object({
+      name: z.string().min(1).max(100),
+      tier: z.enum(['PARK_FIELD', 'COMMUNITY', 'SMALL_STADIUM', 'REGIONAL', 'PRO', 'ELITE']),
+      capacity: z.number().int().positive(),
+      ticketPrice: z.number().int().positive(),
+      cost: z.number().int().positive(),
+    });
+    const input = schema.parse(req.body);
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+      include: { venue: true },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+    if (wallet.cash < input.cost) {
+      throw new AppError(400, `Insufficient CASH. Need ${input.cost.toLocaleString()} CASH`);
+    }
+
+    const prestigeMap: Record<string, number> = {
+      PARK_FIELD: 10, COMMUNITY: 25, SMALL_STADIUM: 40, REGIONAL: 50, PRO: 65, ELITE: 85,
+    };
+
+    await prisma.$transaction(async (tx: any) => {
+      // Delete old venue if exists
+      if (team.venue) {
+        await tx.venue.delete({ where: { id: team.venue.id } });
+      }
+      // Create new venue
+      await tx.venue.create({
+        data: {
+          teamId: team.id,
+          sportId: team.sportId,
+          name: input.name,
+          tier: input.tier,
+          capacity: input.capacity,
+          ticketPrice: input.ticketPrice,
+          condition: 100,
+          prestige: prestigeMap[input.tier] || 10,
+        },
+      });
+      // Deduct cash
+      await tx.wallet.update({
+        where: { userId },
+        data: { cash: { decrement: input.cost } },
+      });
+      // Record ledger
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -input.cost,
+        balanceAfter: wallet.cash - input.cost,
+        reason: 'STADIUM_UPGRADE',
+        sourceType: 'VENUE_PURCHASE',
+        sourceId: teamId,
+        metadata: { tier: input.tier, capacity: input.capacity },
+      });
+    });
+
+    res.json({ status: 'success', message: `Purchased ${input.name}` });
+  })
+);
+
+router.post(
+  '/:id/transportation',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+    const schema = z.object({
+      name: z.string().min(1).max(100),
+      tier: z.enum(['CARPOOL', 'BUS', 'CHARTER', 'LUXURY']),
+      operatingCost: z.number().int().positive(),
+      fatigueReduction: z.number().int().min(0).max(100),
+      prestige: z.number().int().min(0),
+      cost: z.number().int().positive(),
+    });
+    const input = schema.parse(req.body);
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+    if (wallet.cash < input.cost) {
+      throw new AppError(400, `Insufficient CASH. Need ${input.cost.toLocaleString()} CASH`);
+    }
+
+    await prisma.$transaction(async (tx: any) => {
+      // Delete old transportation
+      await tx.transportationAsset.deleteMany({ where: { teamId: team.id } });
+      // Create new
+      await tx.transportationAsset.create({
+        data: {
+          teamId: team.id,
+          tier: input.tier,
+          name: input.name,
+          operatingCost: input.operatingCost,
+          fatigueReduction: input.fatigueReduction,
+          prestige: input.prestige,
+        },
+      });
+      // Deduct cash
+      await tx.wallet.update({
+        where: { userId },
+        data: { cash: { decrement: input.cost } },
+      });
+      // Record ledger
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -input.cost,
+        balanceAfter: wallet.cash - input.cost,
+        reason: 'TRANSPORTATION_PURCHASE',
+        sourceType: 'TRANSPORT_PURCHASE',
+        sourceId: teamId,
+        metadata: { tier: input.tier, name: input.name },
+      });
+    });
+
+    res.json({ status: 'success', message: `Purchased ${input.name}` });
+  })
+);
+
 export const teamRouter = router;
