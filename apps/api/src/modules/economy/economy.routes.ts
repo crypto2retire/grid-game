@@ -75,6 +75,44 @@ router.post(
   })
 );
 
+// Admin/debug: top up GRID tokens for testing
+router.post(
+  '/wallet/topup-grid',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({
+      amount: z.number().int().positive().max(10000000),
+    });
+    const input = schema.parse(req.body);
+    const userId = req.user!.id;
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+
+    const updated = await prisma.$transaction(async (tx: any) => {
+      const walletAfter = await tx.wallet.update({
+        where: { userId },
+        data: { gridTokens: { increment: input.amount } },
+      });
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'GRID',
+        amount: input.amount,
+        balanceAfter: walletAfter.gridTokens,
+        reason: 'TEST_TOPUP',
+        sourceType: 'WALLET_TOPUP',
+        sourceId: walletAfter.id,
+        metadata: { testOnly: true },
+      });
+      return walletAfter;
+    });
+
+    res.json({ status: 'success', data: updated, message: `Added ${input.amount.toLocaleString()} GRID` });
+  })
+);
+
 // POST /api/economy/exchange — exchange Gold for GRID (paid users only)
 router.post(
   '/exchange',

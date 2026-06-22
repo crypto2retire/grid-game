@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowDown, ArrowUp, Clock, Coins } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Coins, Plus, Zap } from 'lucide-react';
 
 interface WalletData {
   cash: number;
@@ -82,6 +82,40 @@ export default function WalletPage() {
     }
   };
 
+  const topupCash = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/economy/wallet/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: 50000 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWallet(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to topup CASH:', err);
+    }
+  };
+
+  const topupGrid = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/economy/wallet/topup-grid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: 100000 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWallet(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to topup GRID:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -123,9 +157,32 @@ export default function WalletPage() {
               </div>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            Starting balance: 50,000 CASH
+          <button
+            onClick={topupCash}
+            className="w-full py-2 bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-400 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add 50,000 Test CASH
+          </button>
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-purple-400/10 rounded-lg flex items-center justify-center">
+              <Zap className="w-6 h-6 text-purple-400" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">GRID Balance</div>
+              <div className="text-3xl font-bold text-white">
+                {wallet?.gridTokens?.toLocaleString() || 0}
+              </div>
+            </div>
           </div>
+          <button
+            onClick={topupGrid}
+            className="w-full py-2 bg-purple-400/10 hover:bg-purple-400/20 text-purple-400 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add 100,000 Test GRID
+          </button>
         </div>
 
         <div className="glass-card p-6">
