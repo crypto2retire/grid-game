@@ -346,6 +346,41 @@ export default function PlayableMatchPage() {
   const isUserPossession = gameState?.possessionTeamId === gameState?.userTeamId;
   const userTeam = gameState?.userTeamId === gameState?.homeTeamId ? gameState?.homeTeam : gameState?.awayTeam;
 
+  // AI auto-play when it's the opponent's turn
+  useEffect(() => {
+    if (phase !== 'PLAYING' || isUserPossession || animating || !gameState) return;
+
+    const timer = setTimeout(() => {
+      const allPlays = [
+        'RUN_LEFT', 'RUN_MIDDLE', 'RUN_RIGHT', 'QB_DRAW',
+        'SHORT_PASS', 'MEDIUM_PASS', 'DEEP_BALL', 'SCREEN',
+        'PUNT', 'FIELD_GOAL',
+      ];
+
+      const isHome = gameState.possessionTeamId === gameState.homeTeamId;
+      const distanceToGoal = isHome
+        ? 100 - (gameState.ballPosition || 25)
+        : gameState.ballPosition || 25;
+
+      let playType: string;
+      if (gameState.down === 4) {
+        if (distanceToGoal <= 40) {
+          playType = 'FIELD_GOAL';
+        } else {
+          playType = 'PUNT';
+        }
+      } else {
+        // Random run or pass play
+        const normalPlays = allPlays.slice(0, 8);
+        playType = normalPlays[Math.floor(Math.random() * normalPlays.length)];
+      }
+
+      submitPlay(playType);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [phase, isUserPossession, animating, gameState]);
+
   // ─── Error ───
   if (error) {
     return (
