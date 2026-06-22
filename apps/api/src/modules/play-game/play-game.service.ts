@@ -403,14 +403,20 @@ export async function resolvePlay(
     if (result === 'TOUCHDOWN') {
       scoreChange = 6;
       if (isHomePossession) newHomeScore += 6; else newAwayScore += 6;
+      // Kickoff after touchdown — switch possession, reset ball to 25
+      newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
+      newBallPosition = 25;
+      newDown = 1;
+      newYardsToGo = 10;
     }
 
-    if (result === 'INTERCEPTION' || result === 'FUMBLE' || (newDown > 4 && result !== 'TOUCHDOWN')) {
+    const turnoverOnDowns = newDown > 4 && result !== 'TOUCHDOWN';
+    if (result === 'INTERCEPTION' || result === 'FUMBLE' || turnoverOnDowns) {
       newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
       newBallPosition = 100 - newBallPosition;
       newDown = 1;
       newYardsToGo = 10;
-      if (newDown > 4 && result !== 'TOUCHDOWN') {
+      if (turnoverOnDowns) {
         result = 'TURNOVER_ON_DOWNS';
         description = `Fourth down... ${description.split('!')[0] || 'No gain'}! Turnover on downs.`;
       }
@@ -447,7 +453,7 @@ export async function resolvePlay(
     result,
     yards,
     firstDown,
-    turnover: result === 'INTERCEPTION' || result === 'FUMBLE',
+    turnover: result === 'INTERCEPTION' || result === 'FUMBLE' || result === 'TURNOVER_ON_DOWNS',
     touchdown: result === 'TOUCHDOWN',
     fieldGoal: result === 'FIELD_GOAL',
     missedFg: result === 'MISSED_FG',
