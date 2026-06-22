@@ -171,6 +171,15 @@ export default function PlayersPage() {
     ? players.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
     : players;
 
+  // Sort by position order, then by overall descending
+  const positionOrder = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
+  const sortedPlayers = [...filteredPlayers].sort((a, b) => {
+    const posA = positionOrder.indexOf(a.position);
+    const posB = positionOrder.indexOf(b.position);
+    if (posA !== posB) return posA - posB;
+    return b.overall - a.overall;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -307,7 +316,7 @@ export default function PlayersPage() {
       )}
 
       {/* Player Grid */}
-      {filteredPlayers.length === 0 ? (
+      {sortedPlayers.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-white font-medium mb-1">No players found</p>
@@ -315,7 +324,7 @@ export default function PlayersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPlayers.map((player) => (
+          {sortedPlayers.map((player) => (
             <div
               key={player.id}
               className={`glass-card p-4 border hover:bg-secondary/50 transition-colors ${getRarityColor(player.rarity)}`}

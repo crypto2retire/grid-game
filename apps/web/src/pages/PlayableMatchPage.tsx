@@ -395,7 +395,14 @@ export default function PlayableMatchPage() {
   // ─── PREGAME ───
   if (phase === 'PREGAME') {
     const activeRoster = gameState?.userTeamId === gameState?.homeTeamId ? homeRoster : awayRoster;
-    const starters = activeRoster.filter((p) => selectedOffense.includes(p.playerId));
+    const positionOrder = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
+    const sortedRoster = [...activeRoster].sort((a, b) => {
+      const posA = positionOrder.indexOf(a.position);
+      const posB = positionOrder.indexOf(b.position);
+      if (posA !== posB) return posA - posB;
+      return b.overall - a.overall;
+    });
+    const starters = sortedRoster.filter((p) => selectedOffense.includes(p.playerId));
 
     return (
       <div className="p-4 space-y-4 max-w-4xl mx-auto">
@@ -471,7 +478,7 @@ export default function PlayableMatchPage() {
         <div className="glass-card p-4">
           <h3 className="font-semibold text-white mb-3">Select Starters</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {activeRoster.map((player) => {
+            {sortedRoster.map((player) => {
               const isSelected = selectedOffense.includes(player.playerId);
               return (
                 <button
