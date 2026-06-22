@@ -105,7 +105,7 @@ router.post(
   authMiddleware,
   asyncHandler(async (req: any, res) => {
     const schema = z.object({
-      playType: z.enum(['RUN_LEFT', 'RUN_MIDDLE', 'RUN_RIGHT', 'QB_DRAW', 'SHORT_PASS', 'MEDIUM_PASS', 'DEEP_BALL', 'SCREEN']),
+      playType: z.enum(['RUN_LEFT', 'RUN_MIDDLE', 'RUN_RIGHT', 'QB_DRAW', 'SHORT_PASS', 'MEDIUM_PASS', 'DEEP_BALL', 'SCREEN', 'PUNT', 'FIELD_GOAL']),
       direction: z.string().optional(),
     });
     const input = schema.parse(req.body);

@@ -38,6 +38,9 @@ interface PlayResult {
   firstDown: boolean;
   turnover: boolean;
   touchdown: boolean;
+  punt: boolean;
+  fieldGoal: boolean;
+  missedFg: boolean;
   scoreChange: number;
   description: string;
   defensivePlay: string;
@@ -79,6 +82,11 @@ const PASS_PLAYS = [
   { type: 'MEDIUM_PASS', name: 'Medium Pass', icon: Target, color: 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30' },
   { type: 'DEEP_BALL', name: 'Deep Ball', icon: Zap, color: 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30' },
   { type: 'SCREEN', name: 'Screen Pass', icon: ArrowDown, color: 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30' },
+];
+
+const SPECIAL_PLAYS = [
+  { type: 'PUNT', name: 'Punt', icon: ArrowDown, color: 'bg-gray-500/20 hover:bg-gray-500/30 border-gray-500/30' },
+  { type: 'FIELD_GOAL', name: 'Field Goal', icon: Target, color: 'bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/30' },
 ];
 
 const OFFENSIVE_STYLES = [
@@ -596,12 +604,17 @@ export default function PlayableMatchPage() {
         {phase === 'RESULT' && lastResult && (
           <div className={`glass-card p-6 text-center border-2 animate-pulse ${
             lastResult.touchdown ? 'border-yellow-400/50 bg-yellow-400/5' :
+            lastResult.fieldGoal ? 'border-green-400/50 bg-green-400/5' :
+            lastResult.punt ? 'border-gray-400/50 bg-gray-400/5' :
             lastResult.turnover ? 'border-red-400/50 bg-red-400/5' :
             lastResult.yards > 10 ? 'border-green-400/50 bg-green-400/5' :
             'border-blue-400/30'
           }`}>
             <div className="text-2xl font-bold text-white mb-2">
               {lastResult.touchdown ? '🏈 TOUCHDOWN!' :
+               lastResult.fieldGoal ? '✅ FIELD GOAL!' :
+               lastResult.missedFg ? '❌ MISSED FIELD GOAL' :
+               lastResult.punt ? '🏈 PUNT' :
                lastResult.turnover ? '💥 TURNOVER!' :
                lastResult.yards > 0 ? `+${lastResult.yards} yards` :
                `${lastResult.yards} yards`}
@@ -618,6 +631,9 @@ export default function PlayableMatchPage() {
           <div className="space-y-3">
             <div className="text-sm text-muted-foreground text-center">
               Select your play
+              {gameState?.down === 4 && (
+                <span className="block text-xs text-orange-400 mt-1">4th Down — Special Teams Available</span>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -653,6 +669,27 @@ export default function PlayableMatchPage() {
                 })}
               </div>
             </div>
+            {/* Special Teams — only on 4th down */}
+            {gameState?.down === 4 && (
+              <div className="space-y-2">
+                <div className="text-xs text-orange-400 font-medium uppercase tracking-wider text-center">Special Teams</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {SPECIAL_PLAYS.map((play) => {
+                    const Icon = play.icon;
+                    return (
+                      <button
+                        key={play.type}
+                        onClick={() => submitPlay(play.type)}
+                        className={`w-full p-3 rounded-lg border flex items-center gap-3 transition-all ${play.color}`}
+                      >
+                        <Icon className="w-5 h-5 text-white" />
+                        <span className="font-medium text-white text-sm">{play.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -679,11 +716,18 @@ export default function PlayableMatchPage() {
                 <div key={idx} className="text-sm flex items-center gap-2">
                   <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
                     play.touchdown ? 'bg-yellow-400/20 text-yellow-400' :
+                    play.fieldGoal ? 'bg-green-400/20 text-green-400' :
+                    play.missedFg ? 'bg-red-400/20 text-red-400' :
+                    play.punt ? 'bg-gray-400/20 text-gray-400' :
                     play.turnover ? 'bg-red-400/20 text-red-400' :
                     play.yards > 0 ? 'bg-green-400/20 text-green-400' :
                     'bg-white/10 text-white/40'
                   }`}>
-                    {play.yards > 0 ? `+${play.yards}` : play.yards}
+                    {play.touchdown ? 'TD' :
+                     play.fieldGoal ? 'FG' :
+                     play.missedFg ? 'MISS' :
+                     play.punt ? 'PUNT' :
+                     play.yards > 0 ? `+${play.yards}` : play.yards}
                   </span>
                   <span className="text-white/70 truncate">{play.description}</span>
                 </div>

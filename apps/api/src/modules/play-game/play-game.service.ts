@@ -17,6 +17,8 @@ const OFFENSIVE_PLAYS = [
   { type: 'MEDIUM_PASS', category: 'PASS', baseYards: 12, variance: 10, risk: 0.15 },
   { type: 'DEEP_BALL', category: 'PASS', baseYards: 25, variance: 20, risk: 0.25 },
   { type: 'SCREEN', category: 'PASS', baseYards: 8, variance: 8, risk: 0.06 },
+  { type: 'PUNT', category: 'SPECIAL_TEAMS', baseYards: 40, variance: 15, risk: 0.02 },
+  { type: 'FIELD_GOAL', category: 'SPECIAL_TEAMS', baseYards: 0, variance: 0, risk: 0.10 },
 ];
 
 const DEFENSIVE_PLAYS = [
@@ -222,167 +224,214 @@ export async function resolvePlay(
   const aiDefPlay = DEFENSIVE_PLAYS[Math.floor(roll() * DEFENSIVE_PLAYS.length)];
 
   let offPower = 0;
-  if (playDef.category === 'RUN') {
-    offPower = (rb?.physical || 50) * 0.4 + (rb?.pace || 50) * 0.3 + (ol[0]?.defending || 50) * 0.2 + (qb?.physical || 50) * 0.1;
-  } else {
-    offPower = (qb?.passing || 50) * 0.35 + (wr?.shooting || 50) * 0.25 + (wr?.pace || 50) * 0.2 + (qb?.physical || 50) * 0.1 + (ol[0]?.defending || 50) * 0.1;
-  }
-
-  let defPower = 0;
-  if (playDef.category === 'RUN') {
-    defPower = (dl?.defending || 50) * 0.4 + (lb?.defending || 50) * 0.3 + (dl?.physical || 50) * 0.2 + (cb?.defending || 50) * 0.1;
-  } else {
-    defPower = (cb?.defending || 50) * 0.35 + (lb?.defending || 50) * 0.25 + (dl?.defending || 50) * 0.2 + (cb?.pace || 50) * 0.2;
-  }
-
-  const offStyle = match.offensiveStyle || 'balanced';
-  const defStyle = match.defensiveStyle || 'balanced';
-
-  if (offStyle === 'runHeavy' && playDef.category === 'RUN') offPower *= 1.1;
-  if (offStyle === 'passHeavy' && playDef.category === 'PASS') offPower *= 1.1;
-  if (defStyle === 'aggressive') defPower *= 1.15;
-  if (defStyle === 'conservative') defPower *= 0.85;
-
-  const defMod = aiDefPlay;
-  if (playDef.category === 'RUN') {
-    defPower += defMod.runPenalty * 2;
-  } else {
-    defPower += defMod.passPenalty * 2;
-  }
-
-  const differential = offPower - defPower + 50;
-  const normalizedDiff = (differential - 50) / 50;
-
-  const turnoverThreshold = playDef.risk + (normalizedDiff < -0.3 ? 0.1 : 0);
-  const isTurnover = roll() < turnoverThreshold;
-
-  const bigPlayChance = Math.max(0, normalizedDiff * 0.15);
-  const isBigPlay = roll() < bigPlayChance;
-
   let yards = 0;
   let result = 'GAIN';
   let description = '';
   let primaryPlayer = qb;
   let targetPlayer = rb;
-
-  if (isTurnover) {
-    const turnoverType = roll() < 0.5 ? 'INTERCEPTION' : 'FUMBLE';
-    result = turnoverType;
-    yards = 0;
-    if (turnoverType === 'INTERCEPTION') {
-      const returnYards = Math.floor(roll() * 30);
-      yards = -returnYards;
-      description = `${qb.name} throws... INTERCEPTED by ${cb?.name || 'defender'}! Returned ${returnYards} yards.`;
-      primaryPlayer = cb || defensePlayers[0];
-      targetPlayer = qb;
-    } else {
-      description = `${rb?.name || 'Running back'} fumbles! ${dl?.name || 'Defensive lineman'} recovers!`;
-      primaryPlayer = dl || defensePlayers[0];
-      targetPlayer = rb || offensePlayers[0];
-    }
-  } else {
-    const base = playDef.baseYards + (normalizedDiff * playDef.variance);
-    const variance = roll() * playDef.variance - playDef.variance / 2;
-    yards = Math.max(-5, Math.floor(base + variance + (isBigPlay ? playDef.baseYards * 1.5 : 0)));
-
-    if (yards < 0) {
-      result = 'SACK';
-      yards = Math.max(-10, yards);
-      description = `${dl?.name || 'Defender'} gets to the QB! Sacked for a loss of ${Math.abs(yards)} yards.`;
-      primaryPlayer = dl || defensePlayers[0];
-      targetPlayer = qb;
-    } else if (yards === 0) {
-      result = 'NO_GAIN';
-      description = playDef.category === 'RUN'
-        ? `${rb?.name} is stopped at the line of scrimmage. No gain.`
-        : `${qb?.name} throws... incomplete. Tight coverage by the defense.`;
-      primaryPlayer = playDef.category === 'RUN' ? rb : qb;
-    } else if (isBigPlay) {
-      const distanceToEndzone = isHomePossession ? 100 - match.ballPosition : match.ballPosition;
-      if (yards >= distanceToEndzone) {
-        result = 'TOUCHDOWN';
-        yards = distanceToEndzone;
-        description = playDef.category === 'RUN'
-          ? `${rb?.name} breaks free! TOUCHDOWN! A ${yards}-yard run!`
-          : `${qb?.name} throws deep... ${wr?.name} is WIDE OPEN! TOUCHDOWN! A ${yards}-yard bomb!`;
-        primaryPlayer = playDef.category === 'RUN' ? rb : wr;
-      } else {
-        result = 'BIG_PLAY';
-        description = playDef.category === 'RUN'
-          ? `${rb?.name} breaks through the line! Huge gain of ${yards} yards!`
-          : `${qb?.name} finds ${wr?.name} open downfield! Big gain of ${yards} yards!`;
-        primaryPlayer = playDef.category === 'RUN' ? rb : wr;
-      }
-    } else {
-      const distanceToEndzone = isHomePossession ? 100 - match.ballPosition : match.ballPosition;
-      if (yards >= distanceToEndzone) {
-        result = 'TOUCHDOWN';
-        yards = distanceToEndzone;
-        description = playDef.category === 'RUN'
-          ? `${rb?.name} punches it in! TOUCHDOWN!`
-          : `${qb?.name} throws a strike to ${wr?.name}! TOUCHDOWN!`;
-        primaryPlayer = playDef.category === 'RUN' ? rb : wr;
-      } else {
-        result = 'GAIN';
-        description = playDef.category === 'RUN'
-          ? `${rb?.name} takes the handoff and gains ${yards} yards.`
-          : `${qb?.name} throws to ${wr?.name} for a ${yards}-yard gain.`;
-        primaryPlayer = playDef.category === 'RUN' ? rb : wr;
-      }
-    }
-  }
-
-  // Update game state
-  const newBallPosition = match.ballPosition + (isHomePossession ? yards : -yards);
-  const newDown = result === 'TOUCHDOWN' || result === 'INTERCEPTION' || result === 'FUMBLE' ? 1 : match.down + 1;
-  const newYardsToGo = result === 'TOUCHDOWN' || result === 'INTERCEPTION' || result === 'FUMBLE' ? 10 : Math.max(0, match.yardsToGo - yards);
-  const firstDown = newYardsToGo <= 0 && result !== 'TOUCHDOWN' && result !== 'INTERCEPTION' && result !== 'FUMBLE';
-
   let scoreChange = 0;
+  let firstDown = false;
+  let newBallPosition = match.ballPosition;
+  let newDown = match.down + 1;
+  let newYardsToGo = match.yardsToGo;
+  let newPossession = match.possessionTeamId;
   let newHomeScore = match.homeScore;
   let newAwayScore = match.awayScore;
-  let newPossession = match.possessionTeamId;
   let newQuarter = match.currentQuarter;
   let newGameClock = match.gameClock;
-  let newBallPos = newBallPosition;
-  let newDownVal = firstDown ? 1 : newDown;
-  let newYardsVal = firstDown ? 10 : newYardsToGo;
+  let gameOver = false;
 
-  if (result === 'TOUCHDOWN') {
-    scoreChange = 6;
-    if (isHomePossession) {
-      newHomeScore += 6;
-    } else {
-      newAwayScore += 6;
+  // ─── Special Teams: PUNT ───
+  if (playType === 'PUNT') {
+    const puntDistance = Math.floor(35 + roll() * 25); // 35-60 yards
+    const returnYards = Math.floor(roll() * 15); // 0-15 return
+    const netYards = puntDistance - returnYards;
+    const kicker = offensePlayers.find((p) => p.position === 'K') || offensePlayers[0];
+    const returner = defensePlayers.find((p) => p.position === 'CB') || defensePlayers[0];
+
+    yards = netYards;
+    result = 'PUNT';
+    description = `${kicker.name} punts ${puntDistance} yards! ${returner.name} returns it ${returnYards} yards.`;
+    primaryPlayer = kicker;
+    targetPlayer = returner;
+
+    newBallPosition = match.ballPosition + (isHomePossession ? netYards : -netYards);
+    // Clamp to field limits
+    if (newBallPosition > 100) newBallPosition = 100;
+    if (newBallPosition < 0) newBallPosition = 0;
+    // Check for touchback
+    if (newBallPosition >= 100) {
+      newBallPosition = 75; // Touchback, opponent gets ball at 25
+      description = `${kicker.name} punts... TOUCHBACK! Ball placed at the 25-yard line.`;
     }
-  }
-
-  if (result === 'INTERCEPTION' || result === 'FUMBLE' || (newDown > 4 && result !== 'TOUCHDOWN')) {
     newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
-    newBallPos = 100 - newBallPosition;
-    newDownVal = 1;
-    newYardsVal = 10;
-    if (newDown > 4 && result !== 'TOUCHDOWN') {
-      result = 'TURNOVER_ON_DOWNS';
-      description = `Fourth down... ${description.split('!')[0] || 'No gain'}! Turnover on downs.`;
+    newDown = 1;
+    newYardsToGo = 10;
+    newGameClock = Math.max(0, match.gameClock - PLAY_CLOCK_DRAIN);
+
+  // ─── Special Teams: FIELD GOAL ───
+  } else if (playType === 'FIELD_GOAL') {
+    const kicker = offensePlayers.find((p) => p.position === 'K') || offensePlayers[0];
+    const distanceToGoal = isHomePossession ? 100 - match.ballPosition : match.ballPosition;
+    // Field goal range: 55 yards max (roughly midfield). Gets harder with distance.
+    const maxRange = 55;
+    const difficulty = distanceToGoal / maxRange;
+    const kickPower = (kicker?.physical || 50) * 0.5 + (kicker?.shooting || 50) * 0.5;
+    const successChance = Math.max(0.1, Math.min(0.95, (kickPower / 100) * (1 - difficulty * 0.5)));
+    const isGood = roll() < successChance;
+
+    if (isGood) {
+      result = 'FIELD_GOAL';
+      scoreChange = 3;
+      description = `${kicker.name} lines up... the kick is GOOD from ${distanceToGoal} yards out! 3 points!`;
+      if (isHomePossession) newHomeScore += 3; else newAwayScore += 3;
+      // Kickoff after FG
+      newBallPosition = 25;
+      newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
+      newDown = 1;
+      newYardsToGo = 10;
+    } else {
+      result = 'MISSED_FG';
+      description = `${kicker.name} attempts a ${distanceToGoal}-yard field goal... it's NO GOOD!`;
+      newBallPosition = match.ballPosition; // Ball goes to opponent at spot of kick
+      newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
+      newDown = 1;
+      newYardsToGo = 10;
     }
+    newGameClock = Math.max(0, match.gameClock - PLAY_CLOCK_DRAIN);
+    primaryPlayer = kicker;
+
+  // ─── Normal Run/Pass Plays ───
+  } else {
+    if (playDef.category === 'RUN') {
+      offPower = (rb?.physical || 50) * 0.4 + (rb?.pace || 50) * 0.3 + (ol[0]?.defending || 50) * 0.2 + (qb?.physical || 50) * 0.1;
+    } else {
+      offPower = (qb?.passing || 50) * 0.35 + (wr?.shooting || 50) * 0.25 + (wr?.pace || 50) * 0.2 + (qb?.physical || 50) * 0.1 + (ol[0]?.defending || 50) * 0.1;
+    }
+
+    let defPower = 0;
+    if (playDef.category === 'RUN') {
+      defPower = (dl?.defending || 50) * 0.4 + (lb?.defending || 50) * 0.3 + (dl?.physical || 50) * 0.2 + (cb?.defending || 50) * 0.1;
+      defPower += aiDefPlay.runPenalty * 2;
+    } else {
+      defPower = (cb?.defending || 50) * 0.35 + (lb?.defending || 50) * 0.25 + (dl?.defending || 50) * 0.2 + (cb?.pace || 50) * 0.2;
+      defPower += aiDefPlay.passPenalty * 2;
+    }
+
+    const differential = offPower - defPower + 50;
+    const normalizedDiff = (differential - 50) / 50;
+
+    const turnoverThreshold = playDef.risk + (normalizedDiff < -0.3 ? 0.1 : 0);
+    const isTurnover = roll() < turnoverThreshold;
+
+    const bigPlayChance = Math.max(0, normalizedDiff * 0.15);
+    const isBigPlay = roll() < bigPlayChance;
+
+    if (isTurnover) {
+      const turnoverType = roll() < 0.5 ? 'INTERCEPTION' : 'FUMBLE';
+      result = turnoverType;
+      yards = 0;
+      if (turnoverType === 'INTERCEPTION') {
+        const returnYards = Math.floor(roll() * 30);
+        yards = -returnYards;
+        description = `${qb.name} throws... INTERCEPTED by ${cb?.name || 'defender'}! Returned ${returnYards} yards.`;
+        primaryPlayer = cb || defensePlayers[0];
+        targetPlayer = qb;
+      } else {
+        description = `${rb?.name || 'Running back'} fumbles! ${dl?.name || 'Defensive lineman'} recovers!`;
+        primaryPlayer = dl || defensePlayers[0];
+        targetPlayer = rb || offensePlayers[0];
+      }
+    } else {
+      const base = playDef.baseYards + (normalizedDiff * playDef.variance);
+      const variance = roll() * playDef.variance - playDef.variance / 2;
+      yards = Math.max(-5, Math.floor(base + variance + (isBigPlay ? playDef.baseYards * 1.5 : 0)));
+
+      if (yards < 0) {
+        result = 'SACK';
+        yards = Math.max(-10, yards);
+        description = `${dl?.name || 'Defender'} gets to the QB! Sacked for a loss of ${Math.abs(yards)} yards.`;
+        primaryPlayer = dl || defensePlayers[0];
+        targetPlayer = qb;
+      } else if (yards === 0) {
+        result = 'NO_GAIN';
+        description = playDef.category === 'RUN'
+          ? `${rb?.name} is stopped at the line of scrimmage. No gain.`
+          : `${qb?.name} throws... incomplete. Tight coverage by the defense.`;
+        primaryPlayer = playDef.category === 'RUN' ? rb : qb;
+      } else if (isBigPlay) {
+        const distanceToEndzone = isHomePossession ? 100 - match.ballPosition : match.ballPosition;
+        if (yards >= distanceToEndzone) {
+          result = 'TOUCHDOWN';
+          yards = distanceToEndzone;
+          description = playDef.category === 'RUN'
+            ? `${rb?.name} breaks free! TOUCHDOWN! A ${yards}-yard run!`
+            : `${qb?.name} throws deep... ${wr?.name} is WIDE OPEN! TOUCHDOWN! A ${yards}-yard bomb!`;
+          primaryPlayer = playDef.category === 'RUN' ? rb : wr;
+        } else {
+          result = 'BIG_PLAY';
+          description = playDef.category === 'RUN'
+            ? `${rb?.name} breaks through the line! Huge gain of ${yards} yards!`
+            : `${qb?.name} finds ${wr?.name} open downfield! Big gain of ${yards} yards!`;
+          primaryPlayer = playDef.category === 'RUN' ? rb : wr;
+        }
+      } else {
+        const distanceToEndzone = isHomePossession ? 100 - match.ballPosition : match.ballPosition;
+        if (yards >= distanceToEndzone) {
+          result = 'TOUCHDOWN';
+          yards = distanceToEndzone;
+          description = playDef.category === 'RUN'
+            ? `${rb?.name} punches it in! TOUCHDOWN!`
+            : `${qb?.name} throws a strike to ${wr?.name}! TOUCHDOWN!`;
+          primaryPlayer = playDef.category === 'RUN' ? rb : wr;
+        } else {
+          result = 'GAIN';
+          description = playDef.category === 'RUN'
+            ? `${rb?.name} takes the handoff and gains ${yards} yards.`
+            : `${qb?.name} throws to ${wr?.name} for a ${yards}-yard gain.`;
+          primaryPlayer = playDef.category === 'RUN' ? rb : wr;
+        }
+      }
+    }
+
+    // Normal game state updates for run/pass
+    newBallPosition = match.ballPosition + (isHomePossession ? yards : -yards);
+    newDown = result === 'TOUCHDOWN' || result === 'INTERCEPTION' || result === 'FUMBLE' ? 1 : match.down + 1;
+    newYardsToGo = result === 'TOUCHDOWN' || result === 'INTERCEPTION' || result === 'FUMBLE' ? 10 : Math.max(0, match.yardsToGo - yards);
+    firstDown = newYardsToGo <= 0 && result !== 'TOUCHDOWN' && result !== 'INTERCEPTION' && result !== 'FUMBLE';
+
+    if (result === 'TOUCHDOWN') {
+      scoreChange = 6;
+      if (isHomePossession) newHomeScore += 6; else newAwayScore += 6;
+    }
+
+    if (result === 'INTERCEPTION' || result === 'FUMBLE' || (newDown > 4 && result !== 'TOUCHDOWN')) {
+      newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
+      newBallPosition = 100 - newBallPosition;
+      newDown = 1;
+      newYardsToGo = 10;
+      if (newDown > 4 && result !== 'TOUCHDOWN') {
+        result = 'TURNOVER_ON_DOWNS';
+        description = `Fourth down... ${description.split('!')[0] || 'No gain'}! Turnover on downs.`;
+      }
+    }
+
+    const clockDrain = result === 'NO_GAIN' || result === 'INTERCEPTION' || result === 'FUMBLE'
+      ? PASS_CLOCK_DRAIN
+      : playDef.category === 'RUN' ? PLAY_CLOCK_DRAIN + RUNOFF_SECONDS : PLAY_CLOCK_DRAIN;
+
+    newGameClock = Math.max(0, match.gameClock - clockDrain);
   }
-
-  const clockDrain = result === 'NO_GAIN' || result === 'INTERCEPTION' || result === 'FUMBLE'
-    ? PASS_CLOCK_DRAIN
-    : playDef.category === 'RUN' ? PLAY_CLOCK_DRAIN + RUNOFF_SECONDS : PLAY_CLOCK_DRAIN;
-
-  newGameClock = Math.max(0, match.gameClock - clockDrain);
 
   if (newGameClock <= 0) {
     if (newQuarter < 4) {
       newQuarter += 1;
       newGameClock = QUARTER_LENGTH;
       if (newQuarter === 3) {
-        newPossession = isHomePossession ? match.awayTeamId : match.homeTeamId;
-        newBallPos = 25;
-        newDownVal = 1;
-        newYardsVal = 10;
+        newPossession = match.possessionTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId;
+        newBallPosition = 25;
+        newDown = 1;
+        newYardsToGo = 10;
       }
     } else {
       newGameClock = 0;
@@ -390,7 +439,7 @@ export async function resolvePlay(
     }
   }
 
-  const gameOver = newQuarter >= 4 && newGameClock <= 0;
+  gameOver = newQuarter >= 4 && newGameClock <= 0;
 
   const playResult = {
     playType,
@@ -400,6 +449,9 @@ export async function resolvePlay(
     firstDown,
     turnover: result === 'INTERCEPTION' || result === 'FUMBLE',
     touchdown: result === 'TOUCHDOWN',
+    fieldGoal: result === 'FIELD_GOAL',
+    missedFg: result === 'MISSED_FG',
+    punt: result === 'PUNT',
     scoreChange,
     description,
     defensivePlay: aiDefPlay.type,
@@ -432,9 +484,9 @@ export async function resolvePlay(
         homeScore: newHomeScore,
         awayScore: newAwayScore,
         possessionTeamId: newPossession,
-        ballPosition: newBallPos,
-        down: newDownVal,
-        yardsToGo: newYardsVal,
+        ballPosition: newBallPosition,
+        down: newDown,
+        yardsToGo: newYardsToGo,
         currentQuarter: newQuarter,
         gameClock: newGameClock,
         gamePhase: gameOver ? 'COMPLETED' : 'IN_PROGRESS',
@@ -452,6 +504,7 @@ export async function resolvePlay(
     gameOver,
   };
 }
+
 
 /**
  * Simulate the remainder of the game (AI plays both sides).
