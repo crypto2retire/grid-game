@@ -5,7 +5,7 @@ import { calculateGameEconomics } from '../economy/gameEconomics';
 import { processTreasuryInflow } from '../treasury/treasury.service';
 import { env } from '../../config/env';
 
-// ─── Test Season Runner ───
+// ─── Comprehensive Test Season Runner ───
 
 interface SeasonResult {
   matchesPlayed: number;
@@ -17,6 +17,9 @@ interface SeasonResult {
   playerDevelopment: PlayerDevSummary[];
   economicFlow: EconomicSummary;
   teamStandings: TeamStanding[];
+  injuries: InjurySummary[];
+  ageProgression: AgeProgressionSummary;
+  marketplaceActivity: MarketplaceSummary;
   issues: string[];
 }
 
@@ -38,21 +41,6 @@ interface PlayerDevSummary {
   ratingAverage: number;
 }
 
-interface SeasonResult {
-  matchesPlayed: number;
-  totalHomeWins: number;
-  totalAwayWins: number;
-  totalDraws: number;
-  avgHomeScore: number;
-  avgAwayScore: number;
-  playerDevelopment: PlayerDevSummary[];
-  economicFlow: EconomicSummary;
-  teamStandings: TeamStanding[];
-  injuries: InjurySummary[];
-  ageProgression: AgeProgressionSummary;
-  issues: string[];
-}
-
 interface EconomicSummary {
   totalTicketRevenue: number;
   totalVenueLeaseFees: number;
@@ -62,10 +50,14 @@ interface EconomicSummary {
   totalGameOwnerRevenue: number;
   totalWeeklyCosts: number;
   weeklyCostRuns: number;
+  totalSolPurchases: number;
+  totalSolRevenue: number;
+  totalMarketplaceVolume: number;
+  totalMarketplaceTax: number;
+  totalMarketplaceBurn: number;
   avgRevenuePerHomeGame: number;
   avgRevenuePerAwayGame: number;
   balanceCheck: boolean;
-  // Pump.fun token revenue projection
   pumpfunRevenue: {
     tokenSymbol: string;
     tokenAddress: string | null;
@@ -105,14 +97,26 @@ interface AgeProgressionSummary {
   agesChanged: Array<{ playerId: string; name: string; before: number; after: number }>;
 }
 
+interface MarketplaceSummary {
+  venuePurchases: number;
+  venueSolPurchases: number;
+  transportPurchases: number;
+  transportSolPurchases: number;
+  teamMarketplaceSales: number;
+  playerMarketplaceSales: number;
+  totalSolSpent: number;
+  totalCashSpent: number;
+  totalGridSpent: number;
+}
+
 /**
- * Run a full test season: simulate N games between AI teams,
- * apply progression, track economics, and return an audit report.
+ * Run a comprehensive test season: simulate games, purchases, marketplace activity,
+ * and return an audit report of all economic activity.
  */
-export async function runTestSeason(gameCount: number = 20): Promise<SeasonResult> {
+export async function runTestSeason(gameCount: number = 100): Promise<SeasonResult> {
   const issues: string[] = [];
 
-  // 1. Get AI teams with rosters
+  // 1. Get AI teams with rosters — need many more to simulate real user base
   const aiTeams = await prisma.team.findMany({
     where: { isAI: true },
     include: {
@@ -122,7 +126,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       leagueMemberships: { include: { league: true } },
       sponsorships: true,
     },
-    take: 20,
+    take: 100,
   });
 
   if (aiTeams.length < 2) {
@@ -143,6 +147,8 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     where: { currency: 'CASH' },
   });
   const beforeTreasuryBalance = beforeTreasury[0]?.balance || 0;
+  const beforeSolTreasury = await prisma.gameTreasury.findFirst({ where: { currency: 'SOL' } });
+  const beforeSolBalance = beforeSolTreasury?.balance || 0;
 
   // 4. Snapshot team records before
   const beforeRecords = new Map<string, { wins: number; draws: number; losses: number; points: number; goalsFor: number; goalsAgainst: number }>();
@@ -157,15 +163,139 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
   let totalHomeWins = 0, totalAwayWins = 0, totalDraws = 0;
   let totalTicketRevenue = 0, totalVenueLeaseFees = 0, totalEntryFees = 0;
   let totalTreasuryInflow = 0, totalPlayerPayouts = 0, totalGameOwnerRevenue = 0;
-
-  let totalWeeklyCosts = 0;
-  let weeklyCostRuns = 0;
+  let totalWeeklyCosts = 0, weeklyCostRuns = 0;
+  let totalSolPurchases = 0, totalSolRevenue = 0;
+  let totalMarketplaceVolume = 0, totalMarketplaceTax = 0, totalMarketplaceBurn = 0;
+  let totalCashSpent = 0, totalGridSpent = 0;
 
   const matchResults: Array<{ homeScore: number; awayScore: number; homeNet: number; awayNet: number }> = [];
+  const marketplaceActivity: MarketplaceSummary = {
+    venuePurchases: 0, venueSolPurchases: 0,
+    transportPurchases: 0, transportSolPurchases: 0,
+    teamMarketplaceSales: 0, playerMarketplaceSales: 0,
+    totalSolSpent: 0, totalCashSpent: 0, totalGridSpent: 0,
+  };
 
-  // 5. Run games
+  // 5. Pre-season: Simulate purchases and marketplace activity
+  // 20% of teams buy their venue with SOL (real-world revenue)
+  const venueBuyers = aiTeams.filter((_, i) => i % 5 === 0);
+  for (const team of venueBuyers) {
+    const venue = team.venue as any;
+    if (venue && venue.solPrice) {
+      try {
+        await prisma.$transaction(async (tx: any) => {
+          await tx.venue.update({
+            where: { id: venue.id },
+            data: { ownerId: team.ownerId, leaseRate: 0 },
+          });
+          await tx.gameTreasury.upsert({
+            where: { currency: 'SOL' },
+            create: { currency: 'SOL', balance: venue.solPrice, totalInflows: venue.solPrice },
+            update: { balance: { increment: venue.solPrice }, totalInflows: { increment: venue.solPrice } },
+          });
+        });
+        totalSolRevenue += venue.solPrice;
+        totalSolPurchases++;
+        marketplaceActivity.venueSolPurchases++;
+        marketplaceActivity.totalSolSpent += venue.solPrice;
+      } catch (err: any) {
+        issues.push(`Venue purchase failed: ${err.message}`);
+      }
+    }
+  }
+
+  // 15% of teams buy their transport with SOL
+  const transportBuyers = aiTeams.filter((_, i) => i % 7 === 0);
+  for (const team of transportBuyers) {
+    const transport = team.transportationAssets[0];
+    if (transport && transport.solPrice) {
+      try {
+        await prisma.$transaction(async (tx: any) => {
+          await tx.transportationAsset.update({
+            where: { id: transport.id },
+            data: { ownerId: team.ownerId },
+          });
+          await tx.gameTreasury.upsert({
+            where: { currency: 'SOL' },
+            create: { currency: 'SOL', balance: transport.solPrice, totalInflows: transport.solPrice },
+            update: { balance: { increment: transport.solPrice }, totalInflows: { increment: transport.solPrice } },
+          });
+        });
+        totalSolRevenue += transport.solPrice;
+        totalSolPurchases++;
+        marketplaceActivity.transportSolPurchases++;
+        marketplaceActivity.totalSolSpent += transport.solPrice;
+      } catch (err: any) {
+        issues.push(`Transport purchase failed: ${err.message}`);
+      }
+    }
+  }
+
+  // 30% of teams list players on marketplace (simulate user-to-user trading)
+  const playerTraders = aiTeams.filter((_, i) => i % 3 === 0);
+  for (const team of playerTraders) {
+    const tradablePlayers = team.teamPlayers.filter((tp: any) => {
+      const p = tp.player as any;
+      return p.overall >= 70 && p.overall <= 85; // Mid-tier players get traded
+    });
+    if (tradablePlayers.length > 0) {
+      // List 1-2 players per team
+      const listings = tradablePlayers.slice(0, 2);
+      for (const tp of listings) {
+        const p = tp.player as any;
+        const price = p.overall * 150; // CASH pricing for player trades
+        try {
+          await prisma.marketplaceListing.create({
+            data: {
+              sellerId: team.ownerId || 'ai-system-owner-001',
+              playerId: p.id,
+              price,
+              status: 'ACTIVE',
+            },
+          });
+          marketplaceActivity.playerMarketplaceSales++;
+          totalMarketplaceVolume += price;
+          totalCashSpent += price;
+        } catch (err: any) {
+          // Ignore duplicate listings
+        }
+      }
+    }
+  }
+
+  // 10% of teams list themselves for sale on team marketplace (user-to-user)
+  const teamSellers = aiTeams.filter((_, i) => i % 10 === 0);
+  for (const team of teamSellers) {
+    if (team.purchasePrice && team.purchasePrice > 0) {
+      const salePrice = Math.round(team.purchasePrice * 1.2); // 20% markup
+      const currency = Math.random() > 0.5 ? 'GRID' : 'CASH';
+      try {
+        await prisma.teamMarketplaceListing.create({
+          data: {
+            sellerId: team.ownerId || 'ai-system-owner-001',
+            teamId: team.id,
+            price: salePrice,
+            currency,
+            foundationTaxPaid: Math.round(salePrice * 0.15),
+            burnAmount: Math.round(salePrice * 0.05),
+            sellerReceives: Math.round(salePrice * 0.8),
+            daysHeld: 30,
+            status: 'ACTIVE',
+          },
+        });
+        marketplaceActivity.teamMarketplaceSales++;
+        totalMarketplaceVolume += salePrice;
+        if (currency === 'GRID') totalGridSpent += salePrice;
+        else totalCashSpent += salePrice;
+      } catch (err: any) {
+        // Ignore
+      }
+    }
+  }
+
+  // 6. Run games
   for (let i = 0; i < gameCount; i++) {
-    // Run weekly operating costs every 7 games (simulating a week)
+    // Weekly operating costs every 7 games
     if (i > 0 && i % 7 === 0) {
       try {
         const weeklyResult = await processWeeklyOperatingCosts();
@@ -180,15 +310,13 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
 
     const homeTeam = aiTeams[i % aiTeams.length] as any;
     const awayTeam = aiTeams[(i + 1) % aiTeams.length] as any;
-
     if (homeTeam.id === awayTeam.id) continue;
 
-    const seed = Math.random().toString(36).substring(2);
     const matchId = `test-match-${i}-${Date.now()}`;
 
     try {
       const result = await runMatchSimulation(
-        'american-football', matchId, seed,
+        'american-football', matchId, Math.random().toString(36).substring(2),
         buildTeamState(homeTeam), buildTeamState(awayTeam)
       );
 
@@ -200,26 +328,13 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       totalHomeScore += result.homeScore;
       totalAwayScore += result.awayScore;
 
-      // Build player stats for progression
       const playerInputs = buildProgressionInputs(result, homeTeam, awayTeam);
-
-      // Calculate economics
       const homeLeagueTier = (homeTeam.leagueMemberships[0]?.league?.tier || 'LOCAL_REC') as any;
       const awayLeagueTier = (awayTeam.leagueMemberships[0]?.league?.tier || 'LOCAL_REC') as any;
 
-      const homeTransport = homeTeam.transportationAssets[0] || null;
-      const awayTransport = awayTeam.transportationAssets[0] || null;
-
-      const homeTransportAdjusted = homeTransport
-        ? { ...homeTransport, operatingCost: homeTransport.ownerId === homeTeam.ownerId ? Math.round(homeTransport.operatingCost * 0.5) : homeTransport.operatingCost }
-        : null;
-      const awayTransportAdjusted = awayTransport
-        ? { ...awayTransport, operatingCost: awayTransport.ownerId === awayTeam.ownerId ? Math.round(awayTransport.operatingCost * 0.5) : awayTransport.operatingCost }
-        : null;
-
       const homeEcon = calculateGameEconomics({
         team: homeTeam, opponent: awayTeam,
-        venue: homeTeam.venue as any, transport: homeTransportAdjusted as any,
+        venue: homeTeam.venue, transport: homeTeam.transportationAssets[0] as any,
         sponsorships: homeTeam.sponsorships,
         isHome: true, didWin: homeWon, didTie: draw,
         scoreFor: result.homeScore, scoreAgainst: result.awayScore,
@@ -228,14 +343,13 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
 
       const awayEcon = calculateGameEconomics({
         team: awayTeam, opponent: homeTeam,
-        venue: null, transport: awayTransportAdjusted as any,
+        venue: null, transport: awayTeam.transportationAssets[0] as any,
         sponsorships: awayTeam.sponsorships,
         isHome: false, didWin: awayWon, didTie: draw,
         scoreFor: result.awayScore, scoreAgainst: result.homeScore,
         leagueTier: awayLeagueTier,
       });
 
-      // Calculate venue revenue
       const homeVenue = homeTeam.venue as any;
       let ticketRevenue = 0, leaseFee = 0, homeTeamRevenue = 0, entryFee = 0;
       if (homeVenue) {
@@ -244,10 +358,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
         ticketRevenue = attendance * homeVenue.ticketPrice;
         leaseFee = Math.round(ticketRevenue * homeVenue.leaseRate);
         homeTeamRevenue = ticketRevenue - leaseFee;
-
-        const entryFeeTierMult: Record<string, number> = {
-          PARK_FIELD: 1, COMMUNITY: 2, SMALL_STADIUM: 3, REGIONAL: 5, PRO: 8, ELITE: 12,
-        };
+        const entryFeeTierMult: Record<string, number> = { PARK_FIELD: 1, COMMUNITY: 2, SMALL_STADIUM: 3, REGIONAL: 5, PRO: 8, ELITE: 12 };
         entryFee = 1000 * (entryFeeTierMult[homeVenue.tier] || 1);
       }
 
@@ -256,7 +367,6 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       totalEntryFees += entryFee;
       if (homeTeamRevenue > 0) totalPlayerPayouts += homeTeamRevenue;
 
-      // Record match and apply everything in a transaction
       await prisma.$transaction(async (tx: any) => {
         const dbMatch = await tx.match.create({
           data: {
@@ -271,23 +381,18 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
         await tx.team.update({
           where: { id: homeTeam.id },
           data: {
-            wins: { increment: homeWon ? 1 : 0 },
-            draws: { increment: draw ? 1 : 0 },
+            wins: { increment: homeWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
             losses: { increment: awayWon ? 1 : 0 },
-            goalsFor: { increment: result.homeScore },
-            goalsAgainst: { increment: result.awayScore },
+            goalsFor: { increment: result.homeScore }, goalsAgainst: { increment: result.awayScore },
             points: { increment: homeWon ? 3 : draw ? 1 : 0 },
           },
         });
-
         await tx.team.update({
           where: { id: awayTeam.id },
           data: {
-            wins: { increment: awayWon ? 1 : 0 },
-            draws: { increment: draw ? 1 : 0 },
+            wins: { increment: awayWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
             losses: { increment: homeWon ? 1 : 0 },
-            goalsFor: { increment: result.awayScore },
-            goalsAgainst: { increment: result.homeScore },
+            goalsFor: { increment: result.awayScore }, goalsAgainst: { increment: result.homeScore },
             points: { increment: awayWon ? 3 : draw ? 1 : 0 },
           },
         });
@@ -299,7 +404,6 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
         if (homeVenue) {
           const totalVenueRevenue = leaseFee + entryFee;
           const venueOwnerId = homeVenue.ownerId || 'ai-system-owner-001';
-
           if (venueOwnerId === 'ai-system-owner-001') {
             await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', dbMatch.id);
             totalTreasuryInflow += totalVenueRevenue;
@@ -316,7 +420,6 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
               metadata: { attendance: Math.round(homeVenue.capacity * (0.5 + (homeVenue.prestige / 100) * 0.4)), ticketRevenue, leaseFee, entryFee },
             },
           });
-
           await tx.teamFinanceSnapshot.create({
             data: {
               teamId: awayTeam.id, matchId: dbMatch.id, category: 'GAME_DAY',
@@ -356,7 +459,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     }
   }
 
-  // 6. Collect after-season player stats
+  // 7. Collect after-season player stats
   const afterStats = new Map<string, { overall: number; age: number; health: number; injuryStatus: string | null; injuryType: string | null }>();
   for (const team of aiTeams) {
     for (const tp of team.teamPlayers) {
@@ -365,7 +468,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     }
   }
 
-  // 7. Build player development summary
+  // 8. Build player development summary
   const playerDevelopment: PlayerDevSummary[] = [];
   const injuries: InjurySummary[] = [];
   for (const [playerId, before] of beforeStats) {
@@ -382,7 +485,6 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       where: { playerId_sportId_season: { playerId, sportId: 'american-football', season: 'beta' } },
     });
 
-    // Get injury info from player's current state
     const teamName = player.teamPlayers[0]?.team?.name || 'Unknown';
 
     playerDevelopment.push({
@@ -403,8 +505,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
 
     if (after.injuryStatus && after.injuryStatus !== 'HEALTHY') {
       injuries.push({
-        playerId,
-        playerName: player.name,
+        playerId, playerName: player.name,
         type: after.injuryType || 'Unknown',
         severity: after.injuryStatus,
         weeks: player.injuryWeeks || 0,
@@ -413,7 +514,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     }
   }
 
-  // 8. Apply age progression (simulates one year passing)
+  // 9. Age progression
   let ageProgression: AgeProgressionSummary = { playersAged: 0, agesChanged: [] };
   try {
     await agePlayers(prisma);
@@ -432,7 +533,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     issues.push(`Age progression failed: ${err.message}`);
   }
 
-  // 8. Build team standings
+  // 10. Team standings
   const updatedTeams = await prisma.team.findMany({
     where: { id: { in: aiTeams.map((t) => t.id) } },
     include: { financeSnapshots: true },
@@ -451,7 +552,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     };
   }).sort((a, b) => b.points - a.points);
 
-  // 9. Check treasury balance
+  // 11. Balance checks
   const afterTreasury = await prisma.gameTreasury.findMany({ where: { currency: 'CASH' } });
   const afterTreasuryBalance = afterTreasury[0]?.balance || 0;
   const balanceCheck = (afterTreasuryBalance - beforeTreasuryBalance) === totalTreasuryInflow;
@@ -459,22 +560,20 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     issues.push(`Treasury mismatch: expected +${totalTreasuryInflow}, got +${afterTreasuryBalance - beforeTreasuryBalance}`);
   }
 
-  // 10. Check game balance
+  const afterSolTreasury = await prisma.gameTreasury.findFirst({ where: { currency: 'SOL' } });
+  const solBalanceCheck = (afterSolTreasury?.balance || 0) - beforeSolBalance === totalSolRevenue;
+  if (!solBalanceCheck) {
+    issues.push(`SOL treasury mismatch: expected +${totalSolRevenue}, got +${(afterSolTreasury?.balance || 0) - beforeSolBalance}`);
+  }
+
   const avgHomeScore = totalHomeScore / (matchResults.length || 1);
   const avgAwayScore = totalAwayScore / (matchResults.length || 1);
-  if (avgHomeScore > 45 || avgAwayScore > 45) {
-    issues.push(`Scores too high: avg home ${avgHomeScore.toFixed(1)}, avg away ${avgAwayScore.toFixed(1)}`);
-  }
-  if (avgHomeScore < 7 || avgAwayScore < 7) {
-    issues.push(`Scores too low: avg home ${avgHomeScore.toFixed(1)}, avg away ${avgAwayScore.toFixed(1)}`);
-  }
-  if (totalHomeWins === 0 || totalAwayWins === 0) {
-    issues.push('Home or away teams never won');
-  }
+  if (avgHomeScore > 45 || avgAwayScore > 45) issues.push(`Scores too high`);
+  if (avgHomeScore < 7 || avgAwayScore < 7) issues.push(`Scores too low`);
+  if (totalHomeWins === 0 || totalAwayWins === 0) issues.push('Home or away teams never won');
 
   const avgHomeNet = matchResults.reduce((s, m) => s + m.homeNet, 0) / (matchResults.length || 1);
   const avgAwayNet = matchResults.reduce((s, m) => s + m.awayNet, 0) / (matchResults.length || 1);
-
   const pumpfunProjection = calculatePumpfunRevenueProjection();
 
   return {
@@ -486,6 +585,8 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       totalTicketRevenue, totalVenueLeaseFees, totalEntryFees,
       totalTreasuryInflow, totalPlayerPayouts, totalGameOwnerRevenue,
       totalWeeklyCosts, weeklyCostRuns,
+      totalSolPurchases, totalSolRevenue,
+      totalMarketplaceVolume, totalMarketplaceTax, totalMarketplaceBurn,
       avgRevenuePerHomeGame: avgHomeNet, avgRevenuePerAwayGame: avgAwayNet,
       balanceCheck,
       pumpfunRevenue: pumpfunProjection,
@@ -493,6 +594,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     teamStandings,
     injuries: injuries.slice(0, 20),
     ageProgression,
+    marketplaceActivity,
     issues,
   };
 }
@@ -518,7 +620,7 @@ function buildTeamState(team: any) {
       },
       condition: tp.player.form || 80,
       morale: tp.player.morale || 75,
-      isActive: true, // All players active for test simulation
+      isActive: true,
     })),
     formation: team.formation || '4-3-3',
     style: team.style || 'balanced',
@@ -554,40 +656,6 @@ function buildProgressionInputs(result: any, homeTeam: any, awayTeam: any) {
   });
 }
 
-// ─── Pump.fun Revenue Projection ───
-
-function calculatePumpfunRevenueProjection() {
-  const tokenAddress = env.PUMPFUN_TOKEN_ADDRESS;
-  const tokenSymbol = env.PUMPFUN_TOKEN_SYMBOL;
-  const feePct = env.PUMPFUN_TRADING_FEE_PCT;
-  const creatorShare = env.PUMPFUN_CREATOR_SHARE_PCT;
-
-  if (!tokenAddress) {
-    return null;
-  }
-
-  // Estimate daily trading volume based on active player count
-  // Conservative: each active player trades ~$50/day on average
-  const activeUserCount = 100; // conservative estimate for launch
-  const estimatedDailyVolume = activeUserCount * 50; // $5,000/day at 100 users
-
-  const dailyFees = estimatedDailyVolume * feePct;
-  const creatorDailyRevenue = dailyFees * creatorShare;
-  const creatorMonthlyRevenue = creatorDailyRevenue * 30;
-  const creatorYearlyRevenue = creatorDailyRevenue * 365;
-
-  return {
-    tokenSymbol,
-    tokenAddress,
-    estimatedDailyVolume,
-    tradingFeePct: feePct,
-    creatorSharePct: creatorShare,
-    projectedDailyRevenue: Math.round(creatorDailyRevenue),
-    projectedMonthlyRevenue: Math.round(creatorMonthlyRevenue),
-    projectedYearlyRevenue: Math.round(creatorYearlyRevenue),
-  };
-}
-
 // ─── Audit Tools ───
 
 export async function getEconomicAudit() {
@@ -607,8 +675,14 @@ export async function getEconomicAudit() {
     orderBy: { createdAt: 'desc' }, take: 20,
     include: { team: { select: { name: true } } },
   });
+  const solTreasury = await prisma.gameTreasury.findFirst({ where: { currency: 'SOL' } });
+  const solTransactions = await prisma.treasuryTransaction.findMany({
+    where: { currency: 'SOL' }, orderBy: { createdAt: 'desc' }, take: 10,
+  });
+  const marketplaceListings = await prisma.teamMarketplaceListing.count({ where: { status: 'ACTIVE' } });
+  const marketplaceSold = await prisma.teamMarketplaceListing.count({ where: { status: 'SOLD' } });
+  const playerListings = await prisma.marketplaceListing.count({ where: { status: 'ACTIVE' } });
 
-  // Token revenue data
   const tokenTreasury = env.PUMPFUN_TOKEN_ADDRESS
     ? await prisma.tokenTreasury.findUnique({ where: { token: env.PUMPFUN_TOKEN_SYMBOL } })
     : null;
@@ -621,8 +695,6 @@ export async function getEconomicAudit() {
   });
 
   const pumpfunProjection = calculatePumpfunRevenueProjection();
-
-  const solTreasury = await prisma.gameTreasury.findFirst({ where: { currency: 'SOL' } });
 
   return {
     treasuryBalance: treasury?.balance || 0,
@@ -637,7 +709,8 @@ export async function getEconomicAudit() {
     topWallets: allWallets.map((w) => ({ username: w.user?.username || w.userId, cash: w.cash, gridTokens: w.gridTokens })),
     recentTreasuryTransactions: recentTransactions,
     recentFinanceSnapshots: recentFinance,
-    // Pump.fun token data
+    solTransactions,
+    marketplaceStats: { activeTeamListings: marketplaceListings, soldTeamListings: marketplaceSold, activePlayerListings: playerListings },
     tokenData: {
       tokenSymbol: env.PUMPFUN_TOKEN_SYMBOL,
       tokenAddress: env.PUMPFUN_TOKEN_ADDRESS || null,
@@ -659,7 +732,9 @@ export async function getPlayerDevelopmentAudit() {
     orderBy: { mvpScore: 'desc' }, take: 50,
   });
 
-  const totalGamesPlayed = await prisma.playerSeasonStats.aggregate({ _sum: { gamesPlayed: true } });
+  const totalGamesPlayed = await prisma.playerSeasonStats.aggregate({
+    _sum: { gamesPlayed: true },
+  });
 
   return {
     totalGamesPlayed: totalGamesPlayed._sum.gamesPlayed || 0,
@@ -669,112 +744,6 @@ export async function getPlayerDevelopmentAudit() {
       tackles: s.tackles, ratingAverage: s.ratingAverage, mvpScore: s.mvpScore,
     })),
   };
-}
-
-export async function resetEconomy() {
-  // Zero out all wallets except the game owner's (which should earn from gameplay)
-  const aiOwnerId = 'ai-system-owner-001';
-  
-  // Reset AI owner to 0
-  await prisma.wallet.updateMany({
-    where: { userId: aiOwnerId },
-    data: { cash: 0, gridTokens: 0, solBalance: 0 },
-  });
-
-  // Reset all test wallets to 1,000 CASH (starting balance for new players)
-  await prisma.wallet.updateMany({
-    where: { userId: { not: aiOwnerId } },
-    data: { cash: 1000, gridTokens: 0 },
-  });
-
-  // Reset treasury
-  await prisma.gameTreasury.updateMany({
-    where: { currency: 'CASH' },
-    data: { balance: 0, totalInflows: 0, totalOutflows: 0, totalBurned: 0 },
-  });
-
-  // Clear treasury transactions
-  await prisma.treasuryTransaction.deleteMany({});
-
-  // Clear team finance snapshots
-  await prisma.teamFinanceSnapshot.deleteMany({});
-
-  // Clear currency ledger (optional — can keep for audit trail)
-  // await prisma.currencyLedger.deleteMany({});
-
-  const walletCount = await prisma.wallet.count({ where: { userId: { not: aiOwnerId } } });
-
-  return { 
-    resetWallets: walletCount, 
-    aiOwnerReset: true,
-    treasuryReset: true,
-  };
-}
-
-// ─── Weekly Operating Costs (Economic Sink) ───
-
-export async function processWeeklyOperatingCosts() {
-  const teams = await prisma.team.findMany({
-    where: { isAI: false }, // Only player-owned teams
-    include: { venue: true, transportationAssets: true },
-  }) as any[];
-
-  const results = [];
-
-  for (const team of teams) {
-    if (!team.ownerId) continue;
-
-    const ownerWallet = await prisma.wallet.findUnique({
-      where: { userId: team.ownerId },
-    });
-    if (!ownerWallet) continue;
-
-    let totalCost = 0;
-    const costs = [];
-
-    // Venue maintenance (scales with capacity)
-    if (team.venue) {
-      const maintenanceCost = Math.round(team.venue.capacity * 0.1);
-      totalCost += maintenanceCost;
-      costs.push({ type: 'VENUE_MAINTENANCE', amount: maintenanceCost });
-    }
-
-    // Transportation operating costs
-    for (const transport of team.transportationAssets || []) {
-      const opCost = transport.operatingCost || 0;
-      totalCost += opCost;
-      costs.push({ type: 'TRANSPORT_OPERATING', amount: opCost, name: transport.name });
-    }
-
-    // Player wages (scales with team tier)
-    const playerCount = await prisma.teamPlayer.count({ where: { teamId: team.id } });
-    const wageMap: Record<string, number> = { STATE_COLLEGE: 50, MID_COLLEGE: 100, TOP_COLLEGE: 200, REGIONAL_PRO: 500, PRO_ENTRY: 1000, PRO_ELITE: 2500 };
-    const wagePerPlayer = wageMap[team.tier] || 50;
-    const totalWages = playerCount * wagePerPlayer;
-    totalCost += totalWages;
-    costs.push({ type: 'PLAYER_WAGES', amount: totalWages, playerCount });
-
-    // Deduct from wallet
-    const canAfford = ownerWallet.cash >= totalCost;
-    await prisma.wallet.update({
-      where: { userId: team.ownerId },
-      data: { cash: canAfford ? { decrement: totalCost } : 0 },
-    });
-
-    if (!canAfford) {
-      costs.push({ type: 'BANKRUPTCY_PENALTY', amount: ownerWallet.cash });
-    }
-
-    results.push({
-      teamId: team.id,
-      teamName: team.name,
-      totalCost,
-      costs,
-      walletAfter: canAfford ? ownerWallet.cash - totalCost : 0,
-    });
-  }
-
-  return { processedTeams: results.length, results };
 }
 
 export async function resetTestSeason() {
@@ -791,13 +760,119 @@ export async function resetTestSeason() {
   }
 
   await prisma.match.deleteMany({ where: { id: { startsWith: 'test-match-' } } });
-
   await prisma.team.updateMany({
     where: { isAI: true },
     data: { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 },
   });
-
   await prisma.playerSeasonStats.deleteMany({ where: { season: 'beta' } });
+  await prisma.marketplaceListing.deleteMany({});
+  await prisma.teamMarketplaceListing.deleteMany({});
 
   return { deletedMatches: testMatches.length };
+}
+
+export async function resetEconomy() {
+  const aiOwnerId = 'ai-system-owner-001';
+  await prisma.wallet.updateMany({
+    where: { userId: aiOwnerId },
+    data: { cash: 0, gridTokens: 0, solBalance: 0 },
+  });
+  await prisma.wallet.updateMany({
+    where: { userId: { not: aiOwnerId } },
+    data: { cash: 1000, gridTokens: 0 },
+  });
+  await prisma.gameTreasury.updateMany({
+    where: { currency: 'CASH' },
+    data: { balance: 0, totalInflows: 0, totalOutflows: 0, totalBurned: 0 },
+  });
+  await prisma.gameTreasury.updateMany({
+    where: { currency: 'SOL' },
+    data: { balance: 0, totalInflows: 0, totalOutflows: 0, totalBurned: 0 },
+  });
+  await prisma.treasuryTransaction.deleteMany({});
+  await prisma.teamFinanceSnapshot.deleteMany({});
+
+  const walletCount = await prisma.wallet.count({ where: { userId: { not: aiOwnerId } } });
+  return { resetWallets: walletCount, aiOwnerReset: true, treasuryReset: true };
+}
+
+export async function processWeeklyOperatingCosts() {
+  const teams = await prisma.team.findMany({
+    where: { isAI: false },
+    include: { venue: true, transportationAssets: true },
+  }) as any[];
+
+  const results = [];
+  for (const team of teams) {
+    if (!team.ownerId) continue;
+    const ownerWallet = await prisma.wallet.findUnique({ where: { userId: team.ownerId } });
+    if (!ownerWallet) continue;
+
+    let totalCost = 0;
+    const costs = [];
+
+    if (team.venue) {
+      const maintenanceCost = Math.round(team.venue.capacity * 0.1);
+      totalCost += maintenanceCost;
+      costs.push({ type: 'VENUE_MAINTENANCE', amount: maintenanceCost });
+    }
+
+    for (const transport of team.transportationAssets || []) {
+      const opCost = transport.operatingCost || 0;
+      totalCost += opCost;
+      costs.push({ type: 'TRANSPORT_OPERATING', amount: opCost, name: transport.name });
+    }
+
+    const playerCount = await prisma.teamPlayer.count({ where: { teamId: team.id } });
+    const wageMap: Record<string, number> = { STATE_COLLEGE: 50, MID_COLLEGE: 100, TOP_COLLEGE: 200, REGIONAL_PRO: 500, PRO_ENTRY: 1000, PRO_ELITE: 2500 };
+    const wagePerPlayer = wageMap[team.tier] || 50;
+    const totalWages = playerCount * wagePerPlayer;
+    totalCost += totalWages;
+    costs.push({ type: 'PLAYER_WAGES', amount: totalWages, playerCount });
+
+    const canAfford = ownerWallet.cash >= totalCost;
+    await prisma.wallet.update({
+      where: { userId: team.ownerId },
+      data: { cash: canAfford ? { decrement: totalCost } : 0 },
+    });
+
+    if (!canAfford) {
+      costs.push({ type: 'BANKRUPTCY_PENALTY', amount: ownerWallet.cash });
+    }
+
+    results.push({
+      teamId: team.id, teamName: team.name,
+      totalCost, costs,
+      walletAfter: canAfford ? ownerWallet.cash - totalCost : 0,
+    });
+  }
+
+  return { processedTeams: results.length, results };
+}
+
+// ─── Pump.fun Revenue Projection ───
+
+function calculatePumpfunRevenueProjection() {
+  const tokenAddress = env.PUMPFUN_TOKEN_ADDRESS;
+  const tokenSymbol = env.PUMPFUN_TOKEN_SYMBOL;
+  const feePct = env.PUMPFUN_TRADING_FEE_PCT;
+  const creatorShare = env.PUMPFUN_CREATOR_SHARE_PCT;
+
+  if (!tokenAddress) return null;
+
+  const activeUserCount = 300; // target DAU
+  const estimatedDailyVolume = activeUserCount * 50; // $50 per user
+  const dailyFees = estimatedDailyVolume * feePct;
+  const creatorDailyRevenue = dailyFees * creatorShare;
+
+  return {
+    tokenSymbol,
+    tokenAddress,
+    estimatedDailyVolume,
+    tradingFeePct: feePct,
+    creatorSharePct: creatorShare,
+    projectedDailyRevenue: Math.round(creatorDailyRevenue),
+    projectedMonthlyRevenue: Math.round(creatorDailyRevenue * 30),
+    projectedYearlyRevenue: Math.round(creatorDailyRevenue * 365),
+  };
 }
