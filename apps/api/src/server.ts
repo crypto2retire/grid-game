@@ -223,6 +223,7 @@ app.get('/health', (_req, res) => {
 // API routes
 app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
+app.use('/api/teams', sponsorshipRouter);
 app.use('/api/teams', teamRouter);
 app.use('/api/players', playerRouter);
 app.use('/api/matches', matchRouter);
@@ -231,7 +232,6 @@ app.use('/api/economy', economyRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/sports', sportsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
-app.use('/api/sponsorships', sponsorshipRouter);
 app.use('/api/promotion', promotionRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/equipment', equipmentRouter);
