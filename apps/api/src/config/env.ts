@@ -10,6 +10,10 @@ export const envSchema = z.object({
   DAILY_SALT: z.string().optional(),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
   GAME_OWNER_USER_ID: z.string().default('ai-system-owner-001'),
+  PUMPFUN_TOKEN_ADDRESS: z.string().optional(),
+  PUMPFUN_TOKEN_SYMBOL: z.string().default('GRID'),
+  PUMPFUN_TRADING_FEE_PCT: z.string().default('0.01').transform(Number), // 1% default
+  PUMPFUN_CREATOR_SHARE_PCT: z.string().default('0.50').transform(Number), // 50% of fees to creator
 });
 
 export const env = envSchema.parse(process.env);

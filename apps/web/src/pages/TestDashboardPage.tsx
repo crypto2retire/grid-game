@@ -41,6 +41,16 @@ interface SeasonResult {
     avgRevenuePerHomeGame: number;
     avgRevenuePerAwayGame: number;
     balanceCheck: boolean;
+    pumpfunRevenue: {
+      tokenSymbol: string;
+      tokenAddress: string | null;
+      estimatedDailyVolume: number;
+      tradingFeePct: number;
+      creatorSharePct: number;
+      projectedDailyRevenue: number;
+      projectedMonthlyRevenue: number;
+      projectedYearlyRevenue: number;
+    } | null;
   };
   teamStandings: Array<{
     teamId: string;
@@ -66,6 +76,26 @@ interface EconomicAudit {
   aiOwnerCash: number;
   aiOwnerGrid: number;
   topWallets: Array<{ username: string; cash: number; gridTokens: number }>;
+  tokenData: {
+    tokenSymbol: string;
+    tokenAddress: string | null;
+    tokenTreasuryBalance: number;
+    totalFeesEarned: number;
+    latestPrice: number | null;
+    latestMarketCap: number | null;
+    latestVolume24h: number | null;
+    recentTokenRevenue: Array<any>;
+    pumpfunProjection: {
+      tokenSymbol: string;
+      tokenAddress: string | null;
+      estimatedDailyVolume: number;
+      tradingFeePct: number;
+      creatorSharePct: number;
+      projectedDailyRevenue: number;
+      projectedMonthlyRevenue: number;
+      projectedYearlyRevenue: number;
+    } | null;
+  };
 }
 
 export default function TestDashboardPage() {
@@ -336,6 +366,44 @@ export default function TestDashboardPage() {
             </div>
           </div>
 
+          {/* Pump.fun Token Revenue */}
+          {seasonResult.economicFlow.pumpfunRevenue && (
+            <div className="glass-card p-5">
+              <h2 className="text-xl font-bold text-white mb-4">Pump.fun Token Revenue Projection</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Token</div>
+                  <div className="text-white font-bold">{seasonResult.economicFlow.pumpfunRevenue.tokenSymbol}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Est. Daily Volume</div>
+                  <div className="text-white font-bold">${seasonResult.economicFlow.pumpfunRevenue.estimatedDailyVolume.toLocaleString()}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Trading Fee</div>
+                  <div className="text-white font-bold">{(seasonResult.economicFlow.pumpfunRevenue.tradingFeePct * 100).toFixed(1)}%</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Creator Share</div>
+                  <div className="text-white font-bold">{(seasonResult.economicFlow.pumpfunRevenue.creatorSharePct * 100).toFixed(0)}%</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Daily Revenue</div>
+                  <div className="text-emerald-400 font-bold">${seasonResult.economicFlow.pumpfunRevenue.projectedDailyRevenue.toLocaleString()}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Monthly Revenue</div>
+                  <div className="text-emerald-400 font-bold">${seasonResult.economicFlow.pumpfunRevenue.projectedMonthlyRevenue.toLocaleString()}</div>
+                </div>
+              </div>
+              <div className="mt-4 rounded-xl bg-purple-500/10 border border-purple-500/20 p-3 text-sm text-purple-200">
+                <TrendingUp className="inline h-4 w-4 mr-1" />
+                Projected yearly revenue: ${seasonResult.economicFlow.pumpfunRevenue.projectedYearlyRevenue.toLocaleString()} at {seasonResult.economicFlow.pumpfunRevenue.estimatedDailyVolume.toLocaleString()} $ daily volume.
+                Revenue scales with player count and trading activity.
+              </div>
+            </div>
+          )}
+
           {/* Team Standings */}
           <div className="glass-card p-5">
             <h2 className="text-xl font-bold text-white mb-4">Test Season Standings</h2>
@@ -459,6 +527,47 @@ export default function TestDashboardPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pump.fun Token Data */}
+          {economicAudit.tokenData && economicAudit.tokenData.pumpfunProjection && (
+            <div className="mt-6">
+              <h3 className="text-lg font-bold text-white mb-3">Pump.fun Token ({economicAudit.tokenData.tokenSymbol})</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Latest Price</div>
+                  <div className="text-white font-bold">{economicAudit.tokenData.latestPrice ? `$${economicAudit.tokenData.latestPrice.toFixed(6)}` : 'N/A'}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Market Cap</div>
+                  <div className="text-white font-bold">{economicAudit.tokenData.latestMarketCap ? `$${economicAudit.tokenData.latestMarketCap.toLocaleString()}` : 'N/A'}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">24h Volume</div>
+                  <div className="text-white font-bold">{economicAudit.tokenData.latestVolume24h ? `$${economicAudit.tokenData.latestVolume24h.toLocaleString()}` : 'N/A'}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Fees Earned</div>
+                  <div className="text-emerald-400 font-bold">{economicAudit.tokenData.totalFeesEarned.toLocaleString()}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Token Treasury</div>
+                  <div className="text-white font-bold">{economicAudit.tokenData.tokenTreasuryBalance.toLocaleString()}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Projected Daily</div>
+                  <div className="text-emerald-400 font-bold">${economicAudit.tokenData.pumpfunProjection.projectedDailyRevenue.toLocaleString()}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Projected Monthly</div>
+                  <div className="text-emerald-400 font-bold">${economicAudit.tokenData.pumpfunProjection.projectedMonthlyRevenue.toLocaleString()}</div>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <div className="text-muted-foreground">Projected Yearly</div>
+                  <div className="text-emerald-400 font-bold">${economicAudit.tokenData.pumpfunProjection.projectedYearlyRevenue.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

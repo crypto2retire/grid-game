@@ -685,6 +685,47 @@ model TreasuryTransaction {
   @@index([createdAt])
 }
 
+// ─── Pump.fun Token Revenue Tracking ───
+
+model TokenRevenue {
+  id        String   @id @default(uuid())
+  source    String   // e.g., "PUMPFUN_TRADING_FEES", "RAYDIUM_FEES"
+  currency  String   // "SOL" or token symbol
+  amount    Float    // raw amount
+  usdValue  Float?   // estimated USD at time of recording
+  volume    Float?   // total volume that generated this fee
+  feePct    Float    // fee percentage applied
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([source, createdAt])
+  @@index([currency, createdAt])
+}
+
+model TokenPriceHistory {
+  id        String   @id @default(uuid())
+  token     String   // token symbol or address
+  priceUsd  Float
+  marketCap Float?
+  volume24h Float?
+  source    String   @default("pumpfun")
+  recordedAt DateTime @default(now())
+
+  @@index([token, recordedAt])
+}
+
+model TokenTreasury {
+  id           String   @id @default(uuid())
+  token        String   // token symbol or address
+  balance      Float    @default(0)
+  totalMinted  Float    @default(0)
+  totalBurned  Float    @default(0)
+  totalFeesEarned Float @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([token])
+}
+
 // ─── Solana Whale Purchase System ───
 
 model SolanaPurchase {

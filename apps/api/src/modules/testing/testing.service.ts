@@ -43,6 +43,17 @@ interface EconomicSummary {
   avgRevenuePerHomeGame: number;
   avgRevenuePerAwayGame: number;
   balanceCheck: boolean;
+  // Pump.fun token revenue projection
+  pumpfunRevenue: {
+    tokenSymbol: string;
+    tokenAddress: string | null;
+    estimatedDailyVolume: number;
+    tradingFeePct: number;
+    creatorSharePct: number;
+    projectedDailyRevenue: number;
+    projectedMonthlyRevenue: number;
+    projectedYearlyRevenue: number;
+  } | null;
 }
 
 interface TeamStanding {
@@ -375,6 +386,8 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
   const avgHomeNet = matchResults.reduce((s, m) => s + m.homeNet, 0) / (matchResults.length || 1);
   const avgAwayNet = matchResults.reduce((s, m) => s + m.awayNet, 0) / (matchResults.length || 1);
 
+  const pumpfunProjection = calculatePumpfunRevenueProjection();
+
   return {
     matchesPlayed: matchResults.length,
     totalHomeWins, totalAwayWins, totalDraws,
@@ -385,6 +398,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       totalTreasuryInflow, totalPlayerPayouts, totalGameOwnerRevenue,
       avgRevenuePerHomeGame: avgHomeNet, avgRevenuePerAwayGame: avgAwayNet,
       balanceCheck,
+      pumpfunRevenue: pumpfunProjection,
     },
     teamStandings,
     issues,
@@ -433,6 +447,40 @@ function buildProgressionInputs(result: any, homeTeam: any, awayTeam: any) {
   });
 }
 
+// ─── Pump.fun Revenue Projection ───
+
+function calculatePumpfunRevenueProjection() {
+  const tokenAddress = env.PUMPFUN_TOKEN_ADDRESS;
+  const tokenSymbol = env.PUMPFUN_TOKEN_SYMBOL;
+  const feePct = env.PUMPFUN_TRADING_FEE_PCT;
+  const creatorShare = env.PUMPFUN_CREATOR_SHARE_PCT;
+
+  if (!tokenAddress) {
+    return null;
+  }
+
+  // Estimate daily trading volume based on active player count
+  // Conservative: each active player trades ~$50/day on average
+  const activeUserCount = 100; // conservative estimate for launch
+  const estimatedDailyVolume = activeUserCount * 50; // $5,000/day at 100 users
+
+  const dailyFees = estimatedDailyVolume * feePct;
+  const creatorDailyRevenue = dailyFees * creatorShare;
+  const creatorMonthlyRevenue = creatorDailyRevenue * 30;
+  const creatorYearlyRevenue = creatorDailyRevenue * 365;
+
+  return {
+    tokenSymbol,
+    tokenAddress,
+    estimatedDailyVolume,
+    tradingFeePct: feePct,
+    creatorSharePct: creatorShare,
+    projectedDailyRevenue: Math.round(creatorDailyRevenue),
+    projectedMonthlyRevenue: Math.round(creatorMonthlyRevenue),
+    projectedYearlyRevenue: Math.round(creatorYearlyRevenue),
+  };
+}
+
 // ─── Audit Tools ───
 
 export async function getEconomicAudit() {
@@ -453,6 +501,20 @@ export async function getEconomicAudit() {
     include: { team: { select: { name: true } } },
   });
 
+  // Token revenue data
+  const tokenTreasury = env.PUMPFUN_TOKEN_ADDRESS
+    ? await prisma.tokenTreasury.findUnique({ where: { token: env.PUMPFUN_TOKEN_SYMBOL } })
+    : null;
+  const recentTokenRevenue = await prisma.tokenRevenue.findMany({
+    orderBy: { createdAt: 'desc' }, take: 10,
+  });
+  const latestTokenPrice = await prisma.tokenPriceHistory.findFirst({
+    where: { token: env.PUMPFUN_TOKEN_SYMBOL },
+    orderBy: { recordedAt: 'desc' },
+  });
+
+  const pumpfunProjection = calculatePumpfunRevenueProjection();
+
   return {
     treasuryBalance: treasury?.balance || 0,
     totalPlayerCash: totalPlayerCash._sum.cash || 0,
@@ -464,6 +526,18 @@ export async function getEconomicAudit() {
     topWallets: allWallets.map((w) => ({ username: w.user?.username || w.userId, cash: w.cash, gridTokens: w.gridTokens })),
     recentTreasuryTransactions: recentTransactions,
     recentFinanceSnapshots: recentFinance,
+    // Pump.fun token data
+    tokenData: {
+      tokenSymbol: env.PUMPFUN_TOKEN_SYMBOL,
+      tokenAddress: env.PUMPFUN_TOKEN_ADDRESS || null,
+      tokenTreasuryBalance: tokenTreasury?.balance || 0,
+      totalFeesEarned: tokenTreasury?.totalFeesEarned || 0,
+      latestPrice: latestTokenPrice?.priceUsd || null,
+      latestMarketCap: latestTokenPrice?.marketCap || null,
+      latestVolume24h: latestTokenPrice?.volume24h || null,
+      recentTokenRevenue,
+      pumpfunProjection,
+    },
   };
 }
 

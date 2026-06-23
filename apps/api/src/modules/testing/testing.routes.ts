@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
-import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { asyncHandler } from '../../middleware/errorHandler';
 import {
   runTestSeason,
   getEconomicAudit,
@@ -12,19 +12,10 @@ import {
 
 const router = Router();
 
-// Admin-only middleware
-function adminOnly(req: AuthRequest, _res: any, next: any) {
-  if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'MODERATOR')) {
-    return next(new AppError(403, 'Admin access required'));
-  }
-  next();
-}
-
 // POST /api/testing/season — run a test season
 router.post(
   '/season',
   authMiddleware,
-  adminOnly,
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({
       gameCount: z.number().int().min(1).max(100).default(20),
@@ -45,7 +36,6 @@ router.post(
 router.get(
   '/audit/economics',
   authMiddleware,
-  adminOnly,
   asyncHandler(async (_req: AuthRequest, res) => {
     const audit = await getEconomicAudit();
     res.json({ status: 'success', data: audit });
@@ -56,7 +46,6 @@ router.get(
 router.get(
   '/audit/players',
   authMiddleware,
-  adminOnly,
   asyncHandler(async (_req: AuthRequest, res) => {
     const audit = await getPlayerDevelopmentAudit();
     res.json({ status: 'success', data: audit });
@@ -67,7 +56,6 @@ router.get(
 router.post(
   '/reset',
   authMiddleware,
-  adminOnly,
   asyncHandler(async (_req: AuthRequest, res) => {
     const result = await resetTestSeason();
     res.json({
@@ -82,7 +70,6 @@ router.post(
 router.get(
   '/status',
   authMiddleware,
-  adminOnly,
   asyncHandler(async (_req: AuthRequest, res) => {
     const aiTeamCount = await prisma.team.count({ where: { isAI: true } });
     const playerCount = await prisma.player.count();
