@@ -137,8 +137,9 @@ export default function TeamMarketplacePage() {
       });
       const data = await res.json();
       if (res.ok) {
-        showMessage('success', data.message);
+        showMessage('success', data.message || 'Team purchased successfully');
         await Promise.all([fetchWallet(), fetchListings()]);
+        useGameStore.getState().refreshTeams();
       } else {
         showMessage('error', data.message || 'Purchase failed');
       }
