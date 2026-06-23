@@ -104,6 +104,9 @@ export default function TestDashboardPage() {
   const [economicAudit, setEconomicAudit] = useState<EconomicAudit | null>(null);
   const [loading, setLoading] = useState(false);
   const [runningSeason, setRunningSeason] = useState(false);
+  const [resettingEconomy, setResettingEconomy] = useState(false);
+  const [runningWeeklyCosts, setRunningWeeklyCosts] = useState(false);
+  const [weeklyResults, setWeeklyResults] = useState<any>(null);
   const [gameCount, setGameCount] = useState(20);
   const [error, setError] = useState('');
 
@@ -172,6 +175,40 @@ export default function TestDashboardPage() {
     finally { setLoading(false); }
   }
 
+  async function resetEconomy() {
+    if (!confirm('Reset economy? This zeros the AI owner and sets all player wallets to 50,000 CASH. Treasury is also reset.')) return;
+    setResettingEconomy(true);
+    try {
+      const res = await fetch('/api/testing/economy/reset', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        fetchStatus();
+        fetchEconomicAudit();
+      }
+    } catch { /* ignore */ }
+    finally { setResettingEconomy(false); }
+  }
+
+  async function runWeeklyCosts() {
+    setRunningWeeklyCosts(true);
+    try {
+      const res = await fetch('/api/testing/economy/weekly-costs', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        setWeeklyResults(json.data);
+        fetchEconomicAudit();
+      }
+    } catch { /* ignore */ }
+    finally { setRunningWeeklyCosts(false); }
+  }
+
   if (!token) {
     return (
       <div className="space-y-6">
@@ -199,7 +236,21 @@ export default function TestDashboardPage() {
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20 disabled:opacity-50"
           >
-            <RotateCcw className="h-4 w-4" /> Reset
+            <RotateCcw className="h-4 w-4" /> Reset Tests
+          </button>
+          <button
+            onClick={resetEconomy}
+            disabled={resettingEconomy}
+            className="inline-flex items-center gap-2 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm font-bold text-red-300 hover:bg-red-500/30 disabled:opacity-50"
+          >
+            <RotateCcw className="h-4 w-4" /> Reset Economy
+          </button>
+          <button
+            onClick={runWeeklyCosts}
+            disabled={runningWeeklyCosts}
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2.5 text-sm font-bold text-amber-300 hover:bg-amber-500/30 disabled:opacity-50"
+          >
+            <DollarSign className="h-4 w-4" /> Weekly Costs
           </button>
         </div>
       </div>
@@ -565,6 +616,36 @@ export default function TestDashboardPage() {
                   <div className="text-muted-foreground">Projected Yearly</div>
                   <div className="text-emerald-400 font-bold">${economicAudit.tokenData.pumpfunProjection.projectedYearlyRevenue.toLocaleString()}</div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Weekly Costs Results */}
+          {weeklyResults && (
+            <div className="mt-6">
+              <h3 className="text-lg font-bold text-white mb-3">Weekly Operating Costs</h3>
+              <div className="text-sm text-muted-foreground mb-3">
+                Processed {weeklyResults.processedTeams} teams — venue maintenance, transport, and player wages deducted
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-white/10">
+                      <th className="pb-2">Team</th>
+                      <th className="pb-2 text-right">Total Cost</th>
+                      <th className="pb-2 text-right">Wallet After</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weeklyResults.results.slice(0, 10).map((r: any, i: number) => (
+                      <tr key={i} className="border-b border-white/5">
+                        <td className="py-2 text-white">{r.teamName}</td>
+                        <td className="py-2 text-right text-red-400">{r.totalCost.toLocaleString()}</td>
+                        <td className="py-2 text-right text-white">{r.walletAfter.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

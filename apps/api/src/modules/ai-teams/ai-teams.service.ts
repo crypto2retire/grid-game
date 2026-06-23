@@ -30,7 +30,7 @@ export async function ensureAIOwner(): Promise<string> {
     owner = await prisma.user.create({
       data: { id: AI_OWNER_ID, email: 'ai@grid-game.system', username: 'ai-system', password: 'AI_SYSTEM_PASSWORD_HASH_NOT_USED_FOR_LOGIN', displayName: 'AI System', role: 'ADMIN' },
     });
-    await prisma.wallet.create({ data: { userId: AI_OWNER_ID, cash: 999999999, gridTokens: 999999999, solBalance: 999999999 } });
+    await prisma.wallet.create({ data: { userId: AI_OWNER_ID, cash: 0, gridTokens: 0, solBalance: 0 } });
   }
   return owner.id;
 }

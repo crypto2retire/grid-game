@@ -8,6 +8,8 @@ import {
   getEconomicAudit,
   getPlayerDevelopmentAudit,
   resetTestSeason,
+  resetEconomy,
+  processWeeklyOperatingCosts,
 } from './testing.service';
 
 const router = Router();
@@ -62,6 +64,34 @@ router.post(
       status: 'success',
       data: result,
       message: `Reset complete: ${result.deletedMatches} test matches deleted`,
+    });
+  })
+);
+
+// POST /api/testing/economy/reset — reset all wallet balances to start fresh
+router.post(
+  '/economy/reset',
+  authMiddleware,
+  asyncHandler(async (_req: AuthRequest, res) => {
+    const result = await resetEconomy();
+    res.json({
+      status: 'success',
+      data: result,
+      message: `Economy reset: ${result.resetWallets} wallets set to 50,000 CASH, AI owner set to 0`,
+    });
+  })
+);
+
+// POST /api/testing/economy/weekly-costs — run weekly operating costs
+router.post(
+  '/economy/weekly-costs',
+  authMiddleware,
+  asyncHandler(async (_req: AuthRequest, res) => {
+    const result = await processWeeklyOperatingCosts();
+    res.json({
+      status: 'success',
+      data: result,
+      message: `Weekly costs processed for ${result.processedTeams} teams`,
     });
   })
 );

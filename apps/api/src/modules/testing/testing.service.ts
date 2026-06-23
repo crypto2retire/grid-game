@@ -575,6 +575,112 @@ export async function getPlayerDevelopmentAudit() {
   };
 }
 
+export async function resetEconomy() {
+  // Zero out all wallets except the game owner's (which should earn from gameplay)
+  const aiOwnerId = 'ai-system-owner-001';
+  
+  // Reset AI owner to 0
+  await prisma.wallet.updateMany({
+    where: { userId: aiOwnerId },
+    data: { cash: 0, gridTokens: 0, solBalance: 0 },
+  });
+
+  // Reset all test wallets to reasonable amounts (keep a small buffer for active users)
+  await prisma.wallet.updateMany({
+    where: { userId: { not: aiOwnerId } },
+    data: { cash: 50000, gridTokens: 0 },
+  });
+
+  // Reset treasury
+  await prisma.gameTreasury.updateMany({
+    where: { currency: 'CASH' },
+    data: { balance: 0, totalInflows: 0, totalOutflows: 0, totalBurned: 0 },
+  });
+
+  // Clear treasury transactions
+  await prisma.treasuryTransaction.deleteMany({});
+
+  // Clear team finance snapshots
+  await prisma.teamFinanceSnapshot.deleteMany({});
+
+  // Clear currency ledger (optional — can keep for audit trail)
+  // await prisma.currencyLedger.deleteMany({});
+
+  const walletCount = await prisma.wallet.count({ where: { userId: { not: aiOwnerId } } });
+
+  return { 
+    resetWallets: walletCount, 
+    aiOwnerReset: true,
+    treasuryReset: true,
+  };
+}
+
+// ─── Weekly Operating Costs (Economic Sink) ───
+
+export async function processWeeklyOperatingCosts() {
+  const teams = await prisma.team.findMany({
+    where: { isAI: false }, // Only player-owned teams
+    include: { venue: true, transportationAssets: true },
+  }) as any[];
+
+  const results = [];
+
+  for (const team of teams) {
+    if (!team.ownerId) continue;
+
+    const ownerWallet = await prisma.wallet.findUnique({
+      where: { userId: team.ownerId },
+    });
+    if (!ownerWallet) continue;
+
+    let totalCost = 0;
+    const costs = [];
+
+    // Venue maintenance (scales with capacity)
+    if (team.venue) {
+      const maintenanceCost = Math.round(team.venue.capacity * 0.1);
+      totalCost += maintenanceCost;
+      costs.push({ type: 'VENUE_MAINTENANCE', amount: maintenanceCost });
+    }
+
+    // Transportation operating costs
+    for (const transport of team.transportationAssets || []) {
+      const opCost = transport.operatingCost || 0;
+      totalCost += opCost;
+      costs.push({ type: 'TRANSPORT_OPERATING', amount: opCost, name: transport.name });
+    }
+
+    // Player wages (scales with team tier)
+    const playerCount = await prisma.teamPlayer.count({ where: { teamId: team.id } });
+    const wageMap: Record<string, number> = { STATE_COLLEGE: 50, MID_COLLEGE: 100, TOP_COLLEGE: 200, REGIONAL_PRO: 500, PRO_ENTRY: 1000, PRO_ELITE: 2500 };
+    const wagePerPlayer = wageMap[team.tier] || 50;
+    const totalWages = playerCount * wagePerPlayer;
+    totalCost += totalWages;
+    costs.push({ type: 'PLAYER_WAGES', amount: totalWages, playerCount });
+
+    // Deduct from wallet
+    const canAfford = ownerWallet.cash >= totalCost;
+    await prisma.wallet.update({
+      where: { userId: team.ownerId },
+      data: { cash: canAfford ? { decrement: totalCost } : 0 },
+    });
+
+    if (!canAfford) {
+      costs.push({ type: 'BANKRUPTCY_PENALTY', amount: ownerWallet.cash });
+    }
+
+    results.push({
+      teamId: team.id,
+      teamName: team.name,
+      totalCost,
+      costs,
+      walletAfter: canAfford ? ownerWallet.cash - totalCost : 0,
+    });
+  }
+
+  return { processedTeams: results.length, results };
+}
+
 export async function resetTestSeason() {
   const testMatches = await prisma.match.findMany({ where: { id: { startsWith: 'test-match-' } } });
 
