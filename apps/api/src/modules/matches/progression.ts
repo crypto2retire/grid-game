@@ -285,11 +285,9 @@ export async function applyPostGameProgression(
         data: {
           playerId: player.playerId,
           matchId: input.matchId,
-          sportId: input.sportId,
           statGained: Object.entries(growth).filter(([_, v]) => v !== 0 && typeof v === 'number').map(([k, v]) => `${k}:${v}`).join(',') || 'none',
           amount: Object.values(growth).filter((v) => typeof v === 'number' && v !== 0).reduce((a, b) => a + (b as number), 0),
           reason: `Post-game progression (age ${current.age})`,
-          matchStats: { rating: s.rating, ...native },
         },
       });
     }
@@ -299,11 +297,9 @@ export async function applyPostGameProgression(
         data: {
           playerId: player.playerId,
           matchId: input.matchId,
-          sportId: input.sportId,
           statGained: 'INJURY',
           amount: -(injury.healthLoss || 0),
           reason: `Injury: ${injury.type} (${injury.severity}) - ${injury.weeks} weeks`,
-          matchStats: { injuryType: injury.type, severity: injury.severity, weeks: injury.weeks },
         },
       });
     }
