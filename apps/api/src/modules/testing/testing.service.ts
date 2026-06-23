@@ -409,18 +409,33 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
 
 function buildTeamState(team: any) {
   return {
-    id: team.id, name: team.name, sportId: team.sportId,
-    teamId: team.id, formation: team.formation || '4-3-3',
-    style: team.style || 'balanced', pressing: team.pressing || 'medium',
-    mentality: team.mentality || 'balanced', tactics: team.tactics || {},
+    teamId: team.id,
+    name: team.name,
     players: team.teamPlayers.map((tp: any) => ({
-      id: tp.player.id, name: tp.player.name, position: tp.player.position,
-      overall: tp.player.overall, pace: tp.player.pace, shooting: tp.player.shooting,
-      passing: tp.player.passing, dribbling: tp.player.dribbling,
-      defending: tp.player.defending, physical: tp.player.physical,
-      form: tp.player.form, fatigue: tp.player.fatigue, morale: tp.player.morale,
+      playerId: tp.player.id,
+      name: tp.player.name,
+      position: tp.player.position,
+      stats: {
+        pace: tp.player.pace || 50,
+        shooting: tp.player.shooting || 50,
+        passing: tp.player.passing || 50,
+        dribbling: tp.player.dribbling || 50,
+        defending: tp.player.defending || 50,
+        physical: tp.player.physical || 50,
+        goalkeeping: tp.player.goalkeeping || 50,
+      },
+      condition: tp.player.form || 80,
+      morale: tp.player.morale || 75,
+      isActive: true, // All players active for test simulation
     })),
-  } as any;
+    formation: team.formation || '4-3-3',
+    style: team.style || 'balanced',
+    pressing: team.pressing || 'medium',
+    mentality: team.mentality || 'balanced',
+    morale: 75,
+    fatigue: 0,
+    possession: 50,
+  };
 }
 
 function buildProgressionInputs(result: any, homeTeam: any, awayTeam: any) {
