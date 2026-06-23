@@ -9,12 +9,12 @@ function randomInt(min: number, max: number): number {
 }
 
 const AI_TEAM_NAMES: Record<string, string[]> = {
-  STATE_COLLEGE: ['JV Bulldogs', 'Freshman Warriors', 'Sophomore Tigers', 'Prep Knights', 'Rookie Lions'],
-  MID_COLLEGE: ['CC Eagles', 'Division II Raiders', 'Conference Chargers', 'Mid-Major Bruins', 'Regional Hawks'],
-  TOP_COLLEGE: ['FCS Thunder', 'FBS Mustangs', 'National Seminoles', 'Conference Champs', 'Blue Chip Gators'],
-  REGIONAL_PRO: ['Semi-Pro Outlaws', 'XFL Vipers', 'AAF Express', 'Regional Wolves', 'Pro Prospect Stallions'],
-  PRO_ENTRY: ['NFL Expansion', 'AFL Invaders', 'UFL Gamblers', 'Pro Debut Coyotes', 'Entry-level Titans'],
-  PRO_ELITE: ['Dynasty Patriots', 'Legendary 49ers', 'Hall of Fame Packers', 'Super Bowl Steelers', 'Elite Cowboys'],
+  STATE_COLLEGE: ['JV Strikers', 'Freshman Raptors', 'Sophomore Cobras', 'Prep Vanguards', 'Rookie Griffins'],
+  MID_COLLEGE: ['CC Phoenix', 'Division II Renegades', 'Conference Thunderbolts', 'Mid-Major Spartans', 'Regional Falcons'],
+  TOP_COLLEGE: ['FCS Comets', 'FBS Centurions', 'National Paladins', 'Conference Monarchs', 'Blue Chip Marauders'],
+  REGIONAL_PRO: ['Semi-Pro Outlaws', 'Xtreme Vipers', 'Alliance Express', 'Regional Wolves', 'Pro Prospect Stallions'],
+  PRO_ENTRY: ['Pro Grid Expansion', 'Gridiron Invaders', 'United Gamblers', 'Pro Debut Coyotes', 'Entry-level Goliaths'],
+  PRO_ELITE: ['Dynasty Sentinels', 'Legendary Miners', 'Hall of Fame Merchants', 'Championship Ironworks', 'Elite Wranglers'],
 };
 
 const AI_DIFFICULTY_MULTIPLIERS: Record<string, { minOvr: number; maxOvr: number }> = {
