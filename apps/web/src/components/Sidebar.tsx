@@ -9,7 +9,6 @@ import {
   Rocket,
   Wallet,
   Store,
-  Building2,
   Dumbbell,
   PiggyBank,
 } from 'lucide-react';
@@ -17,7 +16,6 @@ import {
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/team', label: 'My Team', icon: Shield },
-  { path: '/team-catalog', label: 'Buy Team', icon: Building2 },
   { path: '/team-marketplace', label: 'Team Market', icon: Store },
   { path: '/players', label: 'Players', icon: Users },
   { path: '/matches', label: 'Games', icon: Swords },

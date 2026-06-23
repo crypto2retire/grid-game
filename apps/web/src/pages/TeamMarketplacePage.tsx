@@ -7,6 +7,11 @@ import {
   Loader2,
   Clock,
   Plus,
+  Shield,
+  Star,
+  Trophy,
+  Users,
+  Building,
 } from 'lucide-react';
 
 interface MarketplaceListing {
@@ -43,6 +48,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function TeamMarketplacePage() {
+  const [activeTab, setActiveTab] = useState<'used' | 'new'>('used');
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [wallet, setWallet] = useState({ gridTokens: 0, solBalance: 0 });
   const [loading, setLoading] = useState(true);
@@ -51,9 +57,11 @@ export default function TeamMarketplacePage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    fetchListings();
+    if (activeTab === 'used') {
+      fetchListings();
+    }
     fetchWallet();
-  }, [filterTier]);
+  }, [filterTier, activeTab]);
 
   const fetchListings = async () => {
     try {
@@ -161,9 +169,9 @@ export default function TeamMarketplacePage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-white">Team Marketplace</h1>
+          <h1 className="text-3xl font-bold text-white">Team Market</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Buy teams from other players. Prices set by the community.
+            Buy new teams or find deals from other players.
           </p>
         </div>
         <div className="flex gap-4 items-center">
@@ -199,24 +207,51 @@ export default function TeamMarketplacePage() {
         </div>
       )}
 
-      {/* Tier Filter */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Tab Navigation */}
+      <div className="flex gap-2">
         <button
-          onClick={() => setFilterTier('')}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            filterTier === '' ? 'bg-accent text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+          onClick={() => setActiveTab('used')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            activeTab === 'used'
+              ? 'bg-[#E94560]/20 text-[#E94560] border border-[#E94560]/30'
+              : 'bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60'
           }`}
         >
-          All Tiers
+          Used Teams
         </button>
-        {tiers.map((tier) => (
-          <button
-            key={tier}
-            onClick={() => setFilterTier(tier)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterTier === tier ? 'bg-accent text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
-            }`}
-          >
+        <button
+          onClick={() => setActiveTab('new')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            activeTab === 'new'
+              ? 'bg-[#E94560]/20 text-[#E94560] border border-[#E94560]/30'
+              : 'bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60'
+          }`}
+        >
+          New Teams
+        </button>
+      </div>
+
+      {/* Used Teams Tab */}
+      {activeTab === 'used' && (
+        <div className="space-y-6">
+          {/* Tier Filter */}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setFilterTier('')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterTier === '' ? 'bg-accent text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+              }`}
+            >
+              All Tiers
+            </button>
+            {tiers.map((tier) => (
+              <button
+                key={tier}
+                onClick={() => setFilterTier(tier)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  filterTier === tier ? 'bg-accent text-white' : 'bg-white/5 text-white/60 hover:bg-white/10'
+                }`}
+              >
             {tier.replace('_', ' ')}
           </button>
         ))}
@@ -338,8 +373,69 @@ export default function TeamMarketplacePage() {
           <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-white font-medium mb-1">No teams for sale</p>
           <p className="text-muted-foreground text-sm">
-            Check back later or browse the game catalog for new teams.
+            Check back later or browse the new teams tab.
           </p>
+        </div>
+      )}
+        </div>
+      )}
+
+      {/* New Teams Tab */}
+      {activeTab === 'new' && (
+        <div className="space-y-6">
+          <p className="text-sm text-white/40">
+            Buy brand new teams directly from the game. Progress through tiers by earning on-field success.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {[
+              { tier: 'STATE_COLLEGE', name: 'State College', grid: 0, sol: 0, players: '43', ovr: '55-65', color: 'text-gray-400', icon: <Shield className="w-5 h-5" />, desc: 'Free starter team. Build your program from scratch.' },
+              { tier: 'MID_COLLEGE', name: 'Mid-Tier College', grid: 5000, sol: 0.1, players: '43', ovr: '65-75', color: 'text-blue-400', icon: <Star className="w-5 h-5" />, desc: 'Step up to competitive college ball.' },
+              { tier: 'TOP_COLLEGE', name: 'Top College', grid: 25000, sol: 0.25, players: '43', ovr: '70-80', color: 'text-purple-400', icon: <Trophy className="w-5 h-5" />, desc: 'Elite college program with pro prospects.' },
+              { tier: 'REGIONAL_PRO', name: 'Regional Pro', grid: 100000, sol: 0.5, players: '43', ovr: '75-85', color: 'text-orange-400', icon: <Users className="w-5 h-5" />, desc: 'Enter the professional ranks.' },
+              { tier: 'PRO_ENTRY', name: 'Pro Entry', grid: 500000, sol: 1, players: '43', ovr: '80-90', color: 'text-yellow-400', icon: <Zap className="w-5 h-5" />, desc: 'Established pro franchise with playoff hopes.' },
+              { tier: 'PRO_ELITE', name: 'Pro Elite', grid: 2500000, sol: 2.5, players: '43', ovr: '85-95', color: 'text-red-400', icon: <Building className="w-5 h-5" />, desc: 'Championship contender. The pinnacle of the sport.' },
+            ].map((t) => (
+              <div key={t.tier} className="glass-card p-5 card-lift">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${t.color}`}>
+                      {t.icon}
+                    </div>
+                    <div>
+                      <div className={`font-bold ${t.color}`}>{t.name}</div>
+                      <div className="text-xs text-white/30">{t.tier.replace(/_/g, ' ')}</div>
+                    </div>
+                  </div>
+                  {t.grid === 0 ? (
+                    <span className="text-xs text-emerald-400 font-medium">Free</span>
+                  ) : (
+                    <span className="text-xs text-[#FFD700] font-medium">{t.grid.toLocaleString()} GRID</span>
+                  )}
+                </div>
+                <p className="text-sm text-white/40 mb-3">{t.desc}</p>
+                <div className="grid grid-cols-3 gap-2 text-xs text-white/30 mb-4">
+                  <div className="bg-white/5 rounded-lg p-2 text-center">
+                    <div className="font-bold text-white">{t.players}</div>
+                    <div>Players</div>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-2 text-center">
+                    <div className="font-bold text-white">{t.ovr}</div>
+                    <div>OVR Range</div>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-2 text-center">
+                    <div className="font-bold text-white">{t.sol}</div>
+                    <div>SOL</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/team-catalog'}
+                  className="w-full py-2 bg-[#E94560] text-white rounded-lg font-medium hover:bg-[#E94560]/80 transition-colors text-sm"
+                >
+                  {t.grid === 0 ? 'Create Free Team' : 'Buy in Catalog'}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
