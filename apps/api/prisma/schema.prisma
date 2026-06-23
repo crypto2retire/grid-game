@@ -134,6 +134,7 @@ model Venue {
   condition   Int      @default(70)
   prestige    Int      @default(10)
   leaseRate   Float    @default(0.10) // % of ticket revenue paid to venue owner
+  purchasePrice Int?
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -158,18 +159,21 @@ model StadiumUpgrade {
 
 model TransportationAsset {
   id             String   @id @default(uuid())
-  teamId         String
-  team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId         String?
+  team           Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  ownerId        String?
   tier           String   @default("CARPOOL")
   name           String
   operatingCost  Int      @default(100)
   fatigueReduction Int    @default(0)
   prestige       Int      @default(0)
+  purchasePrice  Int?
   metadata       Json     @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([teamId])
+  @@index([ownerId])
 }
 
 model Sponsorship {

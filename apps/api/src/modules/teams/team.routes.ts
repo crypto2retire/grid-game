@@ -518,4 +518,175 @@ router.post(
   })
 );
 
+// ─── Asset Purchase (One-Time) ───
+
+// GET /api/teams/assets/marketplace — list AI-owned venues & transportation for sale
+router.get(
+  '/assets/marketplace',
+  authMiddleware,
+  asyncHandler(async (_req: AuthRequest, res) => {
+    const venues = await prisma.venue.findMany({
+      where: { ownerId: env.GAME_OWNER_USER_ID || 'ai-system-owner-001', purchasePrice: { not: null } },
+      include: { team: { select: { id: true, name: true, tier: true } } },
+      orderBy: { purchasePrice: 'asc' },
+    });
+
+    const transportation = await prisma.transportationAsset.findMany({
+      where: { ownerId: env.GAME_OWNER_USER_ID || 'ai-system-owner-001', purchasePrice: { not: null } },
+      include: { team: { select: { id: true, name: true, tier: true } } },
+      orderBy: { purchasePrice: 'asc' },
+    });
+
+    res.json({
+      status: 'success',
+      data: { venues, transportation },
+    });
+  })
+);
+
+// POST /api/teams/:id/venue/buy — buy the team's venue outright
+router.post(
+  '/:id/venue/buy',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+      include: { venue: true },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+    if (!team.venue) {
+      throw new AppError(404, 'No venue assigned to this team');
+    }
+    if (!team.venue.purchasePrice) {
+      throw new AppError(400, 'This venue is not available for purchase');
+    }
+    if (team.venue.ownerId === userId) {
+      throw new AppError(400, 'You already own this venue');
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+    if (wallet.cash < team.venue.purchasePrice) {
+      throw new AppError(400, `Insufficient CASH. Need ${team.venue.purchasePrice.toLocaleString()} CASH`);
+    }
+
+    const price = team.venue.purchasePrice;
+
+    await prisma.$transaction(async (tx: any) => {
+      // Transfer ownership
+      await tx.venue.update({
+        where: { id: team.venue!.id },
+        data: { ownerId: userId, leaseRate: 0 }, // No lease fee when you own it
+      });
+      // Deduct cash from buyer
+      await tx.wallet.update({
+        where: { userId },
+        data: { cash: { decrement: price } },
+      });
+      // Credit game owner
+      const gameOwnerId = env.GAME_OWNER_USER_ID;
+      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
+      if (gameOwnerWallet) {
+        await tx.wallet.update({
+          where: { userId: gameOwnerId },
+          data: { cash: { increment: price } },
+        });
+      }
+      // Record ledger
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -price,
+        balanceAfter: wallet.cash - price,
+        reason: 'VENUE_PURCHASE',
+        sourceType: 'VENUE_BUY',
+        sourceId: team.venue!.id,
+        metadata: { tier: team.venue!.tier, name: team.venue!.name, price },
+      });
+    });
+
+    res.json({ status: 'success', message: `You now own ${team.venue.name}` });
+  })
+);
+
+// POST /api/teams/:id/transportation/buy — buy the team's transportation outright
+router.post(
+  '/:id/transportation/buy',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+      include: { transportationAssets: true },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+    const transport = team.transportationAssets[0];
+    if (!transport) {
+      throw new AppError(404, 'No transportation assigned to this team');
+    }
+    if (!transport.purchasePrice) {
+      throw new AppError(400, 'This transportation is not available for purchase');
+    }
+    if (transport.ownerId === userId) {
+      throw new AppError(400, 'You already own this transportation');
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+    if (wallet.cash < transport.purchasePrice) {
+      throw new AppError(400, `Insufficient CASH. Need ${transport.purchasePrice.toLocaleString()} CASH`);
+    }
+
+    const price = transport.purchasePrice;
+
+    await prisma.$transaction(async (tx: any) => {
+      // Transfer ownership
+      await tx.transportationAsset.update({
+        where: { id: transport.id },
+        data: { ownerId: userId },
+      });
+      // Deduct cash from buyer
+      await tx.wallet.update({
+        where: { userId },
+        data: { cash: { decrement: price } },
+      });
+      // Credit game owner
+      const gameOwnerId = env.GAME_OWNER_USER_ID;
+      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
+      if (gameOwnerWallet) {
+        await tx.wallet.update({
+          where: { userId: gameOwnerId },
+          data: { cash: { increment: price } },
+        });
+      }
+      // Record ledger
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -price,
+        balanceAfter: wallet.cash - price,
+        reason: 'TRANSPORTATION_PURCHASE',
+        sourceType: 'TRANSPORT_BUY',
+        sourceId: transport.id,
+        metadata: { tier: transport.tier, name: transport.name, price },
+      });
+    });
+
+    res.json({ status: 'success', message: `You now own ${transport.name}` });
+  })
+);
+
 export const teamRouter = router;

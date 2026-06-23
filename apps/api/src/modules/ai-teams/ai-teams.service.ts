@@ -68,8 +68,8 @@ export async function generateAllAITeams() {
         team = await prisma.team.create({
           data: { name, sportId: 'american-football', ownerId, tier, isFree: tier === 'STATE_COLLEGE', isAI: true, aiDifficulty: difficulty, aiStrategy: getRandomStrategy(), purchasePrice: tier === 'STATE_COLLEGE' ? 0 : gridPrice, purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'GRID', formation: '4-3-3', tactics: { formation: '4-3-3', sportId: 'american-football' } },
         });
-        await prisma.venue.create({ data: { teamId: team.id, ownerId: AI_OWNER_ID, sportId: 'american-football', name: `${name} Stadium`, tier: getStadiumTier(tier), capacity: getStadiumCapacity(tier), ticketPrice: 15, condition: 80, prestige: getStadiumPrestige(tier), leaseRate: 0.10 } });
-        await prisma.transportationAsset.create({ data: { teamId: team.id, tier: getTransportTier(tier), name: getTransportName(tier), operatingCost: getTransportCost(tier), fatigueReduction: getTransportFatigue(tier), prestige: getTransportPrestige(tier) } });
+        await prisma.venue.create({ data: { teamId: team.id, ownerId: AI_OWNER_ID, sportId: 'american-football', name: `${name} Stadium`, tier: getStadiumTier(tier), capacity: getStadiumCapacity(tier), ticketPrice: 15, condition: 80, prestige: getStadiumPrestige(tier), leaseRate: 0.10, purchasePrice: getVenuePurchasePrice(tier) } });
+        await prisma.transportationAsset.create({ data: { teamId: team.id, ownerId: AI_OWNER_ID, tier: getTransportTier(tier), name: getTransportName(tier), operatingCost: getTransportCost(tier), fatigueReduction: getTransportFatigue(tier), prestige: getTransportPrestige(tier), purchasePrice: getTransportPurchasePrice(tier) } });
         await prisma.teamLeagueMembership.upsert({
           where: { teamId_leagueId_season: { teamId: team.id, leagueId: 'local-rec-football', season: 'beta' } },
           create: { teamId: team.id, leagueId: 'local-rec-football', season: 'beta', status: 'ACTIVE' },
@@ -96,6 +96,8 @@ function getTransportName(tier: string): string { return { STATE_COLLEGE: 'Carpo
 function getTransportCost(tier: string): number { return { STATE_COLLEGE: 100, MID_COLLEGE: 300, TOP_COLLEGE: 500, REGIONAL_PRO: 1000, PRO_ENTRY: 2000, PRO_ELITE: 5000 }[tier] || 500; }
 function getTransportFatigue(tier: string): number { return { STATE_COLLEGE: 0, MID_COLLEGE: 10, TOP_COLLEGE: 10, REGIONAL_PRO: 20, PRO_ENTRY: 20, PRO_ELITE: 30 }[tier] || 10; }
 function getTransportPrestige(tier: string): number { return { STATE_COLLEGE: 0, MID_COLLEGE: 5, TOP_COLLEGE: 10, REGIONAL_PRO: 20, PRO_ENTRY: 30, PRO_ELITE: 50 }[tier] || 10; }
+function getVenuePurchasePrice(tier: string): number { return { STATE_COLLEGE: 5000, MID_COLLEGE: 25000, TOP_COLLEGE: 100000, REGIONAL_PRO: 500000, PRO_ENTRY: 2000000, PRO_ELITE: 10000000 }[tier] || 5000; }
+function getTransportPurchasePrice(tier: string): number { return { STATE_COLLEGE: 1000, MID_COLLEGE: 5000, TOP_COLLEGE: 15000, REGIONAL_PRO: 50000, PRO_ENTRY: 200000, PRO_ELITE: 1000000 }[tier] || 1000; }
 
 export async function getAIOpponents(userTeamId: string, tier: string) {
   const existingMatches = await prisma.match.findMany({

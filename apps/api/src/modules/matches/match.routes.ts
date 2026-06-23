@@ -230,11 +230,19 @@ router.post(
     const homeTransport = match.homeTeam.transportationAssets[0] || null;
     const awayTransport = match.awayTeam.transportationAssets[0] || null;
 
+    // Apply 50% operating cost discount if player owns their transportation
+    const homeTransportAdjusted = homeTransport
+      ? { ...homeTransport, operatingCost: homeTransport.ownerId === match.homeTeam.ownerId ? Math.round(homeTransport.operatingCost * 0.5) : homeTransport.operatingCost }
+      : null;
+    const awayTransportAdjusted = awayTransport
+      ? { ...awayTransport, operatingCost: awayTransport.ownerId === match.awayTeam.ownerId ? Math.round(awayTransport.operatingCost * 0.5) : awayTransport.operatingCost }
+      : null;
+
     const homeEconomics = calculateGameEconomics({
       team: match.homeTeam,
       opponent: match.awayTeam,
       venue: match.homeTeam.venue,
-      transport: homeTransport,
+      transport: homeTransportAdjusted,
       sponsorships: match.homeTeam.sponsorships,
       isHome: true,
       didWin: homeWon,
@@ -248,7 +256,7 @@ router.post(
       team: match.awayTeam,
       opponent: match.homeTeam,
       venue: null,
-      transport: awayTransport,
+      transport: awayTransportAdjusted,
       sponsorships: match.awayTeam.sponsorships,
       isHome: false,
       didWin: awayWon,

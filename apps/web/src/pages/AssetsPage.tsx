@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bus, Home, Landmark, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { Bus, Home, Landmark, ArrowUp, ArrowRight, ArrowDown, ShoppingCart } from 'lucide-react';
 
 interface Venue {
   id: string;
@@ -10,6 +10,9 @@ interface Venue {
   ticketPrice: number;
   condition: number;
   prestige: number;
+  ownerId: string | null;
+  purchasePrice: number | null;
+  leaseRate: number;
 }
 
 interface TransportAsset {
@@ -19,6 +22,8 @@ interface TransportAsset {
   operatingCost: number;
   fatigueReduction: number;
   prestige: number;
+  ownerId: string | null;
+  purchasePrice: number | null;
 }
 
 interface TeamAsset {
@@ -28,9 +33,12 @@ interface TeamAsset {
   transportationAssets: TransportAsset[];
 }
 
+const AI_OWNER_ID = 'ai-system-owner-001';
+
 export default function AssetsPage() {
   const [teams, setTeams] = useState<TeamAsset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [buying, setBuying] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -46,6 +54,56 @@ export default function AssetsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  async function buyVenue(teamId: string) {
+    const token = localStorage.getItem('token');
+    setBuying((prev) => ({ ...prev, [`venue-${teamId}`]: true }));
+    try {
+      const res = await fetch(`/api/teams/${teamId}/venue/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        // Refresh
+        const teamsRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
+        const teamsJson = await teamsRes.json();
+        if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
+      } else {
+        alert(json.message || 'Purchase failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    } finally {
+      setBuying((prev) => ({ ...prev, [`venue-${teamId}`]: false }));
+    }
+  }
+
+  async function buyTransport(teamId: string) {
+    const token = localStorage.getItem('token');
+    setBuying((prev) => ({ ...prev, [`transport-${teamId}`]: true }));
+    try {
+      const res = await fetch(`/api/teams/${teamId}/transportation/buy`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        // Refresh
+        const teamsRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
+        const teamsJson = await teamsRes.json();
+        if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
+      } else {
+        alert(json.message || 'Purchase failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    } finally {
+      setBuying((prev) => ({ ...prev, [`transport-${teamId}`]: false }));
+    }
+  }
 
   if (loading) {
     return (
@@ -110,12 +168,18 @@ export default function AssetsPage() {
                 <div className="w-10 h-10 bg-emerald-400/10 rounded-lg flex items-center justify-center">
                   <Home className="w-5 h-5 text-emerald-400" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="font-bold text-white">Stadium / Venue</div>
                   <div className="text-xs text-muted-foreground">
                     {team.venue ? tierLabels[team.venue.tier] || team.venue.tier : 'No venue'}
                   </div>
                 </div>
+                {team.venue && team.venue.ownerId !== AI_OWNER_ID && (
+                  <span className="text-xs bg-emerald-400/20 text-emerald-300 px-2 py-1 rounded-full">Owned</span>
+                )}
+                {team.venue && team.venue.ownerId === AI_OWNER_ID && (
+                  <span className="text-xs bg-amber-400/20 text-amber-300 px-2 py-1 rounded-full">Leased</span>
+                )}
               </div>
 
               {team.venue ? (
@@ -141,10 +205,30 @@ export default function AssetsPage() {
                 <p className="text-sm text-slate-300">No venue assigned to this team.</p>
               )}
 
-              <div className="mt-4 rounded-xl bg-cyan-300/10 border border-cyan-300/20 p-3 text-sm text-cyan-100">
-                <ArrowUp className="inline h-4 w-4 mr-1" />
-                Home games generate ticket revenue based on capacity, ticket price, and team form.
-              </div>
+              {team.venue && team.venue.ownerId === AI_OWNER_ID && team.venue.purchasePrice && (
+                <button
+                  onClick={() => buyVenue(team.id)}
+                  disabled={buying[`venue-${team.id}`]}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  {buying[`venue-${team.id}`] ? 'Processing...' : `Buy for ${team.venue.purchasePrice.toLocaleString()} CASH`}
+                </button>
+              )}
+
+              {team.venue && team.venue.ownerId === AI_OWNER_ID && (
+                <div className="mt-3 rounded-xl bg-amber-300/10 border border-amber-300/20 p-3 text-sm text-amber-100">
+                  <ArrowUp className="inline h-4 w-4 mr-1" />
+                  Leased: {Math.round(team.venue.leaseRate * 100)}% of ticket revenue goes to the venue owner on game days.
+                </div>
+              )}
+
+              {team.venue && team.venue.ownerId !== AI_OWNER_ID && (
+                <div className="mt-3 rounded-xl bg-emerald-300/10 border border-emerald-300/20 p-3 text-sm text-emerald-100">
+                  <ArrowUp className="inline h-4 w-4 mr-1" />
+                  You own this venue. You receive 100% of game-day revenue.
+                </div>
+              )}
             </div>
 
             {/* Transport Card */}
@@ -153,7 +237,7 @@ export default function AssetsPage() {
                 <div className="w-10 h-10 bg-amber-400/10 rounded-lg flex items-center justify-center">
                   <Bus className="w-5 h-5 text-amber-400" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="font-bold text-white">Transportation</div>
                   <div className="text-xs text-muted-foreground">
                     {team.transportationAssets.length > 0
@@ -161,6 +245,12 @@ export default function AssetsPage() {
                       : 'No transport'}
                   </div>
                 </div>
+                {team.transportationAssets[0] && team.transportationAssets[0].ownerId !== AI_OWNER_ID && (
+                  <span className="text-xs bg-emerald-400/20 text-emerald-300 px-2 py-1 rounded-full">Owned</span>
+                )}
+                {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && (
+                  <span className="text-xs bg-amber-400/20 text-amber-300 px-2 py-1 rounded-full">Leased</span>
+                )}
               </div>
 
               {team.transportationAssets.length > 0 ? (
@@ -182,10 +272,30 @@ export default function AssetsPage() {
                 <p className="text-sm text-slate-300">No transportation assigned to this team.</p>
               )}
 
-              <div className="mt-4 rounded-xl bg-amber-300/10 border border-amber-300/20 p-3 text-sm text-amber-100">
-                <ArrowDown className="inline h-4 w-4 mr-1" />
-                Away games cost more in travel. Better transport reduces fatigue but increases operating costs.
-              </div>
+              {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && team.transportationAssets[0].purchasePrice && (
+                <button
+                  onClick={() => buyTransport(team.id)}
+                  disabled={buying[`transport-${team.id}`]}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  {buying[`transport-${team.id}`] ? 'Processing...' : `Buy for ${team.transportationAssets[0].purchasePrice.toLocaleString()} CASH`}
+                </button>
+              )}
+
+              {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && (
+                <div className="mt-3 rounded-xl bg-amber-300/10 border border-amber-300/20 p-3 text-sm text-amber-100">
+                  <ArrowDown className="inline h-4 w-4 mr-1" />
+                  Leased: operating costs go to the owner. Buy to reduce costs by 50%.
+                </div>
+              )}
+
+              {team.transportationAssets[0] && team.transportationAssets[0].ownerId !== AI_OWNER_ID && (
+                <div className="mt-3 rounded-xl bg-emerald-300/10 border border-emerald-300/20 p-3 text-sm text-emerald-100">
+                  <ArrowDown className="inline h-4 w-4 mr-1" />
+                  You own this transportation. Operating costs reduced by 50%.
+                </div>
+              )}
             </div>
           </div>
         ))}
