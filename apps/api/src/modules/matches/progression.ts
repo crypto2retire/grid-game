@@ -22,7 +22,7 @@ export type ProgressionPlayerInput = {
   };
 };
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 function num(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
@@ -45,11 +45,66 @@ function calculateMvpDelta(input: ProgressionPlayerInput): number {
   );
 }
 
-function calculateGrowth(input: ProgressionPlayerInput) {
+// ─── Age-Based Growth Curve ───
+// 18-21: Fast growth (+2 base, +3 with good rating)
+// 22-25: Normal growth (+1 base, +2 with good rating)
+// 26-29: Slow growth (+1 base, +1 with good rating)
+// 30-33: Maintenance (0 base, +1 with excellent rating, small decline chance)
+// 34+: Decline (-1 base, small growth chance with excellent rating)
+function getAgeGrowthFactor(age: number): number {
+  if (age <= 21) return 2;
+  if (age <= 25) return 1;
+  if (age <= 29) return 1;
+  if (age <= 33) return 0;
+  return -1; // Decline after 33
+}
+
+function getDeclineChance(age: number): number {
+  if (age <= 29) return 0;
+  if (age <= 33) return 0.15; // 15% chance of -1 per game
+  return 0.35; // 35% decline chance after 33
+}
+
+// ─── Injury System ───
+// Chance based on: position, fatigue, physical stat, age
+function calculateInjuryChance(player: any): number {
+  const positionRisk: Record<string, number> = {
+    RB: 0.035, QB: 0.025, WR: 0.03, TE: 0.025, // High contact
+    OL: 0.025, DL: 0.03, LB: 0.035, CB: 0.025,  // Moderate contact
+    S: 0.02, K: 0.005, P: 0.005, // Low contact
+  };
+  const baseChance = positionRisk[player.position] || 0.02;
+  const fatigueMult = player.fatigue > 70 ? 2.0 : player.fatigue > 50 ? 1.5 : 1.0;
+  const physicalMult = player.physical < 50 ? 1.5 : player.physical < 70 ? 1.2 : 0.9;
+  const ageMult = player.age > 30 ? 1.3 : player.age > 25 ? 1.1 : 1.0;
+  return baseChance * fatigueMult * physicalMult * ageMult;
+}
+
+function rollInjury(player: any): { occurred: boolean; type?: string; severity?: string; weeks?: number; healthLoss?: number } {
+  const chance = calculateInjuryChance(player);
+  const roll = Math.random();
+  if (roll > chance) return { occurred: false };
+
+  const severityRoll = Math.random();
+  const types = ['Sprained Ankle', 'Hamstring Strain', 'Concussion', 'Shoulder Injury', 'Knee Sprain', 'Fractured Rib', 'Groin Pull'];
+  const type = types[Math.floor(Math.random() * types.length)];
+
+  if (severityRoll < 0.5) {
+    return { occurred: true, type, severity: 'MINOR', weeks: 1, healthLoss: 10 };
+  } else if (severityRoll < 0.85) {
+    return { occurred: true, type, severity: 'MODERATE', weeks: 2, healthLoss: 25 };
+  } else if (severityRoll < 0.95) {
+    return { occurred: true, type, severity: 'MAJOR', weeks: 4, healthLoss: 40 };
+  } else {
+    return { occurred: true, type, severity: 'SEASON_ENDING', weeks: 12, healthLoss: 60 };
+  }
+}
+
+function calculateGrowth(input: ProgressionPlayerInput, age: number) {
   const s = input.stats;
   const native = s.sportStats || {};
-  // Base growth: everyone gets at least +1 to one relevant stat per game
-  // ratingBoost adds bonus growth for high performers
+  const ageFactor = getAgeGrowthFactor(age);
+  const declineChance = getDeclineChance(age);
   const ratingBoost = s.rating >= 8.2 ? 2 : s.rating >= 7.2 ? 1 : 0;
   const heavyUse = s.shots + s.passes + s.tackles + s.saves;
   const fatigueGain = clamp(Math.round(3 + heavyUse / 3), 2, 12);
@@ -62,17 +117,20 @@ function calculateGrowth(input: ProgressionPlayerInput) {
   const fieldGoals = num(native.fieldGoals);
   const passingTouchdowns = num(native.passingTouchdowns);
 
-  // Base growth of 1 to relevant stats + ratingBoost bonus
+  // Apply decline chance for older players
+  const isDeclining = age >= 30 && Math.random() < declineChance;
+
   return {
-    pace: (touchdowns > 0 || yards >= 80 ? 1 : 0) + ratingBoost,
-    shooting: (passingTouchdowns > 0 || fieldGoals > 0 ? 1 : 0) + ratingBoost,
-    passing: (s.assists > 0 || passingTouchdowns > 0 || s.passes >= 3 ? 1 : 0) + ratingBoost,
-    dribbling: (yards >= 60 || s.shots >= 2 ? 1 : 0) + ratingBoost,
-    defending: (turnovers > 0 || s.tackles >= 3 ? 1 : 0) + ratingBoost,
-    physical: (s.tackles >= 2 || s.shots >= 2 || yards >= 50 ? 1 : 0) + ratingBoost,
+    pace: isDeclining ? -1 : (touchdowns > 0 || yards >= 80 ? ageFactor : 0) + ratingBoost,
+    shooting: isDeclining ? -1 : (passingTouchdowns > 0 || fieldGoals > 0 ? ageFactor : 0) + ratingBoost,
+    passing: isDeclining ? -1 : (s.assists > 0 || passingTouchdowns > 0 || s.passes >= 3 ? ageFactor : 0) + ratingBoost,
+    dribbling: isDeclining ? -1 : (yards >= 60 || s.shots >= 2 ? ageFactor : 0) + ratingBoost,
+    defending: isDeclining ? -1 : (turnovers > 0 || s.tackles >= 3 ? ageFactor : 0) + ratingBoost,
+    physical: isDeclining ? -1 : (s.tackles >= 2 || s.shots >= 2 || yards >= 50 ? ageFactor : 0) + ratingBoost,
     fatigueGain,
     moraleDelta,
     formDelta,
+    injury: { occurred: false } as any,
   };
 }
 
@@ -161,9 +219,18 @@ export async function applyPostGameProgression(
       },
     });
 
-    const growth = calculateGrowth(player);
     const current = await tx.player.findUnique({ where: { id: player.playerId } });
     if (!current) continue;
+
+    const growth = calculateGrowth(player, current.age);
+    
+    // Apply injury if it occurred
+    const injury = rollInjury(current);
+    
+    const nextHealth = clamp(current.health - (injury.healthLoss || 0), 0, 100);
+    const nextInjuryStatus = injury.occurred ? (injury.severity === 'SEASON_ENDING' ? 'SEASON_ENDING' : 'WEEK_TO_WEEK') : (current.injuryWeeks > 0 ? current.injuryStatus : 'HEALTHY');
+    const nextInjuryType = injury.occurred ? injury.type : current.injuryType;
+    const nextInjuryWeeks = injury.occurred ? (injury.weeks || 0) : Math.max(0, (current.injuryWeeks || 0) - 1);
 
     const nextPace = clamp(current.pace + growth.pace, 1, 99);
     const nextShooting = clamp(current.shooting + growth.shooting, 1, 99);
@@ -181,10 +248,13 @@ export async function applyPostGameProgression(
       agility: nextDribbling,
       tackling: nextDefending,
       strength: nextPhysical,
+      health: nextHealth,
+      injuryStatus: nextInjuryStatus,
       lastProgression: {
         matchId: input.matchId,
         rating: s.rating,
         deltas: growth,
+        injury: injury.occurred ? { type: injury.type, severity: injury.severity, weeks: injury.weeks } : null,
       },
     };
 
@@ -201,8 +271,78 @@ export async function applyPostGameProgression(
         form: clamp(current.form + growth.formDelta, 1, 99),
         morale: clamp(current.morale + growth.moraleDelta, 1, 99),
         fatigue: clamp(current.fatigue + growth.fatigueGain, 0, 99),
+        health: nextHealth,
+        injuryStatus: nextInjuryStatus,
+        injuryType: nextInjuryType,
+        injuryWeeks: nextInjuryWeeks,
         attributes,
       },
     });
+
+    // Log development and injury
+    if (growth.pace !== 0 || growth.shooting !== 0 || growth.passing !== 0 || growth.dribbling !== 0 || growth.defending !== 0 || growth.physical !== 0) {
+      await tx.playerDevelopmentLog.create({
+        data: {
+          playerId: player.playerId,
+          matchId: input.matchId,
+          sportId: input.sportId,
+          statGained: Object.entries(growth).filter(([_, v]) => v !== 0 && typeof v === 'number').map(([k, v]) => `${k}:${v}`).join(',') || 'none',
+          amount: Object.values(growth).filter((v) => typeof v === 'number' && v !== 0).reduce((a, b) => a + (b as number), 0),
+          reason: `Post-game progression (age ${current.age})`,
+          matchStats: { rating: s.rating, ...native },
+        },
+      });
+    }
+
+    if (injury.occurred) {
+      await tx.playerDevelopmentLog.create({
+        data: {
+          playerId: player.playerId,
+          matchId: input.matchId,
+          sportId: input.sportId,
+          statGained: 'INJURY',
+          amount: -(injury.healthLoss || 0),
+          reason: `Injury: ${injury.type} (${injury.severity}) - ${injury.weeks} weeks`,
+          matchStats: { injuryType: injury.type, severity: injury.severity, weeks: injury.weeks },
+        },
+      });
+    }
   }
+}
+
+// ─── Age Progression (called once per simulated season/year) ───
+export async function agePlayers(tx: TransactionClient | any) {
+  const players = await tx.player.findMany({
+    where: { age: { gte: 18 } },
+  });
+
+  for (const player of players) {
+    const newAge = player.age + 1;
+    
+    // Natural health recovery (1% per year off, but age reduces max health)
+    const healthDecline = newAge > 30 ? 2 : newAge > 25 ? 1 : 0;
+    const newHealth = clamp(player.health + 5 - healthDecline, 0, 100 - healthDecline);
+
+    // Small stat decline for aging players (age 30+)
+    const decline = newAge > 30 ? -1 : 0;
+    const newPace = clamp(player.pace + decline, 1, 99);
+    const newPhysical = clamp(player.physical + decline, 1, 99);
+    const newOverall = Math.round((newPace + player.shooting + player.passing + player.dribbling + player.defending + newPhysical) / 6);
+
+    await tx.player.update({
+      where: { id: player.id },
+      data: {
+        age: newAge,
+        health: newHealth,
+        pace: newPace,
+        physical: newPhysical,
+        overall: newOverall,
+        // Clear minor injuries after a year
+        injuryStatus: (player.injuryWeeks || 0) > 0 && player.injuryWeeks <= 4 ? 'HEALTHY' : player.injuryStatus,
+        injuryWeeks: Math.max(0, (player.injuryWeeks || 0) - 4),
+      },
+    });
+  }
+
+  return { playersAged: players.length };
 }

@@ -39,15 +39,25 @@ export async function generateAIPlayers(teamId: string) {
   const team = await prisma.team.findUnique({ where: { id: teamId }, include: { teamPlayers: true } });
   if (!team || team.teamPlayers.length > 0) return;
   const difficulty = AI_DIFFICULTY_MULTIPLIERS[team.aiDifficulty] || AI_DIFFICULTY_MULTIPLIERS.rookie;
+  // Age ranges by tier: college 18-23, pro 22-35
+  const tierAgeRanges: Record<string, [number, number]> = {
+    STATE_COLLEGE: [18, 20],
+    MID_COLLEGE: [19, 21],
+    TOP_COLLEGE: [20, 23],
+    REGIONAL_PRO: [22, 27],
+    PRO_ENTRY: [24, 29],
+    PRO_ELITE: [27, 35],
+  };
+  const [ageMin, ageMax] = tierAgeRanges[team.tier] || [18, 35];
   for (let i = 0; i < 43; i++) {
     const pos = footballPositions[i % footballPositions.length];
     const data = generatePlayerData({ sportId: 'american-football', position: pos });
     const targetOverall = randomInt(difficulty.minOvr, difficulty.maxOvr);
     const spread = targetOverall - 50;
-    const adjusted = { ...data, pace: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), shooting: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), passing: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), dribbling: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), defending: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), physical: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))) };
+    const adjusted = { ...data, age: randomInt(ageMin, ageMax), pace: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), shooting: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), passing: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), dribbling: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), defending: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))), physical: Math.min(99, Math.max(30, 50 + spread + randomInt(-5, 5))) };
     adjusted.overall = Math.round((adjusted.pace + adjusted.shooting + adjusted.passing + adjusted.dribbling + adjusted.defending + adjusted.physical) / 6);
     adjusted.basePrice = adjusted.overall * 100;
-    const player = await prisma.player.create({ data: { ...adjusted, attributes: { ...adjusted.attributes, legacy: { pace: adjusted.pace, shooting: adjusted.shooting, passing: adjusted.passing, dribbling: adjusted.dribbling, defending: adjusted.defending, physical: adjusted.physical, goalkeeping: 0 } } } as any });
+    const player = await prisma.player.create({ data: { ...adjusted, health: 100, injuryStatus: 'HEALTHY', injuryWeeks: 0, attributes: { ...adjusted.attributes, legacy: { pace: adjusted.pace, shooting: adjusted.shooting, passing: adjusted.passing, dribbling: adjusted.dribbling, defending: adjusted.defending, physical: adjusted.physical, goalkeeping: 0 } } } as any });
     await prisma.teamPlayer.create({ data: { teamId, playerId: player.id, isStarter: i < 11 } });
   }
 }

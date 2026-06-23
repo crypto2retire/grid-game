@@ -24,13 +24,30 @@ interface SeasonResult {
     playerName: string;
     teamName: string;
     position: string;
+    age: number;
+    ageAfter: number;
     gamesPlayed: number;
     beforeOverall: number;
     afterOverall: number;
     statChanges: Record<string, number>;
+    health: number;
+    injuryStatus: string | null;
+    injuryType: string | null;
     mvpScore: number;
     ratingAverage: number;
   }>;
+  injuries: Array<{
+    playerId: string;
+    playerName: string;
+    type: string;
+    severity: string;
+    weeks: number;
+    healthLoss: number;
+  }>;
+  ageProgression: {
+    playersAged: number;
+    agesChanged: Array<{ playerId: string; name: string; before: number; after: number }>;
+  };
   economicFlow: {
     totalTicketRevenue: number;
     totalVenueLeaseFees: number;
@@ -510,38 +527,97 @@ export default function TestDashboardPage() {
                 <thead>
                   <tr className="text-left text-muted-foreground border-b border-white/10">
                     <th className="pb-2">Player</th>
-                    <th className="pb-2">Team</th>
+                    <th className="pb-2">Age</th>
                     <th className="pb-2">Pos</th>
                     <th className="pb-2 text-right">Games</th>
-                    <th className="pb-2 text-right">OVR Before</th>
-                    <th className="pb-2 text-right">OVR After</th>
+                    <th className="pb-2 text-right">OVR</th>
                     <th className="pb-2 text-right">Change</th>
-                    <th className="pb-2 text-right">MVP Score</th>
-                    <th className="pb-2 text-right">Rating</th>
+                    <th className="pb-2 text-right">Health</th>
+                    <th className="pb-2">Status</th>
+                    <th className="pb-2 text-right">MVP</th>
                   </tr>
                 </thead>
                 <tbody>
                   {seasonResult.playerDevelopment.slice(0, 20).map((p) => (
                     <tr key={p.playerId} className="border-b border-white/5">
                       <td className="py-2 text-white font-medium">{p.playerName}</td>
-                      <td className="py-2 text-muted-foreground">{p.teamName}</td>
+                      <td className="py-2 text-muted-foreground">{p.age}→{p.ageAfter}</td>
                       <td className="py-2 text-muted-foreground">{p.position}</td>
                       <td className="py-2 text-right text-white">{p.gamesPlayed}</td>
-                      <td className="py-2 text-right text-white">{p.beforeOverall}</td>
                       <td className="py-2 text-right text-white">{p.afterOverall}</td>
                       <td className="py-2 text-right">
                         <span className={p.statChanges.overall > 0 ? 'text-emerald-400' : p.statChanges.overall < 0 ? 'text-red-400' : 'text-muted-foreground'}>
                           {p.statChanges.overall > 0 ? '+' : ''}{p.statChanges.overall}
                         </span>
                       </td>
+                      <td className="py-2 text-right">
+                        <span className={p.health > 80 ? 'text-emerald-400' : p.health > 50 ? 'text-amber-400' : 'text-red-400'}>
+                          {p.health}%
+                        </span>
+                      </td>
+                      <td className="py-2 text-xs">
+                        {p.injuryStatus && p.injuryStatus !== 'HEALTHY' ? (
+                          <span className="text-red-400">{p.injuryStatus} {p.injuryType ? `(${p.injuryType})` : ''}</span>
+                        ) : (
+                          <span className="text-emerald-400">Healthy</span>
+                        )}
+                      </td>
                       <td className="py-2 text-right text-accent font-bold">{p.mvpScore.toFixed(1)}</td>
-                      <td className="py-2 text-right text-white">{p.ratingAverage.toFixed(1)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* Injuries */}
+          {seasonResult.injuries.length > 0 && (
+            <div className="glass-card p-5">
+              <h2 className="text-xl font-bold text-white mb-4">Injuries This Season</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-white/10">
+                      <th className="pb-2">Player</th>
+                      <th className="pb-2">Injury</th>
+                      <th className="pb-2">Severity</th>
+                      <th className="pb-2 text-right">Weeks</th>
+                      <th className="pb-2 text-right">Health Loss</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seasonResult.injuries.map((inj, i) => (
+                      <tr key={i} className="border-b border-white/5">
+                        <td className="py-2 text-white">{inj.playerName}</td>
+                        <td className="py-2 text-red-400">{inj.type}</td>
+                        <td className="py-2 text-amber-400">{inj.severity}</td>
+                        <td className="py-2 text-right text-white">{inj.weeks}</td>
+                        <td className="py-2 text-right text-red-400">-{inj.healthLoss}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Age Progression */}
+          {seasonResult.ageProgression.agesChanged.length > 0 && (
+            <div className="glass-card p-5">
+              <h2 className="text-xl font-bold text-white mb-4">Age Progression (Year End)</h2>
+              <div className="text-sm text-muted-foreground mb-3">
+                {seasonResult.ageProgression.playersAged} players aged by 1 year. Older players may show stat decline.
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                {seasonResult.ageProgression.agesChanged.slice(0, 12).map((c) => (
+                  <div key={c.playerId} className="rounded-xl bg-white/5 p-2">
+                    <div className="text-white">{c.name}</div>
+                    <div className="text-muted-foreground">Age {c.before} → {c.after}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

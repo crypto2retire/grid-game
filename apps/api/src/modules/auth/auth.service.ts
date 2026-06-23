@@ -124,16 +124,20 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
       },
     });
 
-    // Generate 18 players for the free team (65-72 OVR range)
+    // Generate 18 players for the free team (65-72 OVR range, age 18-20)
     const players = [];
     for (let i = 0; i < 18; i++) {
       const pos = footballPositions[i % footballPositions.length];
       const data = generatePlayerData({ sportId: 'american-football', position: pos });
-      // Force stats into 65-72 range for free team
+      // Force stats into 65-72 range for free team, age 18-20
       const targetOverall = randomInt(65, 72);
       const spread = targetOverall - 50;
       const adjusted = {
         ...data,
+        age: randomInt(18, 20),
+        health: 100,
+        injuryStatus: 'HEALTHY' as any,
+        injuryWeeks: 0,
         pace: Math.min(99, Math.max(50, 50 + spread + randomInt(-3, 3))),
         shooting: Math.min(99, Math.max(50, 50 + spread + randomInt(-3, 3))),
         passing: Math.min(99, Math.max(50, 50 + spread + randomInt(-3, 3))),

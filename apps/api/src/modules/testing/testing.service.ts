@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database';
 import { runMatchSimulation } from '../matches/simulator';
-import { applyPostGameProgression } from '../matches/progression';
+import { applyPostGameProgression, agePlayers } from '../matches/progression';
 import { calculateGameEconomics } from '../economy/gameEconomics';
 import { processTreasuryInflow } from '../treasury/treasury.service';
 import { env } from '../../config/env';
@@ -25,12 +25,32 @@ interface PlayerDevSummary {
   playerName: string;
   teamName: string;
   position: string;
+  age: number;
+  ageAfter: number;
   gamesPlayed: number;
   beforeOverall: number;
   afterOverall: number;
   statChanges: Record<string, number>;
+  health: number;
+  injuryStatus: string | null;
+  injuryType: string | null;
   mvpScore: number;
   ratingAverage: number;
+}
+
+interface SeasonResult {
+  matchesPlayed: number;
+  totalHomeWins: number;
+  totalAwayWins: number;
+  totalDraws: number;
+  avgHomeScore: number;
+  avgAwayScore: number;
+  playerDevelopment: PlayerDevSummary[];
+  economicFlow: EconomicSummary;
+  teamStandings: TeamStanding[];
+  injuries: InjurySummary[];
+  ageProgression: AgeProgressionSummary;
+  issues: string[];
 }
 
 interface EconomicSummary {
@@ -71,6 +91,20 @@ interface TeamStanding {
   netRevenue: number;
 }
 
+interface InjurySummary {
+  playerId: string;
+  playerName: string;
+  type: string;
+  severity: string;
+  weeks: number;
+  healthLoss: number;
+}
+
+interface AgeProgressionSummary {
+  playersAged: number;
+  agesChanged: Array<{ playerId: string; name: string; before: number; after: number }>;
+}
+
 /**
  * Run a full test season: simulate N games between AI teams,
  * apply progression, track economics, and return an audit report.
@@ -96,11 +130,11 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
   }
 
   // 2. Snapshot player stats before season
-  const beforeStats = new Map<string, { overall: number }>();
+  const beforeStats = new Map<string, { overall: number; age: number }>();
   for (const team of aiTeams) {
     for (const tp of team.teamPlayers) {
       const p = tp.player as any;
-      beforeStats.set(p.id, { overall: p.overall });
+      beforeStats.set(p.id, { overall: p.overall, age: p.age || 20 });
     }
   }
 
@@ -323,16 +357,17 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
   }
 
   // 6. Collect after-season player stats
-  const afterStats = new Map<string, { overall: number }>();
+  const afterStats = new Map<string, { overall: number; age: number; health: number; injuryStatus: string | null; injuryType: string | null }>();
   for (const team of aiTeams) {
     for (const tp of team.teamPlayers) {
       const p = await prisma.player.findUnique({ where: { id: (tp.player as any).id } });
-      if (p) afterStats.set(p.id, { overall: p.overall });
+      if (p) afterStats.set(p.id, { overall: p.overall, age: p.age, health: p.health, injuryStatus: p.injuryStatus, injuryType: p.injuryType });
     }
   }
 
   // 7. Build player development summary
   const playerDevelopment: PlayerDevSummary[] = [];
+  const injuries: InjurySummary[] = [];
   for (const [playerId, before] of beforeStats) {
     const after = afterStats.get(playerId);
     if (!after) continue;
@@ -347,18 +382,54 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       where: { playerId_sportId_season: { playerId, sportId: 'american-football', season: 'beta' } },
     });
 
+    // Get injury info from player's current state
     const teamName = player.teamPlayers[0]?.team?.name || 'Unknown';
 
     playerDevelopment.push({
       playerId, playerName: player.name, teamName,
       position: player.position,
+      age: before.age || player.age,
+      ageAfter: after.age,
       gamesPlayed: seasonStats?.gamesPlayed || 0,
       beforeOverall: before.overall,
       afterOverall: after.overall,
       statChanges: { overall: after.overall - before.overall },
+      health: after.health,
+      injuryStatus: after.injuryStatus,
+      injuryType: after.injuryType,
       mvpScore: seasonStats?.mvpScore || 0,
       ratingAverage: seasonStats?.ratingAverage || 0,
     });
+
+    if (after.injuryStatus && after.injuryStatus !== 'HEALTHY') {
+      injuries.push({
+        playerId,
+        playerName: player.name,
+        type: after.injuryType || 'Unknown',
+        severity: after.injuryStatus,
+        weeks: player.injuryWeeks || 0,
+        healthLoss: 100 - after.health,
+      });
+    }
+  }
+
+  // 8. Apply age progression (simulates one year passing)
+  let ageProgression: AgeProgressionSummary = { playersAged: 0, agesChanged: [] };
+  try {
+    await agePlayers(prisma);
+    const agedPlayers = await prisma.player.findMany({
+      where: { id: { in: Array.from(afterStats.keys()) } },
+      select: { id: true, name: true, age: true },
+    });
+    ageProgression = {
+      playersAged: agedPlayers.length,
+      agesChanged: agedPlayers.map((p) => {
+        const beforeAge = afterStats.get(p.id)?.age || p.age - 1;
+        return { playerId: p.id, name: p.name, before: beforeAge, after: p.age };
+      }).filter((c) => c.before !== c.after),
+    };
+  } catch (err: any) {
+    issues.push(`Age progression failed: ${err.message}`);
   }
 
   // 8. Build team standings
@@ -420,6 +491,8 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
       pumpfunRevenue: pumpfunProjection,
     },
     teamStandings,
+    injuries: injuries.slice(0, 20),
+    ageProgression,
     issues,
   };
 }

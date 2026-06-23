@@ -280,6 +280,10 @@ model Player {
   position      String
   nationality   String
   age           Int
+  health        Int      @default(100)
+  injuryStatus  String?  // e.g., "HEALTHY", "DAY_TO_DAY", "WEEK_TO_WEEK", "SEASON_ENDING"
+  injuryType    String?
+  injuryWeeks   Int      @default(0)
 
   pace          Int
   shooting      Int
