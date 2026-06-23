@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database';
 import { SeededRNG } from '../../utils/rng';
+import { processTreasuryInflow } from '../treasury/treasury.service';
 
 // ─── Game Constants ───
 const QUARTER_LENGTH = 900; // 15 minutes in seconds
@@ -644,6 +645,17 @@ export async function completeGame(matchId: string) {
     }
   }
 
+  // Revenue data to return
+  let gameRevenue: {
+    attendance: number;
+    ticketRevenue: number;
+    leaseFee: number;
+    homeTeamRevenue: number;
+    entryFee: number;
+    totalVenueRevenue: number;
+    venueOwnerId: string | null;
+  } | null = null;
+
   await prisma.$transaction(async (tx: any) => {
     await tx.match.update({
       where: { id: matchId },
@@ -685,12 +697,89 @@ export async function completeGame(matchId: string) {
         points: { increment: awayPoints },
       },
     });
+
+    // ─── Game Revenue Distribution ───
+    const homeVenue = await tx.venue.findFirst({
+      where: { teamId: match.homeTeamId },
+    });
+
+    if (homeVenue) {
+      // Calculate attendance (50-90% based on prestige)
+      const attendanceRate = 0.5 + (homeVenue.prestige / 100) * 0.4;
+      const attendance = Math.round(homeVenue.capacity * attendanceRate);
+      
+      // Ticket revenue
+      const ticketRevenue = attendance * homeVenue.ticketPrice;
+      
+      // Lease fee to venue owner
+      const leaseFee = Math.round(ticketRevenue * homeVenue.leaseRate);
+      const homeTeamRevenue = ticketRevenue - leaseFee;
+      
+      // Visiting team entry fee (fixed cost based on venue tier)
+      const entryFeeTierMult: Record<string, number> = {
+        PARK_FIELD: 1, COMMUNITY: 2, SMALL_STADIUM: 3, REGIONAL: 5, PRO: 8, ELITE: 12,
+      };
+      const entryFee = 1000 * (entryFeeTierMult[homeVenue.tier] || 1);
+      
+      // Home team gets ticket revenue minus lease fee, pays entry fee
+      if (homeTeamRevenue > 0) {
+        const homeTeam = await tx.team.findUnique({
+          where: { id: match.homeTeamId },
+          include: { owner: true },
+        });
+        if (homeTeam?.ownerId) {
+          await tx.wallet.update({
+            where: { userId: homeTeam.ownerId },
+            data: { cash: { increment: homeTeamRevenue } },
+          });
+        }
+      }
+      
+      // Visiting team pays entry fee
+      const awayTeam = await tx.team.findUnique({
+        where: { id: match.awayTeamId },
+        include: { owner: true },
+      });
+      if (awayTeam?.ownerId) {
+        await tx.wallet.update({
+          where: { userId: awayTeam.ownerId },
+          data: { cash: { decrement: entryFee } },
+        });
+      }
+      
+      // Venue owner gets lease fee + entry fee
+      const venueOwnerId = homeVenue.ownerId || 'ai-system-owner-001';
+      const totalVenueRevenue = leaseFee + entryFee;
+
+      // Record revenue data for return
+      gameRevenue = {
+        attendance,
+        ticketRevenue,
+        leaseFee,
+        homeTeamRevenue,
+        entryFee,
+        totalVenueRevenue,
+        venueOwnerId,
+      };
+
+      if (venueOwnerId === 'ai-system-owner-001') {
+        // Treasury-owned: process as treasury inflow
+        await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', matchId);
+      } else {
+        // Player-owned: credit to their wallet
+        await tx.wallet.update({
+          where: { userId: venueOwnerId },
+          data: { cash: { increment: totalVenueRevenue } },
+        });
+      }
+    }
   });
 
   return {
     match,
     developmentLogs,
     playerStats,
+    gameRevenue,
   };
 }
 

@@ -68,7 +68,7 @@ export async function generateAllAITeams() {
         team = await prisma.team.create({
           data: { name, sportId: 'american-football', ownerId, tier, isFree: tier === 'STATE_COLLEGE', isAI: true, aiDifficulty: difficulty, aiStrategy: getRandomStrategy(), purchasePrice: tier === 'STATE_COLLEGE' ? 0 : gridPrice, purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'GRID', formation: '4-3-3', tactics: { formation: '4-3-3', sportId: 'american-football' } },
         });
-        await prisma.venue.create({ data: { teamId: team.id, sportId: 'american-football', name: `${name} Stadium`, tier: getStadiumTier(tier), capacity: getStadiumCapacity(tier), ticketPrice: 15, condition: 80, prestige: getStadiumPrestige(tier) } });
+        await prisma.venue.create({ data: { teamId: team.id, ownerId: AI_OWNER_ID, sportId: 'american-football', name: `${name} Stadium`, tier: getStadiumTier(tier), capacity: getStadiumCapacity(tier), ticketPrice: 15, condition: 80, prestige: getStadiumPrestige(tier), leaseRate: 0.10 } });
         await prisma.transportationAsset.create({ data: { teamId: team.id, tier: getTransportTier(tier), name: getTransportName(tier), operatingCost: getTransportCost(tier), fatigueReduction: getTransportFatigue(tier), prestige: getTransportPrestige(tier) } });
         await prisma.teamLeagueMembership.upsert({
           where: { teamId_leagueId_season: { teamId: team.id, leagueId: 'local-rec-football', season: 'beta' } },

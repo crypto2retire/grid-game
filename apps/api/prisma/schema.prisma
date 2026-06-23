@@ -133,6 +133,7 @@ model Venue {
   ticketPrice Int      @default(8)
   condition   Int      @default(70)
   prestige    Int      @default(10)
+  leaseRate   Float    @default(0.10) // % of ticket revenue paid to venue owner
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
