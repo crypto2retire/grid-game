@@ -135,6 +135,7 @@ model Venue {
   prestige    Int      @default(10)
   leaseRate   Float    @default(0.10) // % of ticket revenue paid to venue owner
   purchasePrice Int?
+  solPrice      Float?   // SOL price (discounted vs CASH equivalent)
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -168,6 +169,7 @@ model TransportationAsset {
   fatigueReduction Int    @default(0)
   prestige       Int      @default(0)
   purchasePrice  Int?
+  solPrice       Float?   // SOL price (discounted vs CASH equivalent)
   metadata       Json     @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -220,6 +222,7 @@ model Team {
   tier          String   @default("STATE_COLLEGE") // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
   isFree        Boolean  @default(false)
   purchasePrice Int      @default(0)
+  solPrice      Float?   // SOL price (discounted vs CASH equivalent)
   purchaseCurrency String? // GRID | SOL | FREE
   purchasedAt   DateTime @default(now())
   seasonsPlayed Int      @default(0)

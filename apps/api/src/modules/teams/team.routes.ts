@@ -551,6 +551,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const teamId = routeParam(req.params.id, 'id');
     const userId = req.user!.id;
+    const currency = (req.body.currency || 'CASH') as 'CASH' | 'SOL';
 
     const team = await prisma.team.findFirst({
       where: { id: teamId, ownerId: userId },
@@ -573,46 +574,78 @@ router.post(
     if (!wallet) {
       throw new AppError(404, 'Wallet not found');
     }
-    if (wallet.cash < team.venue.purchasePrice) {
-      throw new AppError(400, `Insufficient CASH. Need ${team.venue.purchasePrice.toLocaleString()} CASH`);
-    }
 
-    const price = team.venue.purchasePrice;
+    const price = currency === 'SOL' ? (team.venue.solPrice || 0) : team.venue.purchasePrice;
+
+    if (currency === 'CASH') {
+      if (wallet.cash < price) {
+        throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
+      }
+    } else {
+      if ((wallet.solBalance || 0) < price) {
+        throw new AppError(400, `Insufficient SOL. Need ${price} SOL`);
+      }
+    }
 
     await prisma.$transaction(async (tx: any) => {
       // Transfer ownership
       await tx.venue.update({
         where: { id: team.venue!.id },
-        data: { ownerId: userId, leaseRate: 0 }, // No lease fee when you own it
+        data: { ownerId: userId, leaseRate: 0 },
       });
-      // Deduct cash from buyer
-      await tx.wallet.update({
-        where: { userId },
-        data: { cash: { decrement: price } },
-      });
-      // Credit game owner
-      const gameOwnerId = env.GAME_OWNER_USER_ID;
-      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
-      if (gameOwnerWallet) {
+
+      if (currency === 'CASH') {
+        // Deduct cash from buyer, credit game owner
         await tx.wallet.update({
-          where: { userId: gameOwnerId },
-          data: { cash: { increment: price } },
+          where: { userId },
+          data: { cash: { decrement: price } },
+        });
+        const gameOwnerId = env.GAME_OWNER_USER_ID;
+        const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
+        if (gameOwnerWallet) {
+          await tx.wallet.update({
+            where: { userId: gameOwnerId },
+            data: { cash: { increment: price } },
+          });
+        }
+        await recordCurrencyLedger(tx, {
+          userId,
+          currency: 'CASH',
+          amount: -price,
+          balanceAfter: wallet.cash - price,
+          reason: 'VENUE_PURCHASE',
+          sourceType: 'VENUE_BUY',
+          sourceId: team.venue!.id,
+          metadata: { tier: team.venue!.tier, name: team.venue!.name, price, currency },
+        });
+      } else {
+        // SOL purchase: deduct SOL, credit to treasury (real-world revenue)
+        await tx.wallet.update({
+          where: { userId },
+          data: { solBalance: { decrement: price } },
+        });
+        // Credit SOL to treasury for real-world expenses
+        await tx.gameTreasury.upsert({
+          where: { currency: 'SOL' },
+          create: { currency: 'SOL', balance: price, totalInflows: price },
+          update: { balance: { increment: price }, totalInflows: { increment: price } },
+        });
+        await tx.treasuryTransaction.create({
+          data: {
+            treasury: { connect: { currency: 'SOL' } },
+            type: 'INFLOW',
+            amount: price,
+            currency: 'SOL',
+            reason: 'VENUE_PURCHASE_SOL',
+            sourceType: 'VENUE_BUY',
+            sourceId: team.venue!.id,
+            metadata: { tier: team.venue!.tier, name: team.venue!.name, price, userId },
+          },
         });
       }
-      // Record ledger
-      await recordCurrencyLedger(tx, {
-        userId,
-        currency: 'CASH',
-        amount: -price,
-        balanceAfter: wallet.cash - price,
-        reason: 'VENUE_PURCHASE',
-        sourceType: 'VENUE_BUY',
-        sourceId: team.venue!.id,
-        metadata: { tier: team.venue!.tier, name: team.venue!.name, price },
-      });
     });
 
-    res.json({ status: 'success', message: `You now own ${team.venue.name}` });
+    res.json({ status: 'success', message: `You now own ${team.venue.name} (${currency})` });
   })
 );
 
@@ -623,6 +656,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const teamId = routeParam(req.params.id, 'id');
     const userId = req.user!.id;
+    const currency = (req.body.currency || 'CASH') as 'CASH' | 'SOL';
 
     const team = await prisma.team.findFirst({
       where: { id: teamId, ownerId: userId },
@@ -646,11 +680,18 @@ router.post(
     if (!wallet) {
       throw new AppError(404, 'Wallet not found');
     }
-    if (wallet.cash < transport.purchasePrice) {
-      throw new AppError(400, `Insufficient CASH. Need ${transport.purchasePrice.toLocaleString()} CASH`);
-    }
 
-    const price = transport.purchasePrice;
+    const price = currency === 'SOL' ? (transport.solPrice || 0) : transport.purchasePrice;
+
+    if (currency === 'CASH') {
+      if (wallet.cash < price) {
+        throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
+      }
+    } else {
+      if ((wallet.solBalance || 0) < price) {
+        throw new AppError(400, `Insufficient SOL. Need ${price} SOL`);
+      }
+    }
 
     await prisma.$transaction(async (tx: any) => {
       // Transfer ownership
@@ -658,34 +699,57 @@ router.post(
         where: { id: transport.id },
         data: { ownerId: userId },
       });
-      // Deduct cash from buyer
-      await tx.wallet.update({
-        where: { userId },
-        data: { cash: { decrement: price } },
-      });
-      // Credit game owner
-      const gameOwnerId = env.GAME_OWNER_USER_ID;
-      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
-      if (gameOwnerWallet) {
+
+      if (currency === 'CASH') {
         await tx.wallet.update({
-          where: { userId: gameOwnerId },
-          data: { cash: { increment: price } },
+          where: { userId },
+          data: { cash: { decrement: price } },
+        });
+        const gameOwnerId = env.GAME_OWNER_USER_ID;
+        const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
+        if (gameOwnerWallet) {
+          await tx.wallet.update({
+            where: { userId: gameOwnerId },
+            data: { cash: { increment: price } },
+          });
+        }
+        await recordCurrencyLedger(tx, {
+          userId,
+          currency: 'CASH',
+          amount: -price,
+          balanceAfter: wallet.cash - price,
+          reason: 'TRANSPORTATION_PURCHASE',
+          sourceType: 'TRANSPORT_BUY',
+          sourceId: transport.id,
+          metadata: { tier: transport.tier, name: transport.name, price, currency },
+        });
+      } else {
+        // SOL purchase: goes to treasury
+        await tx.wallet.update({
+          where: { userId },
+          data: { solBalance: { decrement: price } },
+        });
+        await tx.gameTreasury.upsert({
+          where: { currency: 'SOL' },
+          create: { currency: 'SOL', balance: price, totalInflows: price },
+          update: { balance: { increment: price }, totalInflows: { increment: price } },
+        });
+        await tx.treasuryTransaction.create({
+          data: {
+            treasury: { connect: { currency: 'SOL' } },
+            type: 'INFLOW',
+            amount: price,
+            currency: 'SOL',
+            reason: 'TRANSPORT_PURCHASE_SOL',
+            sourceType: 'TRANSPORT_BUY',
+            sourceId: transport.id,
+            metadata: { tier: transport.tier, name: transport.name, price, userId },
+          },
         });
       }
-      // Record ledger
-      await recordCurrencyLedger(tx, {
-        userId,
-        currency: 'CASH',
-        amount: -price,
-        balanceAfter: wallet.cash - price,
-        reason: 'TRANSPORTATION_PURCHASE',
-        sourceType: 'TRANSPORT_BUY',
-        sourceId: transport.id,
-        metadata: { tier: transport.tier, name: transport.name, price },
-      });
     });
 
-    res.json({ status: 'success', message: `You now own ${transport.name}` });
+    res.json({ status: 'success', message: `You now own ${transport.name} (${currency})` });
   })
 );
 

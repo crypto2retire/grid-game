@@ -94,6 +94,8 @@ interface EconomicAudit {
   gameOwnerGrid: number;
   aiOwnerCash: number;
   aiOwnerGrid: number;
+  solTreasuryBalance: number;
+  totalSolInflows: number;
   topWallets: Array<{ username: string; cash: number; gridTokens: number }>;
   tokenData: {
     tokenSymbol: string;
@@ -663,6 +665,24 @@ export default function TestDashboardPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* SOL Treasury */}
+          <div className="mt-6">
+            <h3 className="text-lg font-bold text-white mb-3">SOL Treasury (Real-World Revenue)</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="rounded-xl bg-purple-500/10 border border-purple-500/20 p-3">
+                <div className="text-muted-foreground">SOL Treasury Balance</div>
+                <div className="text-purple-400 font-bold">{economicAudit.solTreasuryBalance.toFixed(4)} SOL</div>
+              </div>
+              <div className="rounded-xl bg-purple-500/10 border border-purple-500/20 p-3">
+                <div className="text-muted-foreground">Total SOL Inflows</div>
+                <div className="text-purple-400 font-bold">{economicAudit.totalSolInflows.toFixed(4)} SOL</div>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-purple-300">
+              SOL purchases go to treasury for payroll, marketing, dev, and infrastructure. Never sell $GRID.
+            </div>
           </div>
 
           {/* Pump.fun Token Data */}

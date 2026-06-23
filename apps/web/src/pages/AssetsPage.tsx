@@ -12,6 +12,7 @@ interface Venue {
   prestige: number;
   ownerId: string | null;
   purchasePrice: number | null;
+  solPrice: number | null;
   leaseRate: number;
 }
 
@@ -24,6 +25,7 @@ interface TransportAsset {
   prestige: number;
   ownerId: string | null;
   purchasePrice: number | null;
+  solPrice: number | null;
 }
 
 interface TeamAsset {
@@ -55,18 +57,18 @@ export default function AssetsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function buyVenue(teamId: string) {
+  async function buyVenue(teamId: string, currency: 'CASH' | 'SOL') {
     const token = localStorage.getItem('token');
-    setBuying((prev) => ({ ...prev, [`venue-${teamId}`]: true }));
+    setBuying((prev) => ({ ...prev, [`venue-${teamId}-${currency}`]: true }));
     try {
       const res = await fetch(`/api/teams/${teamId}/venue/buy`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currency }),
       });
       const json = await res.json();
       if (json.status === 'success') {
         alert(json.message);
-        // Refresh
         const teamsRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
         const teamsJson = await teamsRes.json();
         if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
@@ -76,22 +78,22 @@ export default function AssetsPage() {
     } catch (e) {
       alert('Network error');
     } finally {
-      setBuying((prev) => ({ ...prev, [`venue-${teamId}`]: false }));
+      setBuying((prev) => ({ ...prev, [`venue-${teamId}-${currency}`]: false }));
     }
   }
 
-  async function buyTransport(teamId: string) {
+  async function buyTransport(teamId: string, currency: 'CASH' | 'SOL') {
     const token = localStorage.getItem('token');
-    setBuying((prev) => ({ ...prev, [`transport-${teamId}`]: true }));
+    setBuying((prev) => ({ ...prev, [`transport-${teamId}-${currency}`]: true }));
     try {
       const res = await fetch(`/api/teams/${teamId}/transportation/buy`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currency }),
       });
       const json = await res.json();
       if (json.status === 'success') {
         alert(json.message);
-        // Refresh
         const teamsRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
         const teamsJson = await teamsRes.json();
         if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
@@ -101,7 +103,7 @@ export default function AssetsPage() {
     } catch (e) {
       alert('Network error');
     } finally {
-      setBuying((prev) => ({ ...prev, [`transport-${teamId}`]: false }));
+      setBuying((prev) => ({ ...prev, [`transport-${teamId}-${currency}`]: false }));
     }
   }
 
@@ -206,14 +208,26 @@ export default function AssetsPage() {
               )}
 
               {team.venue && team.venue.ownerId === AI_OWNER_ID && team.venue.purchasePrice && (
-                <button
-                  onClick={() => buyVenue(team.id)}
-                  disabled={buying[`venue-${team.id}`]}
-                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  {buying[`venue-${team.id}`] ? 'Processing...' : `Buy for ${team.venue.purchasePrice.toLocaleString()} CASH`}
-                </button>
+                <div className="mt-4 space-y-2">
+                  <button
+                    onClick={() => buyVenue(team.id, 'CASH')}
+                    disabled={buying[`venue-${team.id}-CASH`]}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    {buying[`venue-${team.id}-CASH`] ? 'Processing...' : `Buy for ${team.venue.purchasePrice.toLocaleString()} CASH`}
+                  </button>
+                  {team.venue.solPrice && (
+                    <button
+                      onClick={() => buyVenue(team.id, 'SOL')}
+                      disabled={buying[`venue-${team.id}-SOL`]}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-purple-500/80 px-4 py-2.5 font-bold text-white hover:bg-purple-600 disabled:opacity-50"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      {buying[`venue-${team.id}-SOL`] ? 'Processing...' : `Buy for ${team.venue.solPrice} SOL (Save ${Math.round((1 - (team.venue.solPrice * 10000 / team.venue.purchasePrice)) * 100)}%)`}
+                    </button>
+                  )}
+                </div>
               )}
 
               {team.venue && team.venue.ownerId === AI_OWNER_ID && (
@@ -273,14 +287,26 @@ export default function AssetsPage() {
               )}
 
               {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && team.transportationAssets[0].purchasePrice && (
-                <button
-                  onClick={() => buyTransport(team.id)}
-                  disabled={buying[`transport-${team.id}`]}
-                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  {buying[`transport-${team.id}`] ? 'Processing...' : `Buy for ${team.transportationAssets[0].purchasePrice.toLocaleString()} CASH`}
-                </button>
+                <div className="mt-4 space-y-2">
+                  <button
+                    onClick={() => buyTransport(team.id, 'CASH')}
+                    disabled={buying[`transport-${team.id}-CASH`]}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    {buying[`transport-${team.id}-CASH`] ? 'Processing...' : `Buy for ${team.transportationAssets[0].purchasePrice.toLocaleString()} CASH`}
+                  </button>
+                  {team.transportationAssets[0].solPrice && (
+                    <button
+                      onClick={() => buyTransport(team.id, 'SOL')}
+                      disabled={buying[`transport-${team.id}-SOL`]}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-purple-500/80 px-4 py-2.5 font-bold text-white hover:bg-purple-600 disabled:opacity-50"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      {buying[`transport-${team.id}-SOL`] ? 'Processing...' : `Buy for ${team.transportationAssets[0].solPrice} SOL (Save ${Math.round((1 - (team.transportationAssets[0].solPrice * 10000 / team.transportationAssets[0].purchasePrice)) * 100)}%)`}
+                    </button>
+                  )}
+                </div>
               )}
 
               {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && (

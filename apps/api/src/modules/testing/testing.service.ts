@@ -622,6 +622,8 @@ export async function getEconomicAudit() {
 
   const pumpfunProjection = calculatePumpfunRevenueProjection();
 
+  const solTreasury = await prisma.gameTreasury.findFirst({ where: { currency: 'SOL' } });
+
   return {
     treasuryBalance: treasury?.balance || 0,
     totalPlayerCash: totalPlayerCash._sum.cash || 0,
@@ -630,6 +632,8 @@ export async function getEconomicAudit() {
     gameOwnerGrid: gameOwnerWallet?.gridTokens || 0,
     aiOwnerCash: aiOwnerWallet?.cash || 0,
     aiOwnerGrid: aiOwnerWallet?.gridTokens || 0,
+    solTreasuryBalance: solTreasury?.balance || 0,
+    totalSolInflows: solTreasury?.totalInflows || 0,
     topWallets: allWallets.map((w) => ({ username: w.user?.username || w.userId, cash: w.cash, gridTokens: w.gridTokens })),
     recentTreasuryTransactions: recentTransactions,
     recentFinanceSnapshots: recentFinance,
