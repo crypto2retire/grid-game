@@ -13,6 +13,7 @@ import {
   Star,
   Building,
   Plus,
+  X,
 } from 'lucide-react';
 
 interface CatalogEntry {
@@ -25,12 +26,20 @@ interface CatalogEntry {
   playerCount: number;
   minOverall: number;
   maxOverall: number;
+  avgOverall: number;
   stadiumTier: string;
   stadiumCapacity: number;
   requiresSeasons: number;
   requiresWinPct: number;
   soldCount: number;
   maxSupply: number | null;
+  wins: number;
+  losses: number;
+  draws: number;
+  points: number;
+  roster: any[];
+  venue: any;
+  transport: any;
 }
 
 interface Eligibility {
@@ -79,6 +88,7 @@ export default function TeamCatalogPage() {
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [viewRoster, setViewRoster] = useState<CatalogEntry | null>(null);
 
   useEffect(() => {
     fetchCatalog();
@@ -334,20 +344,32 @@ export default function TeamCatalogPage() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 mb-4 text-sm">
-                        <div className="bg-secondary/50 p-2 rounded">
+                      <div className="grid grid-cols-4 gap-2 mb-4 text-sm">
+                        <div className="bg-secondary/50 p-2 rounded text-center">
                           <div className="text-muted-foreground">Players</div>
                           <div className="font-bold text-white">{entry.playerCount}</div>
                         </div>
-                        <div className="bg-secondary/50 p-2 rounded">
-                          <div className="text-muted-foreground">OVR Range</div>
-                          <div className="font-bold text-white">{entry.minOverall}-{entry.maxOverall}</div>
+                        <div className="bg-secondary/50 p-2 rounded text-center">
+                          <div className="text-muted-foreground">Avg OVR</div>
+                          <div className="font-bold text-white">{entry.avgOverall}</div>
                         </div>
-                        <div className="bg-secondary/50 p-2 rounded">
-                          <div className="text-muted-foreground">Stadium</div>
-                          <div className="font-bold text-white">{entry.stadiumCapacity.toLocaleString()}</div>
+                        <div className="bg-secondary/50 p-2 rounded text-center">
+                          <div className="text-muted-foreground">Record</div>
+                          <div className="font-bold text-white">{entry.wins}-{entry.losses}-{entry.draws}</div>
+                        </div>
+                        <div className="bg-secondary/50 p-2 rounded text-center">
+                          <div className="text-muted-foreground">Points</div>
+                          <div className="font-bold text-white">{entry.points}</div>
                         </div>
                       </div>
+
+                      {/* Roster Button */}
+                      <button
+                        onClick={() => setViewRoster(entry)}
+                        className="w-full py-2 mb-3 bg-white/5 text-white/60 rounded-lg text-sm font-medium hover:bg-white/10 hover:text-white transition-colors"
+                      >
+                        View Full Roster
+                      </button>
 
                       {/* Requirements */}
                       {(entry.requiresSeasons > 0 || entry.requiresWinPct > 0) && (
@@ -438,6 +460,64 @@ export default function TeamCatalogPage() {
           );
         })}
       </div>
+
+      {/* Roster Modal */}
+      {viewRoster && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card p-6 max-w-3xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">{viewRoster.name} Roster</h3>
+                <p className="text-sm text-white/40">
+                  {viewRoster.tier.replace(/_/g, ' ')} • {viewRoster.playerCount} Players • Avg OVR {viewRoster.avgOverall} • Record {viewRoster.wins}-{viewRoster.losses}-{viewRoster.draws}
+                </p>
+              </div>
+              <button onClick={() => setViewRoster(null)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-white/40" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {viewRoster.roster.map((player: any) => (
+                <div key={player.id} className="glass-card p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-white text-sm">{player.name}</div>
+                    <div className="text-xs text-white/30">{player.position}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl font-black text-white">{player.overall}</div>
+                    <div className="grid grid-cols-3 gap-1 text-[10px] text-white/40 flex-1">
+                      <div className="bg-white/5 rounded p-1 text-center">
+                        <div className="font-bold text-white">{player.pace}</div>
+                        <div>SPD</div>
+                      </div>
+                      <div className="bg-white/5 rounded p-1 text-center">
+                        <div className="font-bold text-white">{player.shooting}</div>
+                        <div>ARM</div>
+                      </div>
+                      <div className="bg-white/5 rounded p-1 text-center">
+                        <div className="font-bold text-white">{player.passing}</div>
+                        <div>IQ</div>
+                      </div>
+                      <div className="bg-white/5 rounded p-1 text-center">
+                        <div className="font-bold text-white">{player.dribbling}</div>
+                        <div>AGI</div>
+                      </div>
+                      <div className="bg-white/5 rounded p-1 text-center">
+                        <div className="font-bold text-white">{player.defending}</div>
+                        <div>TCK</div>
+                      </div>
+                      <div className="bg-white/5 rounded p-1 text-center">
+                        <div className="font-bold text-white">{player.physical}</div>
+                        <div>STR</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

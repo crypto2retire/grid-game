@@ -39,7 +39,7 @@ export async function generateAIPlayers(teamId: string) {
   const team = await prisma.team.findUnique({ where: { id: teamId }, include: { teamPlayers: true } });
   if (!team || team.teamPlayers.length > 0) return;
   const difficulty = AI_DIFFICULTY_MULTIPLIERS[team.aiDifficulty] || AI_DIFFICULTY_MULTIPLIERS.rookie;
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 43; i++) {
     const pos = footballPositions[i % footballPositions.length];
     const data = generatePlayerData({ sportId: 'american-football', position: pos });
     const targetOverall = randomInt(difficulty.minOvr, difficulty.maxOvr);
