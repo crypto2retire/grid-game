@@ -23,6 +23,8 @@ import TeamCatalogPage from './pages/TeamCatalogPage';
 import TeamMarketplacePage from './pages/TeamMarketplacePage';
 import PlayableMatchPage from './pages/PlayableMatchPage';
 
+import TestDashboardPage from './pages/TestDashboardPage';
+
 function App() {
   const { checkAuth } = useAuthStore();
 
@@ -54,6 +56,7 @@ function App() {
         <Route path="/matches/:id/play" element={<PlayableMatchPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/wallet" element={<WalletPage />} />
+        <Route path="/test-dashboard" element={<TestDashboardPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

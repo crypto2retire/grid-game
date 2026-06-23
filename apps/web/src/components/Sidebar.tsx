@@ -11,6 +11,7 @@ import {
   Store,
   Dumbbell,
   PiggyBank,
+  BarChart3,
 } from 'lucide-react';
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/sports-economy', label: 'Sports Economy', icon: Rocket },
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/wallet', label: 'Wallet', icon: Wallet },
+  { path: '/test-dashboard', label: 'Test Dashboard', icon: BarChart3 },
 ];
 
 export default function Sidebar() {

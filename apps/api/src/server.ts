@@ -31,6 +31,7 @@ import { teamCatalogRouter } from './modules/team-catalog/team-catalog.routes';
 import { teamMarketplaceRouter } from './modules/team-marketplace/team-marketplace.routes';
 import { playGameRouter } from './modules/play-game/play-game.routes';
 import { aiTeamsRouter } from './modules/ai-teams/ai-teams.routes';
+import { testingRouter } from './modules/testing/testing.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
 
@@ -242,6 +243,7 @@ app.use('/api/teams/catalog', teamCatalogRouter);
 app.use('/api/team-marketplace', teamMarketplaceRouter);
 app.use('/api/play-game', playGameRouter);
 app.use('/api/ai-teams', aiTeamsRouter);
+app.use('/api/testing', testingRouter);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {
