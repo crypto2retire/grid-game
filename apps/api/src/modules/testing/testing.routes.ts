@@ -77,7 +77,7 @@ router.post(
     res.json({
       status: 'success',
       data: result,
-      message: `Economy reset: ${result.resetWallets} wallets set to 50,000 CASH, AI owner set to 0`,
+      message: `Economy reset: ${result.resetWallets} wallets set to 1,000 CASH, AI owner set to 0`,
     });
   })
 );

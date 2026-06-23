@@ -36,6 +36,8 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
 
   const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
 
+  const STARTING_CASH = 1000;
+
   const result = await prisma.$transaction(async (tx: any) => {
     const user = await tx.user.create({
       data: {
@@ -45,18 +47,18 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
         displayName: input.displayName || input.username,
         wallet: {
           create: {
-            cash: 50000,
+            cash: STARTING_CASH,
             gridTokens: 0,
           },
         },
         currencyLedger: {
           create: {
             currency: 'CASH',
-            amount: 50000,
-            balanceAfter: 50000,
+            amount: STARTING_CASH,
+            balanceAfter: STARTING_CASH,
             reason: 'STARTING_BALANCE',
             sourceType: 'AUTH_REGISTER',
-            metadata: { note: 'Initial test wallet balance' },
+            metadata: { note: 'Initial wallet balance for new player' },
           },
         },
       },

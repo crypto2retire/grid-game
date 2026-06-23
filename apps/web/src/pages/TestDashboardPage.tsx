@@ -38,6 +38,8 @@ interface SeasonResult {
     totalTreasuryInflow: number;
     totalPlayerPayouts: number;
     totalGameOwnerRevenue: number;
+    totalWeeklyCosts: number;
+    weeklyCostRuns: number;
     avgRevenuePerHomeGame: number;
     avgRevenuePerAwayGame: number;
     balanceCheck: boolean;
@@ -402,6 +404,14 @@ export default function TestDashboardPage() {
               <div className="rounded-xl bg-white/5 p-3">
                 <div className="text-muted-foreground">Game Owner Revenue</div>
                 <div className="text-cyan-400 font-bold">{seasonResult.economicFlow.totalGameOwnerRevenue.toLocaleString()} CASH</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Weekly Costs ({seasonResult.economicFlow.weeklyCostRuns} runs)</div>
+                <div className="text-red-400 font-bold">{seasonResult.economicFlow.totalWeeklyCosts.toLocaleString()} CASH</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Net After Costs</div>
+                <div className="text-white font-bold">{(seasonResult.economicFlow.totalPlayerPayouts - seasonResult.economicFlow.totalWeeklyCosts).toLocaleString()} CASH</div>
               </div>
             </div>
             <div className="mt-4 flex items-center gap-2">

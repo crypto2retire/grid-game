@@ -40,6 +40,8 @@ interface EconomicSummary {
   totalTreasuryInflow: number;
   totalPlayerPayouts: number;
   totalGameOwnerRevenue: number;
+  totalWeeklyCosts: number;
+  weeklyCostRuns: number;
   avgRevenuePerHomeGame: number;
   avgRevenuePerAwayGame: number;
   balanceCheck: boolean;
@@ -122,10 +124,26 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
   let totalTicketRevenue = 0, totalVenueLeaseFees = 0, totalEntryFees = 0;
   let totalTreasuryInflow = 0, totalPlayerPayouts = 0, totalGameOwnerRevenue = 0;
 
+  let totalWeeklyCosts = 0;
+  let weeklyCostRuns = 0;
+
   const matchResults: Array<{ homeScore: number; awayScore: number; homeNet: number; awayNet: number }> = [];
 
   // 5. Run games
   for (let i = 0; i < gameCount; i++) {
+    // Run weekly operating costs every 7 games (simulating a week)
+    if (i > 0 && i % 7 === 0) {
+      try {
+        const weeklyResult = await processWeeklyOperatingCosts();
+        weeklyCostRuns++;
+        for (const r of weeklyResult.results) {
+          totalWeeklyCosts += r.totalCost;
+        }
+      } catch (err: any) {
+        issues.push(`Weekly costs at week ${Math.floor(i / 7)} failed: ${err.message}`);
+      }
+    }
+
     const homeTeam = aiTeams[i % aiTeams.length] as any;
     const awayTeam = aiTeams[(i + 1) % aiTeams.length] as any;
 
@@ -396,6 +414,7 @@ export async function runTestSeason(gameCount: number = 20): Promise<SeasonResul
     economicFlow: {
       totalTicketRevenue, totalVenueLeaseFees, totalEntryFees,
       totalTreasuryInflow, totalPlayerPayouts, totalGameOwnerRevenue,
+      totalWeeklyCosts, weeklyCostRuns,
       avgRevenuePerHomeGame: avgHomeNet, avgRevenuePerAwayGame: avgAwayNet,
       balanceCheck,
       pumpfunRevenue: pumpfunProjection,
@@ -585,10 +604,10 @@ export async function resetEconomy() {
     data: { cash: 0, gridTokens: 0, solBalance: 0 },
   });
 
-  // Reset all test wallets to reasonable amounts (keep a small buffer for active users)
+  // Reset all test wallets to 1,000 CASH (starting balance for new players)
   await prisma.wallet.updateMany({
     where: { userId: { not: aiOwnerId } },
-    data: { cash: 50000, gridTokens: 0 },
+    data: { cash: 1000, gridTokens: 0 },
   });
 
   // Reset treasury

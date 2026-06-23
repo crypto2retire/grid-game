@@ -48,6 +48,8 @@ function calculateMvpDelta(input: ProgressionPlayerInput): number {
 function calculateGrowth(input: ProgressionPlayerInput) {
   const s = input.stats;
   const native = s.sportStats || {};
+  // Base growth: everyone gets at least +1 to one relevant stat per game
+  // ratingBoost adds bonus growth for high performers
   const ratingBoost = s.rating >= 8.2 ? 2 : s.rating >= 7.2 ? 1 : 0;
   const heavyUse = s.shots + s.passes + s.tackles + s.saves;
   const fatigueGain = clamp(Math.round(3 + heavyUse / 3), 2, 12);
@@ -60,13 +62,14 @@ function calculateGrowth(input: ProgressionPlayerInput) {
   const fieldGoals = num(native.fieldGoals);
   const passingTouchdowns = num(native.passingTouchdowns);
 
+  // Base growth of 1 to relevant stats + ratingBoost bonus
   return {
-    pace: touchdowns > 0 || yards >= 80 ? ratingBoost : 0,
-    shooting: passingTouchdowns > 0 || fieldGoals > 0 ? ratingBoost : 0,
-    passing: s.assists > 0 || passingTouchdowns > 0 || s.passes >= 3 ? ratingBoost : 0,
-    dribbling: yards >= 60 || s.shots >= 2 ? ratingBoost : 0,
-    defending: turnovers > 0 || s.tackles >= 3 ? ratingBoost : 0,
-    physical: s.tackles >= 2 || s.shots >= 2 || yards >= 50 ? ratingBoost : 0,
+    pace: (touchdowns > 0 || yards >= 80 ? 1 : 0) + ratingBoost,
+    shooting: (passingTouchdowns > 0 || fieldGoals > 0 ? 1 : 0) + ratingBoost,
+    passing: (s.assists > 0 || passingTouchdowns > 0 || s.passes >= 3 ? 1 : 0) + ratingBoost,
+    dribbling: (yards >= 60 || s.shots >= 2 ? 1 : 0) + ratingBoost,
+    defending: (turnovers > 0 || s.tackles >= 3 ? 1 : 0) + ratingBoost,
+    physical: (s.tackles >= 2 || s.shots >= 2 || yards >= 50 ? 1 : 0) + ratingBoost,
     fatigueGain,
     moraleDelta,
     formDelta,
