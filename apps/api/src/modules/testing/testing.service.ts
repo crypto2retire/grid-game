@@ -3,7 +3,9 @@ import { runMatchSimulation } from '../matches/simulator';
 import { applyPostGameProgression, agePlayers } from '../matches/progression';
 import { calculateGameEconomics } from '../economy/gameEconomics';
 import { processTreasuryInflow } from '../treasury/treasury.service';
+import { generateAIPlayers } from '../ai-teams/ai-teams.service';
 import { env } from '../../config/env';
+
 
 // ─── Comprehensive Test Season Runner ───
 
@@ -876,3 +878,709 @@ function calculatePumpfunRevenueProjection() {
     projectedYearlyRevenue: Math.round(creatorDailyRevenue * 365),
   };
 }
+
+// ─── MEGA SIMULATION: 250 Users, 5 Seasons, All Features ───
+
+interface SimUser {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  activityLevel: 'whale' | 'active' | 'casual' | 'inactive';
+  walletId: string;
+}
+
+interface MegaSimSeasonResult {
+  seasonNumber: number;
+  matchesPlayed: number;
+  homeWins: number; awayWins: number; draws: number;
+  avgHomeScore: number; avgAwayScore: number;
+  gamesPlayed: number;
+  trainingSessions: number;
+  playerTrades: number;
+  venuePurchases: number;
+  transportPurchases: number;
+  teamSales: number;
+  injuries: number;
+  promotions: number;
+  demotions: number;
+  weeklyCostsProcessed: number;
+  totalCashSpent: number;
+  totalGridSpent: number;
+  totalSolSpent: number;
+  treasuryInflow: number;
+  solTreasuryInflow: number;
+  pumpfunPrice: number;
+  pumpfunVolume: number;
+  pumpfunFees: number;
+  issues: string[];
+}
+
+interface MegaSimResult {
+  usersCreated: number;
+  teamsCreated: number;
+  seasons: MegaSimSeasonResult[];
+  finalStandings: TeamStanding[];
+  topPlayers: PlayerDevSummary[];
+  totalEconomicFlow: EconomicSummary;
+  pumpfunProjection: any;
+  marketplaceSummary: MarketplaceSummary;
+  injurySummary: InjurySummary[];
+  issues: string[];
+}
+
+const ACTIVITY_CONFIG = {
+  whale:    { weight: 0.05, gamesPerWeek: 3, trainingPerWeek: 2, marketChance: 0.4, upgradeChance: 0.3, walletCash: 50000, walletGrid: 50000, walletSol: 10 },
+  active:   { weight: 0.20, gamesPerWeek: 2, trainingPerWeek: 1, marketChance: 0.2, upgradeChance: 0.15, walletCash: 15000, walletGrid: 15000, walletSol: 3 },
+  casual:   { weight: 0.45, gamesPerWeek: 1, trainingPerWeek: 0.5, marketChance: 0.08, upgradeChance: 0.05, walletCash: 5000, walletGrid: 3000, walletSol: 1 },
+  inactive: { weight: 0.30, gamesPerWeek: 0.2, trainingPerWeek: 0.1, marketChance: 0.02, upgradeChance: 0.01, walletCash: 1000, walletGrid: 500, walletSol: 0.5 },
+};
+
+const USER_TIER_DISTRIBUTION: Record<string, string[]> = {
+  whale:    ['PRO_ENTRY', 'PRO_ELITE', 'PRO_ELITE'],
+  active:   ['TOP_COLLEGE', 'REGIONAL_PRO', 'PRO_ENTRY'],
+  casual:   ['STATE_COLLEGE', 'MID_COLLEGE', 'TOP_COLLEGE'],
+  inactive: ['STATE_COLLEGE', 'STATE_COLLEGE', 'MID_COLLEGE'],
+};
+
+const firstNames = ['James','John','Robert','Michael','William','David','Richard','Joseph','Thomas','Charles','Daniel','Matthew','Anthony','Mark','Donald','Steven','Paul','Andrew','Kenneth','Joshua','Kevin','Brian','George','Timothy','Ronald','Jason','Edward','Jeffrey','Ryan','Jacob','Gary','Nicholas','Eric','Jonathan','Stephen','Larry','Justin','Scott','Brandon','Benjamin','Samuel','Gregory','Frank','Alexander','Raymond','Patrick','Jack','Dennis','Jerry','Tyler','Aaron','Jose','Adam','Nathan','Henry','Zachary','Douglas','Peter','Kyle','Noah','Ethan','Jeremy','Walter','Christian','Keith','Roger','Terry','Austin','Sean','Gerald','Carl','Dylan','Harold','Jordan','Juan','Bryan','Lawrence','Arthur','Gabriel','Bruce','Logan','Albert','Willie','Alan','Wayne','Elijah','Randy','Vincent','Mason','Roy','Ralph','Bobby','Russell','Philip','Eugene','Mary','Patricia','Jennifer','Linda','Elizabeth','Susan','Jessica','Sarah','Karen','Nancy','Lisa','Betty','Margaret','Sandra','Ashley','Kimberly','Emily','Donna','Michelle','Dorothy','Carol','Amanda','Melissa','Deborah','Stephanie','Rebecca','Laura','Sharon','Cynthia','Kathleen','Amy','Shirley','Angela','Helen','Anna','Brenda','Pamela','Nicole','Samantha','Katherine','Emma','Ruth','Christine','Catherine','Debra','Rachel','Carolyn','Janet','Emma','Virginia','Maria','Heather','Diane','Frances','Joyce','Julie','Olivia','Martha','Evelyn','Kelly','Christina','Lauren','Joan','Victoria','Amber','Megan','Doris','Abigail','Kathryn','Jean','Alice','Ann','Hannah','Sara','Julia','Grace','Judith','Sophia','Marie','Theresa','Beverly','Denise','Marilyn','Amber','Danielle','Brittany','Madison','Diana','Kayla','Jane','Lori','Tiffany'];
+const lastNames = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson','White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson','Walker','Young','Allen','King','Wright','Scott','Torres','Nguyen','Hill','Flores','Green','Adams','Nelson','Baker','Hall','Rivera','Campbell','Mitchell','Carter','Roberts','Gomez','Phillips','Evans','Turner','Diaz','Parker','Cruz','Edwards','Collins','Reyes','Stewart','Morris','Morales','Murphy','Cook','Rogers','Gutierrez','Ortiz','Morgan','Cooper','Peterson','Bailey','Reed','Kelly','Howard','Ramos','Kim','Cox','Ward','Richardson','Watson','Brooks','Chavez','Wood','James','Bennett','Gray','Mendoza','Ruiz','Hughes','Price','Alvarez','Castillo','Sanders','Patel','Myers','Long','Ross','Foster','Jimenez','Powell','Jenkins','Perry','Russell','Sullivan','Bell','Coleman','Butler','Henderson','Barnes','Gonzales','Fisher','Vasquez','Simpson','Murray','Ford','Marshall','Owens','Mcdonald','Harrison','Ruiz','Kennedy','Wells','Alvarez','Woods','Mendoza','Castillo','Olson','Webb','Washington','Tucker','Freeman','Burns','Henry','Vasquez','Snyder','Simpson','Crawford','Jimenez','Porter','Mason','Shaw','Gordon','Wagner','Hunter','Romero','Hicks','Dixon','Hunt','Palmer','Mills','Nichols','Grant','Knight','Ferguson','Rose','Stone','Hawkins','Dunn','Perkins','Hudson','Spencer','Gardner','Payne','Wagner','Alexander','Stevens','Berry','Watkins','Oliver','Jenkins','Ellis','Matthews','Holmes','Murphy','Adams','Richardson','Wood','Stevens','Tucker','Coleman','Hayes','Watkins','Mills','Nicholson','Underwood','Crawford','Benson','Sharp','Mcdonald','Parker','Morrison','Holland','Tate','Cross','Harper','Moss','Baldwin','Reeves','Klein','Dean','Burgess','Walsh','Snow','Summers','Vaughn','Sutton','Little','Black','Fleming','Rhodes','Gibson','Holt','Maxwell','Powers','Garrison','Mack','Leach','Mccarthy','Huff','Nash','Greene','Berry','Steele','Hancock','Chang','Blake','Navarro','Merritt','Davenport','Brennan','Solis','Mccullough','Choi','Koch','Ballard','Hutchinson','Lam','Conley','Joyce','Hebert','Pacheco','Brandt','Yates','Nixon','Meyers','Rocha','Rich','Church','Burch','Manning','Shaffer','Hoover','Hobbs','Pitts','Serrano','Mccall','Dougherty','Thornton','Clements','Dodson','Boyle','Hanna','Bradshaw','Norton','Case','Cotton','Haley','Hester','Sparks','Strickland','Hodge','Espinosa','Malone','Brock','Pruitt','Buck','Barr','Kirby','Gould','Kaufman','Hendricks','Armstrong','Duffy','Hahn','Banks','Kidd','English','Sweeney','Velez','Berger','Mcknight','Curry','Gay','Saunders','Vargas','Novak','Brock','Boyer','Fuentes','Hanna','Proctor','Hammond','Hampton','Bowen','Baxter','Sellers','Glover','Logan','Woodward','Mcdowell','Morse','Blanchard','Daniel','Kirk','Pope','Krause','Brady','Goodwin','Dickerson','Frye','Hodge','Joyner','Singleton','Schultz','Mejia','Kinney','Snow','Osborne','Walls','Hartman','Sampson','Oneal','Odonnell','Christian','Michaels','Gallagher','Houston','Booth','Davidson','Horne','Pearson','Stokes','Moran','Love','Huffman','Mcleod','Osborn','Stuart','Harrison','Montoya','Callahan','Morris','Roach','Holden','Klein','Hood','Finley','Jacobson','Fischer','Mercer','Berg','Gross','Hubbard','Yoder','Chaney','Holland','Bartlett','Merrill','Cabrera','Mckay','Rosales','Berg','Hobbs','Nash','Hahn','Gibbs','Byrd','Hopkins','Petty','Williamson','Conrad','Parks','Hendrix','Bryan','Rivers','Shelton','Gillespie','Kline','Boyer','Fowler','Mcmillan','Charles','Ferguson','Beard','Woods','Caldwell','Montgomery','Frost','Reilly','Hansen','Potts','Dickson','Weber','Maxwell','Leon','Parrish','Ayers','Benson','Solis','Stark','Whitfield','Hines','Lancaster','Mack','Hinton','Dickson','Cooke','Harding','Mcmahon','Sutherland','Bridges','Holt','Whitaker','Serrano','Merritt','Burch','Craig','Gaines','Gonzales','Guthrie','Phelps','Chavez','Hodges','Olsen','Fischer','Hutchinson','Stanton','Cline','Andrade','Doyle','Wilkerson','Clemons','Mack','Hancock','Wooten','Hood','Kerr','Moses','Brennan','Conner','Saunders','Mullen','Garrison','Roth','Whitney','Blevins','Mcdaniel','Horn','Hull','Maynard','Bishop','Kinney','Goff','Terrell','Farr','Mcfarland','Daly','Yang','Sexton','Waller','Hahn','Petersen','Dillard','Mckenzie','Gibson','Rutledge','Harding','Mayo','Frazier','Hensley','Langley','Mack','Mackenzie','Mccarty','Briggs','Hickman','Mcdonald','Glover','Blackwell','Munoz','Cobb','Butler','Finley','Mack','Jenkins','Oneal','Gross','Conner','Saunders','Mullen','Garrison','Roth','Whitney','Blevins','Mcdaniel','Horn','Hull','Maynard','Bishop','Kinney','Goff','Terrell','Farr','Mcfarland','Daly','Yang','Sexton','Waller','Hahn','Petersen','Dillard','Mckenzie','Gibson','Rutledge','Harding','Mayo','Frazier','Hensley','Langley','Mack','Mackenzie','Mccarty','Briggs','Hickman','Mcdonald','Glover','Blackwell','Munoz','Cobb','Butler','Finley','Mack','Jenkins'];
+
+function randomPick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function randomInt(min: number, max: number): number { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function pickActivityLevel(): 'whale' | 'active' | 'casual' | 'inactive' {
+  const rand = Math.random();
+  let cumulative = 0;
+  for (const [level, cfg] of Object.entries(ACTIVITY_CONFIG)) {
+    cumulative += cfg.weight;
+    if (rand <= cumulative) return level as any;
+  }
+  return 'casual';
+}
+
+function generateUsername(): string {
+  return `${randomPick(firstNames).toLowerCase()}${randomPick(lastNames).toLowerCase()}${randomInt(1, 999)}`;
+}
+
+async function createSimUser(activityLevel: 'whale' | 'active' | 'casual' | 'inactive'): Promise<SimUser> {
+  const cfg = ACTIVITY_CONFIG[activityLevel];
+  const username = generateUsername();
+  const email = `${username}@gridsim.test`;
+  const displayName = `${randomPick(firstNames)} ${randomPick(lastNames)}`;
+  const userId = `sim-${username}-${Date.now()}-${randomInt(1, 1000000)}`;
+
+  await prisma.user.create({
+    data: { id: userId, email, username, password: 'SIM_PASSWORD_HASH', displayName, role: 'USER', hasPaidPurchase: activityLevel !== 'inactive' },
+  });
+
+  const wallet = await prisma.wallet.create({
+    data: { userId, cash: cfg.walletCash, gridTokens: cfg.walletGrid, solBalance: cfg.walletSol },
+  });
+
+  return { id: userId, username, email, displayName, activityLevel, walletId: wallet.id };
+}
+
+async function assignTeamToUser(user: SimUser, season: number): Promise<any> {
+  const tierOptions = USER_TIER_DISTRIBUTION[user.activityLevel];
+  const tier = randomPick(tierOptions);
+  const teamName = `${user.displayName.split(' ')[0]} ${['FC', 'United', 'FC', 'Town', 'City', 'Rovers', 'Wanderers', 'Athletic', 'United', 'FC'][randomInt(0, 9)]}`;
+  const teamId = `sim-team-${user.id}-${season}-${randomInt(1, 100000)}`;
+
+  const team = await prisma.team.create({
+    data: {
+      id: teamId, name: teamName, sportId: 'american-football', ownerId: user.id,
+      tier, isFree: tier === 'STATE_COLLEGE', isAI: false,
+      formation: '4-3-3', tactics: { formation: '4-3-3', sportId: 'american-football' },
+      purchasePrice: tier === 'STATE_COLLEGE' ? 0 : randomInt(5000, 500000),
+      purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'GRID',
+    },
+  });
+
+  await prisma.venue.create({
+    data: {
+      teamId: team.id, sportId: 'american-football',
+      name: `${teamName} Stadium`, tier: 'PARK_FIELD', capacity: 500 + randomInt(0, 2000),
+      ticketPrice: 10 + randomInt(0, 20), condition: 70 + randomInt(0, 30), prestige: 10 + randomInt(0, 40),
+      leaseRate: 0.10, purchasePrice: 5000 + randomInt(0, 50000), solPrice: 0.5 + randomInt(0, 5),
+    },
+  });
+
+  await prisma.transportationAsset.create({
+    data: {
+      teamId: team.id, tier: 'CARPOOL', name: 'Team Bus', operatingCost: 50 + randomInt(0, 200),
+      fatigueReduction: randomInt(0, 15), prestige: randomInt(0, 10),
+      purchasePrice: 1000 + randomInt(0, 10000), solPrice: 0.1 + randomInt(0, 2),
+    },
+  });
+
+  await prisma.teamLeagueMembership.create({
+    data: { teamId: team.id, leagueId: 'local-rec-football', season: 'beta', status: 'ACTIVE' },
+  });
+
+  // Generate 43 starter players
+  await generateAIPlayers(team.id);
+
+  return prisma.team.findUnique({
+    where: { id: team.id },
+    include: { teamPlayers: { include: { player: true } }, venue: true, transportationAssets: true, sponsorships: true, leagueMemberships: { include: { league: true } } },
+  });
+}
+
+// ─── Pump.fun Token Price Simulation ───
+
+interface PumpFunSimState {
+  tokenAddress: string | null;
+  tokenSymbol: string;
+  currentPrice: number;
+  marketCap: number;
+  volume24h: number;
+  totalFeesEarned: number;
+  priceHistory: Array<{ price: number; volume: number; fees: number; timestamp: Date }>;
+}
+
+function createPumpFunSimState(): PumpFunSimState {
+  return {
+    tokenAddress: env.PUMPFUN_TOKEN_ADDRESS || null,
+    tokenSymbol: env.PUMPFUN_TOKEN_SYMBOL || 'GRID',
+    currentPrice: 0.0001, // Starting price $0.0001
+    marketCap: 100000,
+    volume24h: 0,
+    totalFeesEarned: 0,
+    priceHistory: [],
+  };
+}
+
+function simulatePumpFunSeason(state: PumpFunSimState, seasonNumber: number, activeUserCount: number): PumpFunSimState {
+  const feePct = env.PUMPFUN_TRADING_FEE_PCT || 0.01;
+  const creatorShare = env.PUMPFUN_CREATOR_SHARE_PCT || 0.5;
+
+  // Volume scales with active users and season maturity
+  const baseVolumePerUser = 50 + (seasonNumber * 10); // $50-100 per user per season
+  const seasonVolume = activeUserCount * baseVolumePerUser * 30; // 30 days of trading per season
+
+  // Buy/sell ratio varies by season (early = more buying, late = more selling)
+  const buyRatio = Math.max(0.3, 0.7 - (seasonNumber * 0.08));
+  const sellRatio = 1 - buyRatio;
+
+  // Price impact: buy pressure = +, sell pressure = -
+  const priceImpact = (buyRatio - sellRatio) * 0.15 * (seasonVolume / 1000000);
+  const newPrice = Math.max(0.00001, state.currentPrice * (1 + priceImpact + (Math.random() - 0.5) * 0.05));
+
+  const fees = seasonVolume * feePct;
+  const creatorRevenue = fees * creatorShare;
+
+  state.currentPrice = newPrice;
+  state.marketCap = newPrice * 1000000000; // 1B tokens
+  state.volume24h = seasonVolume / 30; // avg daily
+  state.totalFeesEarned += creatorRevenue;
+  state.priceHistory.push({
+    price: newPrice, volume: seasonVolume, fees: creatorRevenue,
+    timestamp: new Date(),
+  });
+
+  return state;
+}
+
+// ─── Core Simulation ───
+
+export async function runMegaSimulation(userCount: number = 250, seasonCount: number = 5): Promise<MegaSimResult> {
+  const issues: string[] = [];
+  const allIssues: string[] = [];
+
+  // 1. Reset simulation state
+  await cleanupSimulationData();
+
+  // 2. Generate users
+  const users: SimUser[] = [];
+  for (let i = 0; i < userCount; i++) {
+    const level = pickActivityLevel();
+    const user = await createSimUser(level);
+    users.push(user);
+  }
+
+  // 3. Assign teams to each user (1-3 teams based on activity)
+  const allTeams: any[] = [];
+  for (const user of users) {
+    const teamCount = user.activityLevel === 'whale' ? 3 : user.activityLevel === 'active' ? 2 : 1;
+    for (let t = 0; t < teamCount; t++) {
+      try {
+        const team = await assignTeamToUser(user, 0);
+        if (team) allTeams.push(team);
+      } catch (err: any) {
+        issues.push(`Failed to create team for ${user.username}: ${err.message}`);
+      }
+    }
+  }
+
+  // 4. Run seasons
+  const seasonResults: MegaSimSeasonResult[] = [];
+  const pumpfunState = createPumpFunSimState();
+
+  let totalEconomicFlow: EconomicSummary = {
+    totalTicketRevenue: 0, totalVenueLeaseFees: 0, totalEntryFees: 0,
+    totalTreasuryInflow: 0, totalPlayerPayouts: 0, totalGameOwnerRevenue: 0,
+    totalWeeklyCosts: 0, weeklyCostRuns: 0,
+    totalSolPurchases: 0, totalSolRevenue: 0,
+    totalMarketplaceVolume: 0, totalMarketplaceTax: 0, totalMarketplaceBurn: 0,
+    avgRevenuePerHomeGame: 0, avgRevenuePerAwayGame: 0, balanceCheck: true,
+    pumpfunRevenue: null,
+  };
+
+  let totalMarketplace: MarketplaceSummary = {
+    venuePurchases: 0, venueSolPurchases: 0,
+    transportPurchases: 0, transportSolPurchases: 0,
+    teamMarketplaceSales: 0, playerMarketplaceSales: 0,
+    totalSolSpent: 0, totalCashSpent: 0, totalGridSpent: 0,
+  };
+
+  for (let season = 1; season <= seasonCount; season++) {
+    const seasonResult = await simulateSingleSeason(season, users, allTeams, pumpfunState);
+    seasonResults.push(seasonResult);
+
+    // Accumulate totals
+    totalEconomicFlow.totalTicketRevenue += seasonResult.matchesPlayed > 0 ? seasonResult.avgHomeScore * 100 : 0;
+    totalEconomicFlow.totalSolRevenue += seasonResult.solTreasuryInflow;
+    totalEconomicFlow.totalMarketplaceVolume += seasonResult.totalCashSpent + seasonResult.totalGridSpent + seasonResult.totalSolSpent;
+    totalMarketplace.totalSolSpent += seasonResult.totalSolSpent;
+    totalMarketplace.totalCashSpent += seasonResult.totalCashSpent;
+    totalMarketplace.totalGridSpent += seasonResult.totalGridSpent;
+    totalMarketplace.venuePurchases += seasonResult.venuePurchases;
+    totalMarketplace.transportPurchases += seasonResult.transportPurchases;
+    totalMarketplace.playerMarketplaceSales += seasonResult.playerTrades;
+    totalMarketplace.teamMarketplaceSales += seasonResult.teamSales;
+
+    allIssues.push(...seasonResult.issues);
+  }
+
+  // 5. Collect final standings
+  const finalTeams = await prisma.team.findMany({
+    where: { isAI: false },
+    include: { teamPlayers: { include: { player: true } }, venue: true, financeSnapshots: true },
+    orderBy: { points: 'desc' },
+    take: 50,
+  });
+
+  const finalStandings: TeamStanding[] = finalTeams.map((team) => ({
+    teamId: team.id, teamName: team.name, tier: team.tier,
+    wins: team.wins, draws: team.draws, losses: team.losses,
+    points: team.points,
+    goalsFor: team.goalsFor, goalsAgainst: team.goalsAgainst,
+    netRevenue: (team as any).financeSnapshots?.reduce((sum: number, fs: any) => sum + (fs.net || 0), 0) || 0,
+  }));
+
+  // 6. Top players
+  const topSeasonStats = await prisma.playerSeasonStats.findMany({
+    where: { season: 'beta' },
+    include: { player: { select: { name: true, position: true, overall: true } } },
+    orderBy: { mvpScore: 'desc' }, take: 20,
+  });
+
+  const topPlayers: PlayerDevSummary[] = topSeasonStats.map((s) => ({
+    playerId: s.playerId, playerName: s.player?.name || 'Unknown', teamName: 'Simulated',
+    position: s.player?.position || 'Unknown', age: 0, ageAfter: 0,
+    gamesPlayed: s.gamesPlayed, beforeOverall: s.player?.overall || 0, afterOverall: s.player?.overall || 0,
+    statChanges: { overall: 0 }, health: 100, injuryStatus: null, injuryType: null,
+    mvpScore: s.mvpScore, ratingAverage: s.ratingAverage,
+  }));
+
+  totalEconomicFlow.pumpfunRevenue = {
+    tokenSymbol: pumpfunState.tokenSymbol,
+    tokenAddress: pumpfunState.tokenAddress,
+    estimatedDailyVolume: pumpfunState.volume24h,
+    tradingFeePct: env.PUMPFUN_TRADING_FEE_PCT || 0.01,
+    creatorSharePct: env.PUMPFUN_CREATOR_SHARE_PCT || 0.5,
+    projectedDailyRevenue: Math.round(pumpfunState.totalFeesEarned / (seasonCount * 30)),
+    projectedMonthlyRevenue: Math.round(pumpfunState.totalFeesEarned / seasonCount),
+    projectedYearlyRevenue: Math.round(pumpfunState.totalFeesEarned * (12 / seasonCount)),
+  };
+
+  return {
+    usersCreated: users.length,
+    teamsCreated: allTeams.length,
+    seasons: seasonResults,
+    finalStandings,
+    topPlayers,
+    totalEconomicFlow,
+    pumpfunProjection: {
+      finalPrice: pumpfunState.currentPrice,
+      priceHistory: pumpfunState.priceHistory,
+      totalFeesEarned: pumpfunState.totalFeesEarned,
+      finalMarketCap: pumpfunState.marketCap,
+    },
+    marketplaceSummary: totalMarketplace,
+    injurySummary: [],
+    issues: allIssues,
+  };
+}
+
+async function simulateSingleSeason(
+  seasonNumber: number,
+  users: SimUser[],
+  allTeams: any[],
+  pumpfunState: PumpFunSimState
+): Promise<MegaSimSeasonResult> {
+  const issues: string[] = [];
+  let matchesPlayed = 0, homeWins = 0, awayWins = 0, draws = 0;
+  let totalHomeScore = 0, totalAwayScore = 0;
+  let gamesPlayed = 0, trainingSessions = 0;
+  let playerTrades = 0, venuePurchases = 0, transportPurchases = 0, teamSales = 0;
+  let injuries = 0, promotions = 0, demotions = 0;
+  let weeklyCostsProcessed = 0;
+  let totalCashSpent = 0, totalGridSpent = 0, totalSolSpent = 0;
+  let treasuryInflow = 0, solTreasuryInflow = 0;
+
+  const WEEKS_PER_SEASON = 52;
+
+  // Filter to user-owned teams (not AI)
+  const userTeams = allTeams.filter((t) => !t.isAI);
+  const activeUsers = users.filter((u) => u.activityLevel !== 'inactive');
+
+  // Pre-season: Marketplace listings and purchases
+  for (const user of activeUsers) {
+    const cfg = ACTIVITY_CONFIG[user.activityLevel];
+    const userTeamsList = userTeams.filter((t: any) => t.ownerId === user.id);
+
+    // Venue purchases (SOL or CASH)
+    if (Math.random() < cfg.upgradeChance && userTeamsList.length > 0) {
+      for (const team of userTeamsList) {
+        if (team.venue && Math.random() < 0.3) {
+          const useSol = Math.random() > 0.5 && user.walletId;
+          try {
+            const wallet = await prisma.wallet.findUnique({ where: { id: user.walletId } });
+            if (wallet) {
+              const price = useSol ? (team.venue.solPrice || 0) : (team.venue.purchasePrice || 0);
+              if (useSol && wallet.solBalance >= price) {
+                await prisma.$transaction(async (tx: any) => {
+                  await tx.venue.update({ where: { id: team.venue.id }, data: { ownerId: user.id, leaseRate: 0 } });
+                  await tx.wallet.update({ where: { id: user.walletId }, data: { solBalance: { decrement: price } } });
+                  await tx.gameTreasury.upsert({
+                    where: { id: 'treasury-sol' },
+                    create: { id: 'treasury-sol', currency: 'SOL', balance: price, totalInflows: price, totalOutflows: 0, totalBurned: 0 },
+                    update: { balance: { increment: price }, totalInflows: { increment: price } },
+                  });
+                });
+                totalSolSpent += price;
+                solTreasuryInflow += price;
+                venuePurchases++;
+              } else if (!useSol && wallet.cash >= price) {
+                await prisma.$transaction(async (tx: any) => {
+                  await tx.venue.update({ where: { id: team.venue.id }, data: { ownerId: user.id, leaseRate: 0 } });
+                  await tx.wallet.update({ where: { id: user.walletId }, data: { cash: { decrement: price } } });
+                });
+                totalCashSpent += price;
+                venuePurchases++;
+              }
+            }
+          } catch (err: any) {
+            issues.push(`Venue purchase failed: ${err.message}`);
+          }
+        }
+      }
+    }
+
+    // Transport upgrades
+    if (Math.random() < cfg.upgradeChance * 0.7 && userTeamsList.length > 0) {
+      for (const team of userTeamsList) {
+        const transport = team.transportationAssets?.[0];
+        if (transport && Math.random() < 0.3) {
+          const useSol = Math.random() > 0.5;
+          try {
+            const wallet = await prisma.wallet.findUnique({ where: { id: user.walletId } });
+            if (wallet) {
+              const price = useSol ? (transport.solPrice || 0) : (transport.purchasePrice || 0);
+              if (useSol && wallet.solBalance >= price) {
+                await prisma.$transaction(async (tx: any) => {
+                  await tx.transportationAsset.update({ where: { id: transport.id }, data: { ownerId: user.id } });
+                  await tx.wallet.update({ where: { id: user.walletId }, data: { solBalance: { decrement: price } } });
+                  await tx.gameTreasury.upsert({
+                    where: { id: 'treasury-sol' },
+                    create: { id: 'treasury-sol', currency: 'SOL', balance: price, totalInflows: price, totalOutflows: 0, totalBurned: 0 },
+                    update: { balance: { increment: price }, totalInflows: { increment: price } },
+                  });
+                });
+                totalSolSpent += price;
+                solTreasuryInflow += price;
+                transportPurchases++;
+              } else if (!useSol && wallet.cash >= price) {
+                await prisma.$transaction(async (tx: any) => {
+                  await tx.transportationAsset.update({ where: { id: transport.id }, data: { ownerId: user.id } });
+                  await tx.wallet.update({ where: { id: user.walletId }, data: { cash: { decrement: price } } });
+                });
+                totalCashSpent += price;
+                transportPurchases++;
+              }
+            }
+          } catch (err: any) {
+            issues.push(`Transport purchase failed: ${err.message}`);
+          }
+        }
+      }
+    }
+
+    // Player marketplace listings
+    if (Math.random() < cfg.marketChance && userTeamsList.length > 0) {
+      for (const team of userTeamsList) {
+        const tradable = (team.teamPlayers || []).filter((tp: any) => {
+          const p = tp.player;
+          return p && p.overall >= 65 && p.overall <= 85;
+        });
+        if (tradable.length > 0) {
+          const toList = tradable.slice(0, randomInt(1, 3));
+          for (const tp of toList) {
+            try {
+              await prisma.marketplaceListing.create({
+                data: {
+                  sellerId: user.id,
+                  playerId: tp.player.id,
+                  price: tp.player.overall * 150,
+                  status: 'ACTIVE',
+                },
+              });
+              playerTrades++;
+              totalCashSpent += tp.player.overall * 150;
+            } catch (err: any) {
+              // ignore duplicate
+            }
+          }
+        }
+      }
+    }
+
+    // Team marketplace listings
+    if (Math.random() < cfg.marketChance * 0.3 && userTeamsList.length > 1) {
+      const teamToSell = userTeamsList[randomInt(0, userTeamsList.length - 1)];
+      if (teamToSell.purchasePrice > 0) {
+        try {
+          await prisma.teamMarketplaceListing.create({
+            data: {
+              sellerId: user.id,
+              teamId: teamToSell.id,
+              price: Math.round(teamToSell.purchasePrice * 1.2),
+              currency: Math.random() > 0.5 ? 'GRID' : 'CASH',
+              foundationTaxPaid: Math.round(teamToSell.purchasePrice * 0.15),
+              burnAmount: Math.round(teamToSell.purchasePrice * 0.05),
+              sellerReceives: Math.round(teamToSell.purchasePrice * 0.8),
+              daysHeld: 30 + randomInt(0, 300),
+              status: 'ACTIVE',
+            },
+          });
+          teamSales++;
+        } catch (err: any) {
+          issues.push(`Team listing failed: ${err.message}`);
+        }
+      }
+    }
+  }
+
+  // Weekly simulation loop
+  for (let week = 1; week <= WEEKS_PER_SEASON; week++) {
+    // Weekly operating costs
+    if (week % 1 === 0) {
+      try {
+        const weeklyResult = await processWeeklyOperatingCosts();
+        weeklyCostsProcessed += weeklyResult.processedTeams;
+      } catch (err: any) {
+        issues.push(`Weekly costs week ${week}: ${err.message}`);
+      }
+    }
+
+    // Games per user based on activity
+    for (const user of activeUsers) {
+      const cfg = ACTIVITY_CONFIG[user.activityLevel];
+      const userTeamsList = userTeams.filter((t: any) => t.ownerId === user.id);
+      const gamesThisWeek = Math.floor(cfg.gamesPerWeek * (0.5 + Math.random()));
+
+      for (let g = 0; g < gamesThisWeek; g++) {
+        if (userTeamsList.length < 1) continue;
+        const homeTeam = randomPick(userTeamsList);
+        const opponent = randomPick(userTeams.filter((t: any) => t.id !== homeTeam.id));
+        if (!opponent) continue;
+
+        try {
+          const matchId = `sim-s${seasonNumber}-w${week}-g${g}-${homeTeam.id}-${Date.now()}`;
+          const result = await runMatchSimulation(
+            'american-football', matchId, Math.random().toString(36).substring(2),
+            buildTeamState(homeTeam), buildTeamState(opponent)
+          );
+
+          const homeWon = result.homeScore > result.awayScore;
+          const awayWon = result.awayScore > result.homeScore;
+          const draw = result.homeScore === result.awayScore;
+
+          if (homeWon) homeWins++; else if (awayWon) awayWins++; else draws++;
+          totalHomeScore += result.homeScore;
+          totalAwayScore += result.awayScore;
+          matchesPlayed++;
+          gamesPlayed++;
+
+          // Store match and progression
+          await prisma.$transaction(async (tx: any) => {
+            const dbMatch = await tx.match.create({
+              data: {
+                id: matchId, sportId: 'american-football',
+                homeTeamId: homeTeam.id, awayTeamId: opponent.id,
+                status: 'COMPLETED',
+                homeScore: result.homeScore, awayScore: result.awayScore,
+                startedAt: new Date(), completedAt: new Date(), scheduledAt: new Date(),
+              },
+            });
+
+            await tx.team.update({
+              where: { id: homeTeam.id },
+              data: {
+                wins: { increment: homeWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
+                losses: { increment: awayWon ? 1 : 0 },
+                goalsFor: { increment: result.homeScore }, goalsAgainst: { increment: result.awayScore },
+                points: { increment: homeWon ? 3 : draw ? 1 : 0 },
+              },
+            });
+            await tx.team.update({
+              where: { id: opponent.id },
+              data: {
+                wins: { increment: awayWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
+                losses: { increment: homeWon ? 1 : 0 },
+                goalsFor: { increment: result.awayScore }, goalsAgainst: { increment: result.homeScore },
+                points: { increment: awayWon ? 3 : draw ? 1 : 0 },
+              },
+            });
+
+            const playerInputs = buildProgressionInputs(result, homeTeam, opponent);
+            await applyPostGameProgression(tx, {
+              sportId: 'american-football', matchId: dbMatch.id, players: playerInputs,
+            });
+
+            // Economic flow
+            const homeVenue = homeTeam.venue as any;
+            if (homeVenue) {
+              const attendanceRate = 0.5 + (homeVenue.prestige / 100) * 0.4;
+              const attendance = Math.round(homeVenue.capacity * attendanceRate);
+              const ticketRevenue = attendance * homeVenue.ticketPrice;
+              const leaseFee = Math.round(ticketRevenue * homeVenue.leaseRate);
+              const homeTeamRevenue = ticketRevenue - leaseFee;
+              const entryFeeTierMult: Record<string, number> = { PARK_FIELD: 1, COMMUNITY: 2, SMALL_STADIUM: 3, REGIONAL: 5, PRO: 8, ELITE: 12 };
+              const entryFee = 1000 * (entryFeeTierMult[homeVenue.tier] || 1);
+
+              const totalVenueRevenue = leaseFee + entryFee;
+              const venueOwnerId = homeVenue.ownerId || 'ai-system-owner-001';
+              if (venueOwnerId === 'ai-system-owner-001') {
+                await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', dbMatch.id);
+                treasuryInflow += totalVenueRevenue;
+              }
+
+              await tx.teamFinanceSnapshot.create({
+                data: {
+                  teamId: homeTeam.id, matchId: dbMatch.id, category: 'GAME_DAY',
+                  revenue: homeTeamRevenue, expense: entryFee, net: homeTeamRevenue - entryFee,
+                  metadata: { attendance, ticketRevenue, leaseFee, entryFee },
+                },
+              });
+              await tx.teamFinanceSnapshot.create({
+                data: {
+                  teamId: opponent.id, matchId: dbMatch.id, category: 'GAME_DAY',
+                  revenue: 0, expense: entryFee, net: -entryFee,
+                  metadata: { entryFee, awayTeam: true },
+                },
+              });
+            }
+          });
+        } catch (err: any) {
+          issues.push(`Game sim failed: ${err.message}`);
+        }
+      }
+
+      // Training sessions
+      const trainingThisWeek = Math.floor(cfg.trainingPerWeek * (0.5 + Math.random()));
+      for (let t = 0; t < trainingThisWeek; t++) {
+        if (userTeamsList.length > 0) {
+          const trainTeam = randomPick(userTeamsList);
+          try {
+            await simulateTrainingSession(trainTeam.id);
+            trainingSessions++;
+          } catch (err: any) {
+            issues.push(`Training failed: ${err.message}`);
+          }
+        }
+      }
+    }
+  }
+
+  // Age players at end of season
+  try {
+    await agePlayers(prisma);
+  } catch (err: any) {
+    issues.push(`Age progression failed: ${err.message}`);
+  }
+
+  // Count injuries
+  const injuredPlayers = await prisma.player.count({ where: { injuryStatus: { not: 'HEALTHY' } } });
+  injuries = injuredPlayers;
+
+  // Pump.fun simulation for this season
+  const activeUserCount = activeUsers.length;
+  simulatePumpFunSeason(pumpfunState, seasonNumber, activeUserCount);
+
+  const avgHomeScore = matchesPlayed > 0 ? totalHomeScore / matchesPlayed : 0;
+  const avgAwayScore = matchesPlayed > 0 ? totalAwayScore / matchesPlayed : 0;
+
+  return {
+    seasonNumber, matchesPlayed, homeWins, awayWins, draws,
+    avgHomeScore, avgAwayScore, gamesPlayed, trainingSessions,
+    playerTrades, venuePurchases, transportPurchases, teamSales,
+    injuries, promotions, demotions, weeklyCostsProcessed,
+    totalCashSpent, totalGridSpent, totalSolSpent,
+    treasuryInflow, solTreasuryInflow,
+    pumpfunPrice: pumpfunState.currentPrice,
+    pumpfunVolume: pumpfunState.volume24h,
+    pumpfunFees: pumpfunState.totalFeesEarned,
+    issues,
+  };
+}
+
+async function simulateTrainingSession(teamId: string) {
+  const teamPlayers = await prisma.teamPlayer.findMany({
+    where: { teamId },
+    include: { player: true },
+  });
+
+  for (const tp of teamPlayers) {
+    const player = tp.player;
+    if (player.injuryStatus !== 'HEALTHY') continue;
+
+    const growthChance = 0.15; // 15% chance per training session
+    if (Math.random() < growthChance) {
+      const statToImprove = randomPick(['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical']);
+      const increment = randomInt(1, 3);
+      await prisma.player.update({
+        where: { id: player.id },
+        data: { [statToImprove]: Math.min(99, (player as any)[statToImprove] + increment) },
+      });
+    }
+  }
+}
+
+async function cleanupSimulationData() {
+  // Delete all simulation users and their data
+  const simUsers = await prisma.user.findMany({
+    where: { email: { endsWith: '@gridsim.test' } },
+    select: { id: true },
+  });
+
+  for (const user of simUsers) {
+    const userTeams = await prisma.team.findMany({ where: { ownerId: user.id }, select: { id: true } });
+    for (const team of userTeams) {
+      await prisma.teamPlayer.deleteMany({ where: { teamId: team.id } });
+      await prisma.venue.deleteMany({ where: { teamId: team.id } });
+      await prisma.transportationAsset.deleteMany({ where: { teamId: team.id } });
+      await prisma.teamLeagueMembership.deleteMany({ where: { teamId: team.id } });
+      await prisma.teamFinanceSnapshot.deleteMany({ where: { teamId: team.id } });
+      await prisma.teamMarketplaceListing.deleteMany({ where: { teamId: team.id } });
+    }
+    await prisma.team.deleteMany({ where: { ownerId: user.id } });
+    await prisma.marketplaceListing.deleteMany({ where: { sellerId: user.id } });
+    await prisma.wallet.deleteMany({ where: { userId: user.id } });
+  }
+  await prisma.user.deleteMany({ where: { email: { endsWith: '@gridsim.test' } } });
+}
+
+// ─── End Mega Simulation ───

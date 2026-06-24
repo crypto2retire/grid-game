@@ -9,6 +9,7 @@ import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
 import { getSportConfig, SportId } from '../sports/sports.config';
 import { generateAndCreatePlayerTx } from '../players/player.generator';
+import { generateAIPlayers } from '../ai-teams/ai-teams.service';
 
 const router = Router();
 
@@ -100,6 +101,9 @@ router.post(
 
       return newTeam;
     });
+
+    // Generate starter roster of 43 players for new user team
+    await generateAIPlayers(team.id);
 
     const fullTeam = await prisma.team.findUnique({
       where: { id: team.id },
@@ -750,6 +754,42 @@ router.post(
     });
 
     res.json({ status: 'success', message: `You now own ${transport.name} (${currency})` });
+  })
+);
+
+// POST /api/teams/:id/backfill-players — generate starter roster for teams with 0 players
+router.post(
+  '/:id/backfill-players',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const teamId = routeParam(req.params.id, 'id');
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+      include: { teamPlayers: true },
+    });
+
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+
+    if (team.teamPlayers.length > 0) {
+      throw new AppError(400, `Team already has ${team.teamPlayers.length} players. Backfill only works for empty rosters.`);
+    }
+
+    await generateAIPlayers(team.id);
+
+    const fullTeam = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        teamPlayers: { include: { player: true } },
+        venue: true,
+        transportationAssets: true,
+      },
+    });
+
+    res.json({ status: 'success', data: fullTeam, message: `Generated ${fullTeam?.teamPlayers?.length || 0} players for ${team.name}` });
   })
 );
 

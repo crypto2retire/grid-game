@@ -10,6 +10,7 @@ import {
   resetTestSeason,
   resetEconomy,
   processWeeklyOperatingCosts,
+  runMegaSimulation,
 } from './testing.service';
 
 const router = Router();
@@ -30,6 +31,27 @@ router.post(
       status: 'success',
       data: result,
       message: `Test season completed: ${result.matchesPlayed} matches played`,
+    });
+  })
+);
+
+// POST /api/testing/mega-simulation — run full 250-user, 5-season mega simulation
+router.post(
+  '/mega-simulation',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({
+      userCount: z.number().int().min(10).max(500).default(250),
+      seasonCount: z.number().int().min(1).max(10).default(5),
+    });
+    const input = schema.parse(req.body);
+
+    const result = await runMegaSimulation(input.userCount, input.seasonCount);
+
+    res.json({
+      status: 'success',
+      data: result,
+      message: `Mega simulation complete: ${result.usersCreated} users, ${result.seasons.length} seasons`,
     });
   })
 );
