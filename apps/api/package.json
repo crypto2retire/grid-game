@@ -12,7 +12,9 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.js",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "sim:mega": "tsx scripts/run-mega-simulation.ts",
+    "sim:mega:slow": "tsx scripts/run-mega-simulation.ts 250 5 50"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

@@ -12,6 +12,7 @@ import {
   processWeeklyOperatingCosts,
   runMegaSimulation,
 } from './testing.service';
+import { runMegaSimulationV2 } from './mega-simulation.service';
 
 const router = Router();
 
@@ -52,6 +53,28 @@ router.post(
       status: 'success',
       data: result,
       message: `Mega simulation complete: ${result.usersCreated} users, ${result.seasons.length} seasons`,
+    });
+  })
+);
+
+// POST /api/testing/mega-simulation-v2 — run enhanced 250-user, 5-season simulation with all features
+router.post(
+  '/mega-simulation-v2',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({
+      userCount: z.number().int().min(10).max(500).default(250),
+      seasonCount: z.number().int().min(1).max(10).default(5),
+      throttleMs: z.number().int().min(0).max(5000).default(0),
+    });
+    const input = schema.parse(req.body);
+
+    const result = await runMegaSimulationV2(input.userCount, input.seasonCount, input.throttleMs);
+
+    res.json({
+      status: 'success',
+      data: result,
+      message: `Mega simulation V2 complete: ${result.usersCreated} users, ${result.seasons.length} seasons, ${result.totalPlayers} players`,
     });
   })
 );

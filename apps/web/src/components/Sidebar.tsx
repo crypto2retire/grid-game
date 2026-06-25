@@ -12,10 +12,12 @@ import {
   Dumbbell,
   PiggyBank,
   BarChart3,
+  Globe,
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/world-map', label: 'World Map', icon: Globe },
   { path: '/team', label: 'My Team', icon: Shield },
   { path: '/team-marketplace', label: 'Team Market', icon: Store },
   { path: '/players', label: 'Players', icon: Users },

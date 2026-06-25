@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, RotateCcw, BarChart3, AlertTriangle, CheckCircle, TrendingUp, Users, DollarSign, Trophy } from 'lucide-react';
+import { Play, RotateCcw, BarChart3, AlertTriangle, CheckCircle, TrendingUp, Users, DollarSign, Trophy, Zap } from 'lucide-react';
 
 interface TestStatus {
   aiTeams: number;
@@ -86,6 +86,93 @@ interface SeasonResult {
   issues: string[];
 }
 
+interface MegaSimSeason {
+  seasonNumber: number;
+  activeUsers: number;
+  totalUsers: number;
+  newUsers: number;
+  churnedUsers: number;
+  matchesPlayed: number;
+  homeWins: number;
+  awayWins: number;
+  draws: number;
+  avgHomeScore: number;
+  avgAwayScore: number;
+  trainingSessions: number;
+  trainingGridSpent: number;
+  trainingCashSpent: number;
+  equipmentPurchases: number;
+  equipmentGridSpent: number;
+  equipmentCashSpent: number;
+  playerListings: number;
+  playerSales: number;
+  playerMarketplaceVolume: number;
+  teamListings: number;
+  teamSales: number;
+  teamMarketplaceVolume: number;
+  venuePurchases: number;
+  venueSolPurchases: number;
+  transportPurchases: number;
+  transportSolPurchases: number;
+  gridExchanges: number;
+  gridExchanged: number;
+  stakingEvents: number;
+  stakedAmount: number;
+  stakingRewards: number;
+  injuries: number;
+  retirements: number;
+  promotions: number;
+  demotions: number;
+  weeklyCostsProcessed: number;
+  totalCashSpent: number;
+  totalGridSpent: number;
+  totalSolSpent: number;
+  treasuryInflow: number;
+  solTreasuryInflow: number;
+  pumpfunPrice: number;
+  pumpfunVolume: number;
+  pumpfunFees: number;
+  pumpfunMarketCap: number;
+  pumpfunRegime: string;
+  sponsorRevenue: number;
+  issues: string[];
+}
+
+interface MegaSimResult {
+  usersCreated: number;
+  teamsCreated: number;
+  aiTeamsCreated: number;
+  totalPlayers: number;
+  seasons: MegaSimSeason[];
+  finalStandings: Array<{
+    teamId: string; teamName: string; tier: string;
+    owner: string; wins: number; draws: number; losses: number;
+    points: number; goalsFor: number; goalsAgainst: number;
+    netRevenue: number;
+  }>;
+  topPlayers: Array<{
+    playerId: string; playerName: string; teamName: string;
+    position: string; age: number; overall: number;
+    mvpScore: number; ratingAverage: number;
+  }>;
+  feeTracker: any;
+  pumpfunSummary: {
+    startingPrice: number; finalPrice: number; allTimeHigh: number;
+    allTimeLow: number; totalVolume: number; totalFees: number;
+    finalMarketCap: number; priceHistory: any[];
+    regimeTransitions: Array<{ season: number; week: number; from: string; to: string }>;
+  };
+  marketplaceSummary: {
+    totalPlayerListings: number; totalPlayerSales: number; totalPlayerVolume: number;
+    totalTeamListings: number; totalTeamSales: number; totalTeamVolume: number;
+    totalVenuePurchases: number; totalTransportPurchases: number;
+    totalSolSpent: number; totalCashSpent: number; totalGridSpent: number;
+  };
+  economicSummary: any;
+  issues: string[];
+  duration: number;
+}
+
 interface EconomicAudit {
   treasuryBalance: number;
   totalPlayerCash: number;
@@ -131,6 +218,13 @@ export default function TestDashboardPage() {
   const [gameCount, setGameCount] = useState(20);
   const [error, setError] = useState('');
 
+  // Mega Simulation V2 state
+  const [userCount, setUserCount] = useState(50);
+  const [seasonCount, setSeasonCount] = useState(2);
+  const [runningMegaSim, setRunningMegaSim] = useState(false);
+  const [megaSimResult, setMegaSimResult] = useState<MegaSimResult | null>(null);
+  const [megaSimError, setMegaSimError] = useState('');
+
   const token = localStorage.getItem('token');
 
   useEffect(() => {
@@ -175,6 +269,31 @@ export default function TestDashboardPage() {
       setError('Network error');
     } finally {
       setRunningSeason(false);
+    }
+  }
+
+  async function runMegaSim() {
+    setRunningMegaSim(true);
+    setMegaSimError('');
+    setMegaSimResult(null);
+    try {
+      const res = await fetch('/api/testing/mega-simulation-v2', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userCount, seasonCount, throttleMs: 0 }),
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        setMegaSimResult(json.data);
+        fetchStatus();
+        fetchEconomicAudit();
+      } else {
+        setMegaSimError(json.message || 'Mega simulation failed');
+      }
+    } catch (e) {
+      setMegaSimError('Network error or timeout — try a smaller run');
+    } finally {
+      setRunningMegaSim(false);
     }
   }
 
@@ -336,6 +455,283 @@ export default function TestDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Run Mega Simulation V2 */}
+      <div className="glass-card p-5 border border-accent/30">
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Zap className="h-5 w-5 text-accent" /> Mega Simulation V2
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Full economic simulation with training, marketplace, venue purchases, staking, and Pump.fun price modeling.
+        </p>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <label className="text-sm text-muted-foreground">Users</label>
+            <input
+              type="number"
+              min={10}
+              max={500}
+              value={userCount}
+              onChange={(e) => setUserCount(Math.min(500, Math.max(10, parseInt(e.target.value) || 10)))}
+              className="mt-1 block w-28 rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground">Seasons</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={seasonCount}
+              onChange={(e) => setSeasonCount(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="mt-1 block w-28 rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
+            />
+          </div>
+          <button
+            onClick={runMegaSim}
+            disabled={runningMegaSim}
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-bold text-white hover:bg-accent/90 disabled:opacity-50"
+          >
+            <Zap className="h-4 w-4" />
+            {runningMegaSim ? 'Running...' : 'Run Mega Simulation'}
+          </button>
+        </div>
+        {megaSimError && (
+          <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-200">
+            <AlertTriangle className="inline h-4 w-4 mr-1" /> {megaSimError}
+          </div>
+        )}
+      </div>
+
+      {/* Mega Simulation Results */}
+      {megaSimResult && (
+        <div className="space-y-6">
+          {/* Summary */}
+          <div className="glass-card p-5">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-accent" /> Mega Simulation Results
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Users</div>
+                <div className="text-white font-bold text-lg">{megaSimResult.usersCreated.toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Teams</div>
+                <div className="text-white font-bold text-lg">{megaSimResult.teamsCreated.toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">AI Teams</div>
+                <div className="text-white font-bold text-lg">{megaSimResult.aiTeamsCreated.toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Players</div>
+                <div className="text-white font-bold text-lg">{megaSimResult.totalPlayers.toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Matches</div>
+                <div className="text-white font-bold text-lg">{megaSimResult.seasons.reduce((s, m) => s + m.matchesPlayed, 0).toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Duration</div>
+                <div className="text-white font-bold text-lg">{(megaSimResult.duration / 1000).toFixed(1)}s</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">GRID Spent</div>
+                <div className="text-accent font-bold text-lg">{Math.round(megaSimResult.marketplaceSummary.totalGridSpent).toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">CASH Spent</div>
+                <div className="text-emerald-400 font-bold text-lg">{Math.round(megaSimResult.marketplaceSummary.totalCashSpent).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Season-by-season breakdown */}
+          <div className="glass-card p-5">
+            <h2 className="text-xl font-bold text-white mb-4">Season Breakdown</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-white/10">
+                    <th className="pb-2">Season</th>
+                    <th className="pb-2 text-right">Active</th>
+                    <th className="pb-2 text-right">Matches</th>
+                    <th className="pb-2 text-right">Training</th>
+                    <th className="pb-2 text-right">Equip</th>
+                    <th className="pb-2 text-right">Player Vol</th>
+                    <th className="pb-2 text-right">Team Vol</th>
+                    <th className="pb-2 text-right">GRID</th>
+                    <th className="pb-2 text-right">CASH</th>
+                    <th className="pb-2 text-right">SOL</th>
+                    <th className="pb-2 text-right">Inj</th>
+                    <th className="pb-2 text-right">Ret</th>
+                    <th className="pb-2 text-right">Pump.fun</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {megaSimResult.seasons.map((s) => (
+                    <tr key={s.seasonNumber} className="border-b border-white/5">
+                      <td className="py-2 text-white font-medium">{s.seasonNumber}</td>
+                      <td className="py-2 text-right text-white">{s.activeUsers}</td>
+                      <td className="py-2 text-right text-white">{s.matchesPlayed}</td>
+                      <td className="py-2 text-right text-white">{s.trainingSessions}</td>
+                      <td className="py-2 text-right text-white">{s.equipmentPurchases}</td>
+                      <td className="py-2 text-right text-white">{Math.round(s.playerMarketplaceVolume).toLocaleString()}</td>
+                      <td className="py-2 text-right text-white">{Math.round(s.teamMarketplaceVolume).toLocaleString()}</td>
+                      <td className="py-2 text-right text-accent">{Math.round(s.totalGridSpent).toLocaleString()}</td>
+                      <td className="py-2 text-right text-emerald-400">{Math.round(s.totalCashSpent).toLocaleString()}</td>
+                      <td className="py-2 text-right text-purple-400">{s.totalSolSpent.toFixed(2)}</td>
+                      <td className="py-2 text-right text-red-400">{s.injuries}</td>
+                      <td className="py-2 text-right text-amber-400">{s.retirements}</td>
+                      <td className="py-2 text-right text-white">${s.pumpfunPrice.toFixed(4)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Final Standings */}
+          <div className="glass-card p-5">
+            <h2 className="text-xl font-bold text-white mb-4">Final Standings (Top 20)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-white/10">
+                    <th className="pb-2">Team</th>
+                    <th className="pb-2">Tier</th>
+                    <th className="pb-2">Owner</th>
+                    <th className="pb-2 text-right">W</th>
+                    <th className="pb-2 text-right">D</th>
+                    <th className="pb-2 text-right">L</th>
+                    <th className="pb-2 text-right">Pts</th>
+                    <th className="pb-2 text-right">GF</th>
+                    <th className="pb-2 text-right">GA</th>
+                    <th className="pb-2 text-right">Net Rev</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {megaSimResult.finalStandings.slice(0, 20).map((team) => (
+                    <tr key={team.teamId} className="border-b border-white/5">
+                      <td className="py-2 text-white font-medium">{team.teamName}</td>
+                      <td className="py-2 text-muted-foreground">{team.tier}</td>
+                      <td className="py-2 text-muted-foreground">{team.owner}</td>
+                      <td className="py-2 text-right text-emerald-400">{team.wins}</td>
+                      <td className="py-2 text-right text-amber-400">{team.draws}</td>
+                      <td className="py-2 text-right text-red-400">{team.losses}</td>
+                      <td className="py-2 text-right text-white font-bold">{team.points}</td>
+                      <td className="py-2 text-right text-white">{team.goalsFor}</td>
+                      <td className="py-2 text-right text-white">{team.goalsAgainst}</td>
+                      <td className="py-2 text-right text-emerald-400">{team.netRevenue.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Top Players */}
+          <div className="glass-card p-5">
+            <h2 className="text-xl font-bold text-white mb-4">Top Players (Top 20)</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-white/10">
+                    <th className="pb-2">Player</th>
+                    <th className="pb-2">Team</th>
+                    <th className="pb-2">Pos</th>
+                    <th className="pb-2 text-right">Age</th>
+                    <th className="pb-2 text-right">OVR</th>
+                    <th className="pb-2 text-right">MVP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {megaSimResult.topPlayers.slice(0, 20).map((p) => (
+                    <tr key={p.playerId} className="border-b border-white/5">
+                      <td className="py-2 text-white font-medium">{p.playerName}</td>
+                      <td className="py-2 text-muted-foreground">{p.teamName}</td>
+                      <td className="py-2 text-muted-foreground">{p.position}</td>
+                      <td className="py-2 text-right text-white">{p.age}</td>
+                      <td className="py-2 text-right text-white">{p.overall}</td>
+                      <td className="py-2 text-right text-accent font-bold">{p.mvpScore.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Pump.fun Summary */}
+          <div className="glass-card p-5">
+            <h2 className="text-xl font-bold text-white mb-4">Pump.fun Token</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Start Price</div>
+                <div className="text-white font-bold">${megaSimResult.pumpfunSummary.startingPrice.toFixed(4)}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Final Price</div>
+                <div className="text-white font-bold">${megaSimResult.pumpfunSummary.finalPrice.toFixed(4)}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">All-Time High</div>
+                <div className="text-emerald-400 font-bold">${megaSimResult.pumpfunSummary.allTimeHigh.toFixed(4)}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">All-Time Low</div>
+                <div className="text-red-400 font-bold">${megaSimResult.pumpfunSummary.allTimeLow.toFixed(4)}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Final Market Cap</div>
+                <div className="text-white font-bold">${(megaSimResult.pumpfunSummary.finalMarketCap / 1e6).toFixed(2)}M</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Total Volume</div>
+                <div className="text-white font-bold">${megaSimResult.pumpfunSummary.totalVolume.toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Total Fees</div>
+                <div className="text-emerald-400 font-bold">${megaSimResult.pumpfunSummary.totalFees.toLocaleString()}</div>
+              </div>
+              <div className="rounded-xl bg-white/5 p-3">
+                <div className="text-muted-foreground">Regime Changes</div>
+                <div className="text-white font-bold">{megaSimResult.pumpfunSummary.regimeTransitions.length}</div>
+              </div>
+            </div>
+            {megaSimResult.pumpfunSummary.regimeTransitions.length > 0 && (
+              <div className="mt-4 text-sm text-muted-foreground">
+                Regime transitions: {megaSimResult.pumpfunSummary.regimeTransitions.map((t, i) => (
+                  <span key={i} className="inline-block mr-3">
+                    S{t.season}W{t.week}: {t.from} → {t.to}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Issues */}
+          {megaSimResult.issues.length > 0 && (
+            <div className="glass-card p-5">
+              <h2 className="text-xl font-bold text-white mb-4">Issues</h2>
+              <div className="space-y-2">
+                {megaSimResult.issues.map((issue, i) => (
+                  <div key={i} className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-200">
+                    <AlertTriangle className="inline h-4 w-4 mr-1" /> {issue}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {megaSimResult.issues.length === 0 && (
+            <div className="glass-card p-5">
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-200">
+                <CheckCircle className="inline h-4 w-4 mr-1" /> No issues detected — simulation completed successfully!
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Season Results */}
       {seasonResult && (
