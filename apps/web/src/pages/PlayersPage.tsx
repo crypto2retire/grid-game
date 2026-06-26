@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Users, Search, Coins, TrendingUp, TrendingDown, Minus, ShoppingCart, AlertCircle, Filter } from 'lucide-react';
+import { Users, Search, Coins, AlertCircle, Filter } from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
+import PlayerCard, { type PlayerCardData } from '../components/player/PlayerCard';
 
 interface Player {
   id: string;
@@ -135,36 +136,6 @@ export default function PlayersPage() {
     } finally {
       setBuying(null);
     }
-  };
-
-  const getRarityColor = (rarity: string) => {
-    const colors: Record<string, string> = {
-      COMMON: 'text-gray-400 border-gray-500',
-      BRONZE: 'text-amber-600 border-amber-700',
-      SILVER: 'text-slate-300 border-slate-300',
-      GOLD: 'text-yellow-400 border-yellow-400',
-      ELITE: 'text-purple-400 border-purple-400',
-      LEGEND: 'text-red-400 border-red-400',
-    };
-    return colors[rarity] || colors.COMMON;
-  };
-
-  const getRarityBg = (rarity: string) => {
-    const colors: Record<string, string> = {
-      COMMON: 'bg-gray-500/10',
-      BRONZE: 'bg-amber-700/10',
-      SILVER: 'bg-slate-300/10',
-      GOLD: 'bg-yellow-400/10',
-      ELITE: 'bg-purple-400/10',
-      LEGEND: 'bg-red-400/10',
-    };
-    return colors[rarity] || colors.COMMON;
-  };
-
-  const getDemandIcon = (mult: number) => {
-    if (mult > 1.5) return <TrendingUp className="w-3 h-3 text-green-400" />;
-    if (mult < 0.8) return <TrendingDown className="w-3 h-3 text-red-400" />;
-    return <Minus className="w-3 h-3 text-muted-foreground" />;
   };
 
   const filteredPlayers = search
@@ -324,79 +295,35 @@ export default function PlayersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedPlayers.map((player) => (
-            <div
-              key={player.id}
-              className={`glass-card p-4 border hover:bg-secondary/50 transition-colors ${getRarityColor(player.rarity)}`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="font-semibold text-white">{player.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {player.position} • Age {player.age}
-                  </div>
-                </div>
-                <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityBg(player.rarity)} ${getRarityColor(player.rarity).split(' ')[0]}`}>
-                  {player.rarity}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 mb-3">
-                <div className="text-center">
-                  <div className="text-2xl font-black text-white">{player.overall}</div>
-                  <div className="text-xs text-muted-foreground">OVR</div>
-                </div>
-                <div className="flex-1 grid grid-cols-3 gap-2 text-xs">
-                  <div className="text-center">
-                    <div className="font-semibold text-white">{player.pace}</div>
-                    <div className="text-muted-foreground">SPD</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-white">{player.shooting}</div>
-                    <div className="text-muted-foreground">ARM</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-white">{player.passing}</div>
-                    <div className="text-muted-foreground">IQ</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-white">{player.dribbling}</div>
-                    <div className="text-muted-foreground">AGI</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-white">{player.defending}</div>
-                    <div className="text-muted-foreground">TCK</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-white">{player.physical}</div>
-                    <div className="text-muted-foreground">STR</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-border">
-                <div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                    Demand {getDemandIcon(player.demandMultiplier)}
-                  </div>
-                  <div className="text-lg font-black text-yellow-400">
-                    {player.currentPrice.toLocaleString()} CASH
-                  </div>
-                </div>
-                <button
-                  onClick={() => buyPlayer(player.id)}
-                  disabled={buying === player.id || myWallet.cash < player.currentPrice}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  {buying === player.id ? 'Hiring...' : 'Hire'}
-                </button>
-              </div>
-              {myWallet.cash < player.currentPrice && (
-                <p className="text-xs text-red-300 mt-2">Not enough CASH</p>
-              )}
-            </div>
-          ))}
+          {sortedPlayers.map((player) => {
+            const cardData: PlayerCardData = {
+              id: player.id,
+              name: player.name,
+              position: player.position,
+              overall: player.overall,
+              age: player.age,
+              nationality: player.nationality,
+              rarity: player.rarity,
+              pace: player.pace,
+              shooting: player.shooting,
+              passing: player.passing,
+              dribbling: player.dribbling,
+              defending: player.defending,
+              physical: player.physical,
+              currentPrice: player.currentPrice,
+              demandMultiplier: player.demandMultiplier,
+            };
+            return (
+              <PlayerCard
+                key={player.id}
+                player={cardData}
+                showBuyButton
+                onBuy={() => buyPlayer(player.id)}
+                buying={buying === player.id}
+                canAfford={myWallet.cash >= player.currentPrice}
+              />
+            );
+          })}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Shield, Plus, X, Star, Coins, AlertCircle, Users, ChevronRight, Award, Home, Handshake, Wrench, Bus, RefreshCw } from 'lucide-react';
+import { Shield, Plus, X, Coins, AlertCircle, Users, ChevronRight, Award, Home, Handshake, Wrench, Bus, RefreshCw } from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
+import PlayerCard, { type PlayerCardData } from '../components/player/PlayerCard';
 
 const FOOTBALL_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
 const FOOTBALL_POSITION_TARGETS: Record<string, number> = { QB: 2, RB: 4, WR: 6, TE: 3, OL: 8, DL: 6, LB: 5, CB: 5, S: 3, K: 1 };
@@ -670,51 +671,31 @@ export default function TeamPage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {selectedTeam.teamPlayers.map((tp) => (
-                          <div
-                            key={tp.id}
-                            className={`glass-card p-4 card-lift border ${getRarityColor(tp.player.rarity)}`}
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <div className="font-bold text-white">{tp.player.name}</div>
-                                <div className="text-sm text-white/40">{tp.player.position}</div>
-                              </div>
-                              <div className={`px-2 py-1 rounded-lg text-xs font-bold ${getRarityBg(tp.player.rarity)} ${getRarityColor(tp.player.rarity).split(' ')[0]}`}>
-                                {tp.player.rarity}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="text-center">
-                                <div className="text-2xl font-black text-white">{tp.player.overall}</div>
-                                <div className="text-xs text-white/30">OVR</div>
-                              </div>
-                              <div className="flex-1 grid grid-cols-3 gap-1 text-xs">
-                                {[
-                                  { label: 'SPD', value: tp.player.pace },
-                                  { label: 'ARM', value: tp.player.shooting },
-                                  { label: 'IQ', value: tp.player.passing },
-                                  { label: 'AGI', value: tp.player.dribbling },
-                                  { label: 'TCK', value: tp.player.defending },
-                                  { label: 'STR', value: tp.player.physical },
-                                ].map((stat) => (
-                                  <div key={stat.label} className="text-center bg-white/5 rounded-lg py-1">
-                                    <div className="font-bold text-white">{stat.value}</div>
-                                    <div className="text-[10px] text-white/30">{stat.label}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {tp.isStarter && (
-                              <div className="flex items-center gap-1 text-xs text-[#E94560]">
-                                <Star className="w-3 h-3" />
-                                Starter
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                        {selectedTeam.teamPlayers.map((tp) => {
+                          const cardData: PlayerCardData = {
+                            id: tp.player.id,
+                            name: tp.player.name,
+                            position: tp.player.position,
+                            overall: tp.player.overall,
+                            age: (tp.player as any).age ?? 22,
+                            nationality: (tp.player as any).nationality ?? 'USA',
+                            rarity: tp.player.rarity,
+                            pace: tp.player.pace,
+                            shooting: tp.player.shooting,
+                            passing: tp.player.passing,
+                            dribbling: tp.player.dribbling,
+                            defending: tp.player.defending,
+                            physical: tp.player.physical,
+                            isStarter: tp.isStarter,
+                          };
+                          return (
+                            <PlayerCard
+                              key={tp.id}
+                              player={cardData}
+                              className="card-lift"
+                            />
+                          );
+                        })}
                       </div>
                     )}
                   </div>
