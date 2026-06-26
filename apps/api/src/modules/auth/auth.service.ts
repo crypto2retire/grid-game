@@ -92,6 +92,7 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
     await tx.venue.create({
       data: {
         teamId: team.id,
+        ownerId: user.id, // Player owns their stadium from day one
         sportId: 'american-football',
         name: `${teamName} Field`,
         tier: 'PARK_FIELD',
@@ -106,6 +107,7 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
     await tx.transportationAsset.create({
       data: {
         teamId: team.id,
+        ownerId: user.id, // Player owns their transport from day one
         tier: 'CARPOOL',
         name: 'Carpool / Rental Vans',
         operatingCost: 100,

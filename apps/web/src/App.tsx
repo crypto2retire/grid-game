@@ -26,6 +26,7 @@ import PlayableMatchPage from './pages/PlayableMatchPage';
 import TestDashboardPage from './pages/TestDashboardPage';
 import WorldMapPage from './pages/WorldMapPage';
 import StadiumInteriorPage from './pages/StadiumInteriorPage';
+import TransportGaragePage from './pages/TransportGaragePage';
 
 function App() {
   const { checkAuth } = useAuthStore();
@@ -61,6 +62,7 @@ function App() {
         <Route path="/test-dashboard" element={<TestDashboardPage />} />
         <Route path="/world-map" element={<WorldMapPage />} />
         <Route path="/stadium/interior" element={<StadiumInteriorPage />} />
+        <Route path="/garage" element={<TransportGaragePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

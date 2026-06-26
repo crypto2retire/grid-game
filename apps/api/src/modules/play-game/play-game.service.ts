@@ -704,6 +704,11 @@ export async function completeGame(matchId: string) {
     });
 
     if (homeVenue) {
+      const homeTeam = await tx.team.findUnique({
+        where: { id: match.homeTeamId },
+        include: { owner: true },
+      });
+
       // Calculate attendance (50-90% based on prestige)
       const attendanceRate = 0.5 + (homeVenue.prestige / 100) * 0.4;
       const attendance = Math.round(homeVenue.capacity * attendanceRate);
@@ -711,8 +716,9 @@ export async function completeGame(matchId: string) {
       // Ticket revenue
       const ticketRevenue = attendance * homeVenue.ticketPrice;
       
-      // Lease fee to venue owner
-      const leaseFee = Math.round(ticketRevenue * homeVenue.leaseRate);
+      // If venue owner is the home team owner, no lease fee (they own it)
+      const isOwnVenue = homeVenue.ownerId === homeTeam?.ownerId;
+      const leaseFee = isOwnVenue ? 0 : Math.round(ticketRevenue * homeVenue.leaseRate);
       const homeTeamRevenue = ticketRevenue - leaseFee;
       
       // Visiting team entry fee (fixed cost based on venue tier)
@@ -721,18 +727,12 @@ export async function completeGame(matchId: string) {
       };
       const entryFee = 1000 * (entryFeeTierMult[homeVenue.tier] || 1);
       
-      // Home team gets ticket revenue minus lease fee, pays entry fee
-      if (homeTeamRevenue > 0) {
-        const homeTeam = await tx.team.findUnique({
-          where: { id: match.homeTeamId },
-          include: { owner: true },
+      // Home team gets ticket revenue minus lease fee
+      if (homeTeamRevenue > 0 && homeTeam?.ownerId) {
+        await tx.wallet.update({
+          where: { userId: homeTeam.ownerId },
+          data: { cash: { increment: homeTeamRevenue } },
         });
-        if (homeTeam?.ownerId) {
-          await tx.wallet.update({
-            where: { userId: homeTeam.ownerId },
-            data: { cash: { increment: homeTeamRevenue } },
-          });
-        }
       }
       
       // Visiting team pays entry fee
@@ -748,7 +748,7 @@ export async function completeGame(matchId: string) {
       }
       
       // Venue owner gets lease fee + entry fee
-      const venueOwnerId = homeVenue.ownerId || 'ai-system-owner-001';
+      const venueOwnerId = homeVenue.ownerId;
       const totalVenueRevenue = leaseFee + entryFee;
 
       // Record revenue data for return
@@ -759,18 +759,18 @@ export async function completeGame(matchId: string) {
         homeTeamRevenue,
         entryFee,
         totalVenueRevenue,
-        venueOwnerId,
+        venueOwnerId: venueOwnerId || null,
       };
 
-      if (venueOwnerId === 'ai-system-owner-001') {
-        // Treasury-owned: process as treasury inflow
-        await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', matchId);
-      } else {
+      if (venueOwnerId) {
         // Player-owned: credit to their wallet
         await tx.wallet.update({
           where: { userId: venueOwnerId },
           data: { cash: { increment: totalVenueRevenue } },
         });
+      } else {
+        // No owner: process as treasury inflow
+        await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', matchId);
       }
     }
   });

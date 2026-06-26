@@ -1,6 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bus, Home, Landmark, ArrowUp, ArrowRight, ArrowDown, ShoppingCart, Wrench } from 'lucide-react';
+import {
+  Bus,
+  Home,
+  Landmark,
+  ArrowRight,
+  Wrench,
+  Plus,
+  ArrowUp,
+  MapPin,
+  Store,
+  Tag,
+  X,
+  HandCoins,
+  ShoppingCart,
+} from 'lucide-react';
 
 interface Venue {
   id: string;
@@ -14,6 +28,9 @@ interface Venue {
   purchasePrice: number | null;
   solPrice: number | null;
   leaseRate: number;
+  isForSale?: boolean;
+  salePrice?: number | null;
+  saleCurrency?: string;
 }
 
 interface TransportAsset {
@@ -26,6 +43,9 @@ interface TransportAsset {
   ownerId: string | null;
   purchasePrice: number | null;
   solPrice: number | null;
+  isForSale?: boolean;
+  salePrice?: number | null;
+  saleCurrency?: string;
 }
 
 interface TeamAsset {
@@ -35,75 +55,201 @@ interface TeamAsset {
   transportationAssets: TransportAsset[];
 }
 
-const AI_OWNER_ID = 'ai-system-owner-001';
+const tierLabels: Record<string, string> = {
+  PARK_FIELD: 'Park Field',
+  COMMUNITY_FIELD: 'Community Field',
+  SMALL_STADIUM: 'Small Stadium',
+  REGIONAL_STADIUM: 'Regional Stadium',
+  PRO_STADIUM: 'Pro Stadium',
+  CARPOOL: 'Carpool',
+  USED_BUS: 'Used Bus',
+  TEAM_BUS: 'Team Bus',
+  LUXURY_COACH: 'Luxury Coach',
+  CHARTER_FLIGHT: 'Charter Flight',
+  TEAM_AIRCRAFT: 'Team Aircraft',
+  CUSTOM_JET: 'Custom Jet',
+};
+
+const currencyColors: Record<string, string> = {
+  CASH: 'text-[#FFD700]',
+  GRID: 'text-purple-400',
+  SOL: 'text-cyan-400',
+};
 
 export default function AssetsPage() {
   const [teams, setTeams] = useState<TeamAsset[]>([]);
+  const [availableVenues, setAvailableVenues] = useState<Venue[]>([]);
+  const [forLeaseVenues, setForLeaseVenues] = useState<Venue[]>([]);
+  const [marketplaceVenues, setMarketplaceVenues] = useState<Venue[]>([]);
+  const [marketplaceTransport, setMarketplaceTransport] = useState<TransportAsset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [buying, setBuying] = useState<Record<string, boolean>>({});
+  const [creatingDev, setCreatingDev] = useState(false);
+  const [devVenueId, setDevVenueId] = useState<string | null>(null);
+  const [devTeamName, setDevTeamName] = useState('');
+  const [leasingVenue, setLeasingVenue] = useState<string | null>(null);
+  const [listingVenue, setListingVenue] = useState<string | null>(null);
+  const [listPrice, setListPrice] = useState('');
+  const [listCurrency, setListCurrency] = useState<'CASH' | 'GRID' | 'SOL'>('CASH');
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  const token = localStorage.getItem('token');
+  const headers = { Authorization: `Bearer ${token}` };
+
+  async function loadData() {
+    const [teamsRes, availRes, leaseRes, venueMarketRes, transMarketRes] = await Promise.all([
+      fetch('/api/teams/mine', { headers }),
+      fetch('/api/teams/venues/available', { headers }),
+      fetch('/api/teams/venues/for-lease', { headers }),
+      fetch('/api/teams/venues/marketplace', { headers }),
+      fetch('/api/teams/transport/marketplace', { headers }),
+    ]);
+    const [teamsJson, availJson, leaseJson, venueMarketJson, transMarketJson] = await Promise.all([
+      teamsRes.json(),
+      availRes.json(),
+      leaseRes.json(),
+      venueMarketRes.json(),
+      transMarketRes.json(),
+    ]);
+    if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
+    if (availJson.status === 'success') setAvailableVenues(availJson.data || []);
+    if (leaseJson.status === 'success') setForLeaseVenues(leaseJson.data || []);
+    if (venueMarketJson.status === 'success') setMarketplaceVenues(venueMarketJson.data || []);
+    if (transMarketJson.status === 'success') setMarketplaceTransport(transMarketJson.data || []);
+  }
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch('/api/teams/mine', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.status === 'success') {
-          setTeams(json.data || []);
-        }
-      })
+    loadData()
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  async function buyVenue(teamId: string, currency: 'CASH' | 'SOL') {
-    const token = localStorage.getItem('token');
-    setBuying((prev) => ({ ...prev, [`venue-${teamId}-${currency}`]: true }));
+  async function createDevTeam() {
+    if (!devVenueId || !devTeamName.trim()) return;
+    setCreatingDev(true);
     try {
-      const res = await fetch(`/api/teams/${teamId}/venue/buy`, {
+      const res = await fetch('/api/teams/dev', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currency }),
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId: devVenueId, name: devTeamName }),
       });
       const json = await res.json();
       if (json.status === 'success') {
         alert(json.message);
-        const teamsRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
-        const teamsJson = await teamsRes.json();
-        if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
+        await loadData();
+        setDevVenueId(null);
+        setDevTeamName('');
       } else {
-        alert(json.message || 'Purchase failed');
+        alert(json.message || 'Failed to create dev team');
       }
     } catch (e) {
       alert('Network error');
     } finally {
-      setBuying((prev) => ({ ...prev, [`venue-${teamId}-${currency}`]: false }));
+      setCreatingDev(false);
     }
   }
 
-  async function buyTransport(teamId: string, currency: 'CASH' | 'SOL') {
-    const token = localStorage.getItem('token');
-    setBuying((prev) => ({ ...prev, [`transport-${teamId}-${currency}`]: true }));
+  async function leaseVenue(teamId: string, venueId: string) {
+    setLeasingVenue(venueId);
     try {
-      const res = await fetch(`/api/teams/${teamId}/transportation/buy`, {
+      const res = await fetch(`/api/teams/${teamId}/venue/lease`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currency }),
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId }),
       });
       const json = await res.json();
       if (json.status === 'success') {
         alert(json.message);
-        const teamsRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
-        const teamsJson = await teamsRes.json();
-        if (teamsJson.status === 'success') setTeams(teamsJson.data || []);
+        await loadData();
+      } else {
+        alert(json.message || 'Lease failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    } finally {
+      setLeasingVenue(null);
+    }
+  }
+
+  async function listVenueForSale(venueId: string) {
+    const price = parseInt(listPrice, 10);
+    if (!price || price <= 0) return;
+    try {
+      const res = await fetch(`/api/teams/venues/${venueId}/list`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price, currency: listCurrency }),
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        await loadData();
+        setListingVenue(null);
+        setListPrice('');
+      } else {
+        alert(json.message || 'Listing failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function unlistVenue(venueId: string) {
+    try {
+      const res = await fetch(`/api/teams/venues/${venueId}/unlist`, {
+        method: 'POST',
+        headers,
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        await loadData();
+      } else {
+        alert(json.message || 'Unlist failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    }
+  }
+
+  async function buyVenue(venueId: string) {
+    setBuyingId(venueId);
+    try {
+      const res = await fetch(`/api/teams/venues/${venueId}/buy`, {
+        method: 'POST',
+        headers,
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        await loadData();
       } else {
         alert(json.message || 'Purchase failed');
       }
     } catch (e) {
       alert('Network error');
     } finally {
-      setBuying((prev) => ({ ...prev, [`transport-${teamId}-${currency}`]: false }));
+      setBuyingId(null);
+    }
+  }
+
+  async function buyTransport(transportId: string) {
+    setBuyingId(transportId);
+    try {
+      const res = await fetch(`/api/teams/transport/${transportId}/buy`, {
+        method: 'POST',
+        headers,
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert(json.message);
+        await loadData();
+      } else {
+        alert(json.message || 'Purchase failed');
+      }
+    } catch (e) {
+      alert('Network error');
+    } finally {
+      setBuyingId(null);
     }
   }
 
@@ -122,9 +268,7 @@ export default function AssetsPage() {
         <div className="glass-card p-8 text-center">
           <Landmark className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
           <h2 className="text-xl font-black text-white">No teams yet</h2>
-          <p className="mt-2 text-sm text-slate-300">
-            Create a team to get your starter stadium and transportation.
-          </p>
+          <p className="mt-2 text-sm text-slate-300">Create a team to get your starter stadium and transportation.</p>
           <Link to="/team" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-3 font-bold text-white hover:bg-accent/90">
             Create team <ArrowRight className="h-4 w-4" />
           </Link>
@@ -133,32 +277,273 @@ export default function AssetsPage() {
     );
   }
 
-  const tierLabels: Record<string, string> = {
-    PARK_FIELD: 'Park Field',
-    COMMUNITY_FIELD: 'Community Field',
-    SMALL_STADIUM: 'Small Stadium',
-    REGIONAL_STADIUM: 'Regional Stadium',
-    PRO_STADIUM: 'Pro Stadium',
-    CARPOOL: 'Carpool',
-    USED_BUS: 'Used Bus',
-    TEAM_BUS: 'Team Bus',
-    LUXURY_COACH: 'Luxury Coach',
-    CHARTER_FLIGHT: 'Charter Flight',
-    TEAM_AIRCRAFT: 'Team Aircraft',
-    CUSTOM_JET: 'Custom Jet',
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Team Assets</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Stadiums, facilities, and transportation that power your game-day revenue
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Stadiums, facilities, and transportation that power your game-day revenue</p>
         </div>
       </div>
 
+      {/* Stadium Marketplace */}
+      {marketplaceVenues.length > 0 && (
+        <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Store className="h-5 w-5 text-[#E94560]" />
+            <h3 className="font-bold text-white">Stadium Marketplace</h3>
+            <span className="text-xs text-slate-500 ml-2">({marketplaceVenues.length} for sale)</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {marketplaceVenues.map((venue) => (
+              <div key={venue.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="font-bold text-white">{venue.name}</div>
+                <div className="text-xs text-slate-400 mt-1">{tierLabels[venue.tier] || venue.tier}</div>
+                <div className="text-xs text-slate-500 mt-1">{venue.capacity.toLocaleString()} capacity • ${venue.ticketPrice}/ticket</div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className={`font-bold ${currencyColors[venue.saleCurrency || 'CASH']}`}>
+                    {venue.salePrice?.toLocaleString()} {venue.saleCurrency}
+                  </span>
+                  <button
+                    onClick={() => buyVenue(venue.id)}
+                    disabled={buyingId === venue.id}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#E94560] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#E94560]/90 disabled:opacity-50"
+                  >
+                    <ShoppingCart className="h-3 w-3" />
+                    {buyingId === venue.id ? 'Buying...' : 'Buy'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Stadiums for Lease */}
+      {forLeaseVenues.length > 0 && (
+        <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <HandCoins className="h-5 w-5 text-[#E94560]" />
+            <h3 className="font-bold text-white">Stadiums for Lease</h3>
+            <span className="text-xs text-slate-500 ml-2">({forLeaseVenues.length} available)</span>
+          </div>
+          <p className="text-xs text-slate-400 mb-3">Lease a larger stadium from another player. You pay {Math.round((forLeaseVenues[0]?.leaseRate || 0.1) * 100)}% of ticket revenue to the owner.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {forLeaseVenues.map((venue) => (
+              <div key={venue.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="font-bold text-white">{venue.name}</div>
+                <div className="text-xs text-slate-400 mt-1">{tierLabels[venue.tier] || venue.tier}</div>
+                <div className="text-xs text-slate-500 mt-1">{venue.capacity.toLocaleString()} capacity • ${venue.ticketPrice}/ticket</div>
+                <div className="mt-3">
+                  {teams.map((team) => (
+                    <button
+                      key={team.id}
+                      onClick={() => leaseVenue(team.id, venue.id)}
+                      disabled={leasingVenue === venue.id}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-[#E94560]/30 bg-[#E94560]/10 px-3 py-2 text-xs font-bold text-[#E94560] hover:bg-[#E94560]/20 disabled:opacity-50"
+                    >
+                      <HandCoins className="h-3 w-3" />
+                      {leasingVenue === venue.id ? 'Leasing...' : `Lease for ${team.name}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Available Venues (your unused stadiums) */}
+      {availableVenues.length > 0 && (
+        <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <MapPin className="h-5 w-5 text-[#E94560]" />
+            <h3 className="font-bold text-white">Your Available Stadiums</h3>
+            <span className="text-xs text-slate-500 ml-2">({availableVenues.length} unused)</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {availableVenues.map((venue) => (
+              <div key={venue.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="font-bold text-white">{venue.name}</div>
+                <div className="text-xs text-slate-400 mt-1">{tierLabels[venue.tier] || venue.tier}</div>
+                <div className="text-xs text-slate-500 mt-1">{venue.capacity.toLocaleString()} capacity • ${venue.ticketPrice}/ticket</div>
+                <div className="mt-3 flex gap-2">
+                  {venue.isForSale ? (
+                    <button
+                      onClick={() => unlistVenue(venue.id)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-white/10"
+                    >
+                      <X className="h-3 w-3" /> Unlist
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setListingVenue(venue.id)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-[#E94560]/30 bg-[#E94560]/10 px-3 py-2 text-xs font-bold text-[#E94560] hover:bg-[#E94560]/20"
+                    >
+                      <Tag className="h-3 w-3" /> List for Sale
+                    </button>
+                  )}
+                  {teams.length < 3 && (
+                    <button
+                      onClick={() => setDevVenueId(venue.id)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20"
+                    >
+                      <Plus className="h-3 w-3" /> Dev Team
+                    </button>
+                  )}
+                </div>
+                {venue.isForSale && (
+                  <div className="mt-2 text-xs text-slate-500">
+                    Listed for <span className={`font-bold ${currencyColors[venue.saleCurrency || 'CASH']}`}>{venue.salePrice?.toLocaleString()} {venue.saleCurrency}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Listing Modal */}
+      {listingVenue && (
+        <div className="rounded-3xl border border-white/10 bg-card/80 backdrop-blur-md p-6">
+          <h3 className="font-bold text-white mb-4">List Stadium for Sale</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">Price</label>
+              <input
+                type="number"
+                value={listPrice}
+                onChange={(e) => setListPrice(e.target.value)}
+                placeholder="e.g., 50000"
+                className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder:text-slate-600 focus:border-[#E94560] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">Currency</label>
+              <div className="flex gap-2">
+                {(['CASH', 'GRID', 'SOL'] as const).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setListCurrency(c)}
+                    className={`flex-1 rounded-xl border px-4 py-3 text-sm font-bold transition-all ${
+                      listCurrency === c
+                        ? 'border-[#E94560] bg-[#E94560]/10 text-white'
+                        : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => listVenueForSale(listingVenue)}
+                disabled={!listPrice || parseInt(listPrice, 10) <= 0}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#E94560] px-4 py-3 font-bold text-white hover:bg-[#E94560]/90 disabled:opacity-50"
+              >
+                <Tag className="h-4 w-4" /> List for Sale
+              </button>
+              <button
+                onClick={() => { setListingVenue(null); setListPrice(''); }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 font-bold text-white hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dev Team Creation Modal */}
+      {devVenueId && (
+        <div className="rounded-3xl border border-white/10 bg-card/80 backdrop-blur-md p-6">
+          <h3 className="font-bold text-white mb-4">Start a Development Team</h3>
+          <p className="text-sm text-slate-400 mb-4">Create a new entry-level team in one of your available stadiums. Develop players and sell them on the marketplace.</p>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">Select Stadium</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {availableVenues.map((venue) => (
+                  <button
+                    key={venue.id}
+                    onClick={() => setDevVenueId(venue.id)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      devVenueId === venue.id
+                        ? 'border-[#E94560] bg-[#E94560]/10'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="font-bold text-white text-sm">{venue.name}</div>
+                    <div className="text-xs text-slate-400">{tierLabels[venue.tier] || venue.tier} • {venue.capacity.toLocaleString()} capacity</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-slate-400 mb-2 block">Team Name</label>
+              <input
+                type="text"
+                value={devTeamName}
+                onChange={(e) => setDevTeamName(e.target.value)}
+                placeholder="e.g., JV Development Squad"
+                className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder:text-slate-600 focus:border-[#E94560] focus:outline-none"
+                maxLength={50}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={createDevTeam}
+                disabled={creatingDev || !devTeamName.trim()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#E94560] px-4 py-3 font-bold text-white hover:bg-[#E94560]/90 disabled:opacity-50"
+              >
+                {creatingDev ? 'Creating...' : 'Create Dev Team'}
+              </button>
+              <button
+                onClick={() => { setDevVenueId(null); setDevTeamName(''); }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 font-bold text-white hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transport Marketplace */}
+      {marketplaceTransport.length > 0 && (
+        <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Bus className="h-5 w-5 text-[#E94560]" />
+            <h3 className="font-bold text-white">Transport Marketplace</h3>
+            <span className="text-xs text-slate-500 ml-2">({marketplaceTransport.length} for sale)</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {marketplaceTransport.map((t) => (
+              <div key={t.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="font-bold text-white">{t.name}</div>
+                <div className="text-xs text-slate-400 mt-1">{tierLabels[t.tier] || t.tier}</div>
+                <div className="text-xs text-slate-500 mt-1">{t.operatingCost} CASH/trip • Fatigue -{t.fatigueReduction}</div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className={`font-bold ${currencyColors[t.saleCurrency || 'CASH']}`}>
+                    {t.salePrice?.toLocaleString()} {t.saleCurrency}
+                  </span>
+                  <button
+                    onClick={() => buyTransport(t.id)}
+                    disabled={buyingId === t.id}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#E94560] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#E94560]/90 disabled:opacity-50"
+                  >
+                    <ShoppingCart className="h-3 w-3" />
+                    {buyingId === t.id ? 'Buying...' : 'Buy'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Your Teams */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {teams.map((team) => (
           <div key={team.id} className="space-y-4">
@@ -176,12 +561,7 @@ export default function AssetsPage() {
                     {team.venue ? tierLabels[team.venue.tier] || team.venue.tier : 'No venue'}
                   </div>
                 </div>
-                {team.venue && team.venue.ownerId !== AI_OWNER_ID && (
-                  <span className="text-xs bg-emerald-400/20 text-emerald-300 px-2 py-1 rounded-full">Owned</span>
-                )}
-                {team.venue && team.venue.ownerId === AI_OWNER_ID && (
-                  <span className="text-xs bg-amber-400/20 text-amber-300 px-2 py-1 rounded-full">Leased</span>
-                )}
+                <span className="text-xs bg-emerald-400/20 text-emerald-300 px-2 py-1 rounded-full">Owned</span>
               </div>
 
               {team.venue ? (
@@ -204,54 +584,24 @@ export default function AssetsPage() {
                       <div className="text-white font-bold">{team.venue.prestige}</div>
                     </div>
                   </div>
-                  <Link
-                    to="/stadium/interior"
-                    className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[#E94560]/30 bg-[#E94560]/10 px-4 py-2.5 font-bold text-[#E94560] hover:bg-[#E94560]/20 transition-colors"
-                  >
-                    <Wrench className="h-4 w-4" />
-                    View Stadium Interior
-                  </Link>
+                  <div className="mt-4 flex gap-3">
+                    <Link
+                      to="/stadium/interior"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-[#E94560]/30 bg-[#E94560]/10 px-4 py-2.5 font-bold text-[#E94560] hover:bg-[#E94560]/20 transition-colors"
+                    >
+                      <Wrench className="h-4 w-4" />
+                      View Stadium Interior
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-slate-300">No venue assigned to this team.</p>
               )}
 
-              {team.venue && team.venue.ownerId === AI_OWNER_ID && team.venue.purchasePrice && (
-                <div className="mt-4 space-y-2">
-                  <button
-                    onClick={() => buyVenue(team.id, 'CASH')}
-                    disabled={buying[`venue-${team.id}-CASH`]}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    {buying[`venue-${team.id}-CASH`] ? 'Processing...' : `Buy for ${team.venue.purchasePrice.toLocaleString()} CASH`}
-                  </button>
-                  {team.venue.solPrice && (
-                    <button
-                      onClick={() => buyVenue(team.id, 'SOL')}
-                      disabled={buying[`venue-${team.id}-SOL`]}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-purple-500/80 px-4 py-2.5 font-bold text-white hover:bg-purple-600 disabled:opacity-50"
-                    >
-                      <ShoppingCart className="h-4 w-4" />
-                      {buying[`venue-${team.id}-SOL`] ? 'Processing...' : `Buy for ${team.venue.solPrice} SOL (Save ${Math.round((1 - (team.venue.solPrice * 10000 / team.venue.purchasePrice)) * 100)}%)`}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {team.venue && team.venue.ownerId === AI_OWNER_ID && (
-                <div className="mt-3 rounded-xl bg-amber-300/10 border border-amber-300/20 p-3 text-sm text-amber-100">
-                  <ArrowUp className="inline h-4 w-4 mr-1" />
-                  Leased: {Math.round(team.venue.leaseRate * 100)}% of ticket revenue goes to the venue owner on game days.
-                </div>
-              )}
-
-              {team.venue && team.venue.ownerId !== AI_OWNER_ID && (
-                <div className="mt-3 rounded-xl bg-emerald-300/10 border border-emerald-300/20 p-3 text-sm text-emerald-100">
-                  <ArrowUp className="inline h-4 w-4 mr-1" />
-                  You own this venue. You receive 100% of game-day revenue.
-                </div>
-              )}
+              <div className="mt-3 rounded-xl bg-emerald-300/10 border border-emerald-300/20 p-3 text-sm text-emerald-100">
+                <ArrowUp className="inline h-4 w-4 mr-1" />
+                You own this venue. You receive 100% of game-day ticket revenue plus away team entry fees.
+              </div>
             </div>
 
             {/* Transport Card */}
@@ -268,12 +618,7 @@ export default function AssetsPage() {
                       : 'No transport'}
                   </div>
                 </div>
-                {team.transportationAssets[0] && team.transportationAssets[0].ownerId !== AI_OWNER_ID && (
-                  <span className="text-xs bg-emerald-400/20 text-emerald-300 px-2 py-1 rounded-full">Owned</span>
-                )}
-                {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && (
-                  <span className="text-xs bg-amber-400/20 text-amber-300 px-2 py-1 rounded-full">Leased</span>
-                )}
+                <span className="text-xs bg-emerald-400/20 text-emerald-300 px-2 py-1 rounded-full">Owned</span>
               </div>
 
               {team.transportationAssets.length > 0 ? (
@@ -290,47 +635,22 @@ export default function AssetsPage() {
                       </div>
                     </div>
                   ))}
+                  <Link
+                    to="/garage"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[#E94560]/30 bg-[#E94560]/10 px-4 py-2.5 font-bold text-[#E94560] hover:bg-[#E94560]/20 transition-colors"
+                  >
+                    <Wrench className="h-4 w-4" />
+                    View Transport Garage
+                  </Link>
                 </div>
               ) : (
                 <p className="text-sm text-slate-300">No transportation assigned to this team.</p>
               )}
 
-              {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && team.transportationAssets[0].purchasePrice && (
-                <div className="mt-4 space-y-2">
-                  <button
-                    onClick={() => buyTransport(team.id, 'CASH')}
-                    disabled={buying[`transport-${team.id}-CASH`]}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 font-bold text-white hover:bg-amber-600 disabled:opacity-50"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    {buying[`transport-${team.id}-CASH`] ? 'Processing...' : `Buy for ${team.transportationAssets[0].purchasePrice.toLocaleString()} CASH`}
-                  </button>
-                  {team.transportationAssets[0].solPrice && (
-                    <button
-                      onClick={() => buyTransport(team.id, 'SOL')}
-                      disabled={buying[`transport-${team.id}-SOL`]}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-purple-500/80 px-4 py-2.5 font-bold text-white hover:bg-purple-600 disabled:opacity-50"
-                    >
-                      <ShoppingCart className="h-4 w-4" />
-                      {buying[`transport-${team.id}-SOL`] ? 'Processing...' : `Buy for ${team.transportationAssets[0].solPrice} SOL (Save ${Math.round((1 - (team.transportationAssets[0].solPrice * 10000 / team.transportationAssets[0].purchasePrice)) * 100)}%)`}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {team.transportationAssets[0] && team.transportationAssets[0].ownerId === AI_OWNER_ID && (
-                <div className="mt-3 rounded-xl bg-amber-300/10 border border-amber-300/20 p-3 text-sm text-amber-100">
-                  <ArrowDown className="inline h-4 w-4 mr-1" />
-                  Leased: operating costs go to the owner. Buy to reduce costs by 50%.
-                </div>
-              )}
-
-              {team.transportationAssets[0] && team.transportationAssets[0].ownerId !== AI_OWNER_ID && (
-                <div className="mt-3 rounded-xl bg-emerald-300/10 border border-emerald-300/20 p-3 text-sm text-emerald-100">
-                  <ArrowDown className="inline h-4 w-4 mr-1" />
-                  You own this transportation. Operating costs reduced by 50%.
-                </div>
-              )}
+              <div className="mt-3 rounded-xl bg-emerald-300/10 border border-emerald-300/20 p-3 text-sm text-emerald-100">
+                <ArrowUp className="inline h-4 w-4 mr-1" />
+                You own this transportation. Operating costs are standard.
+              </div>
             </div>
           </div>
         ))}

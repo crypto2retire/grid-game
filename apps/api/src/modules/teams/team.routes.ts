@@ -67,6 +67,7 @@ router.post(
       await tx.venue.create({
         data: {
           teamId: newTeam.id,
+          ownerId: userId, // Player owns their stadium from day one
           sportId: input.sportId,
           name: `${input.name} Community Field`,
           tier: 'PARK_FIELD',
@@ -81,6 +82,7 @@ router.post(
       await tx.transportationAsset.create({
         data: {
           teamId: newTeam.id,
+          ownerId: userId, // Player owns their transport from day one
           tier: 'CARPOOL',
           name: 'Carpool / Rental Vans',
           operatingCost: 100,
@@ -398,14 +400,18 @@ router.post(
     };
 
     await prisma.$transaction(async (tx: any) => {
-      // Delete old venue if exists
+      // Unlink old venue (preserve it for other teams or dev use)
       if (team.venue) {
-        await tx.venue.delete({ where: { id: team.venue.id } });
+        await tx.venue.update({
+          where: { id: team.venue.id },
+          data: { teamId: null }, // Old stadium becomes available
+        });
       }
       // Create new venue
       await tx.venue.create({
         data: {
           teamId: team.id,
+          ownerId: userId, // Stadium stays with the player
           sportId: team.sportId,
           name: input.name,
           tier: input.tier,
@@ -478,12 +484,16 @@ router.post(
     }
 
     await prisma.$transaction(async (tx: any) => {
-      // Delete old transportation
-      await tx.transportationAsset.deleteMany({ where: { teamId: team.id } });
+      // Unlink old transportation (preserve it for other teams or dev use)
+      await tx.transportationAsset.updateMany({
+        where: { teamId: team.id },
+        data: { teamId: null },
+      });
       // Create new
       await tx.transportationAsset.create({
         data: {
           teamId: team.id,
+          ownerId: userId, // Transport stays with the player
           tier: input.tier,
           name: input.name,
           operatingCost: input.operatingCost,
@@ -790,6 +800,477 @@ router.post(
     });
 
     res.json({ status: 'success', data: fullTeam, message: `Generated ${fullTeam?.teamPlayers?.length || 0} players for ${team.name}` });
+  })
+);
+
+// ─── Available Venues (for dev team creation) ───
+
+router.get(
+  '/venues/available',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const venues = await prisma.venue.findMany({
+      where: { ownerId: userId, teamId: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ status: 'success', data: venues });
+  })
+);
+
+// ─── Development Team Creation ───
+
+router.post(
+  '/dev',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const schema = z.object({
+      venueId: z.string().uuid(),
+      name: z.string().min(1).max(50),
+    });
+    const input = schema.parse(req.body);
+
+    const teamCount = await prisma.team.count({ where: { ownerId: userId } });
+    if (teamCount >= 3) {
+      throw new AppError(400, 'Maximum team limit reached (3)');
+    }
+
+    const venue = await prisma.venue.findFirst({
+      where: { id: input.venueId, ownerId: userId, teamId: null },
+    });
+    if (!venue) {
+      throw new AppError(400, 'Venue not found, not owned by you, or already in use');
+    }
+
+    const team = await prisma.$transaction(async (tx: any) => {
+      const newTeam = await tx.team.create({
+        data: {
+          name: input.name,
+          sportId: venue.sportId,
+          ownerId: userId,
+          tier: 'STATE_COLLEGE',
+          isFree: true,
+          purchasePrice: 0,
+          purchaseCurrency: 'FREE',
+          formation: '4-3-3',
+          tactics: { formation: '4-3-3', sportId: venue.sportId },
+        },
+      });
+
+      await tx.venue.update({
+        where: { id: venue.id },
+        data: { teamId: newTeam.id },
+      });
+
+      await tx.transportationAsset.create({
+        data: {
+          teamId: newTeam.id,
+          ownerId: userId,
+          tier: 'CARPOOL',
+          name: 'Carpool / Rental Vans',
+          operatingCost: 100,
+          fatigueReduction: 0,
+          prestige: 0,
+        },
+      });
+
+      await tx.teamLeagueMembership.create({
+        data: {
+          teamId: newTeam.id,
+          leagueId: 'local-rec-football',
+          season: 'beta',
+          status: 'ACTIVE',
+        },
+      });
+
+      return newTeam;
+    });
+
+    await generateAIPlayers(team.id);
+
+    const fullTeam = await prisma.team.findUnique({
+      where: { id: team.id },
+      include: {
+        teamPlayers: { include: { player: true } },
+        venue: true,
+        transportationAssets: true,
+        leagueMemberships: { include: { league: true } },
+      },
+    });
+
+    res.status(201).json({ status: 'success', data: fullTeam, message: `Development team ${input.name} created in ${venue.name}` });
+  })
+);
+
+// ─── Stadium Leasing Between Players ───
+
+// GET /api/teams/venues/for-lease — list player-owned venues available for lease
+router.get(
+  '/venues/for-lease',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const venues = await prisma.venue.findMany({
+      where: {
+        ownerId: { not: userId },
+        teamId: null,
+        isForSale: false,
+      },
+      orderBy: { tier: 'asc' },
+    });
+    res.json({ status: 'success', data: venues });
+  })
+);
+
+// POST /api/teams/:id/venue/lease — lease a venue to your team
+router.post(
+  '/:id/venue/lease',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+    const schema = z.object({ venueId: z.string().uuid() });
+    const input = schema.parse(req.body);
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+      include: { venue: true },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+
+    const venue = await prisma.venue.findFirst({
+      where: { id: input.venueId, ownerId: { not: userId }, teamId: null, isForSale: false },
+    });
+    if (!venue) {
+      throw new AppError(400, 'Venue not available for lease');
+    }
+
+    await prisma.$transaction(async (tx: any) => {
+      // Unlink current venue if any
+      if (team.venue) {
+        await tx.venue.update({
+          where: { id: team.venue.id },
+          data: { teamId: null },
+        });
+      }
+      // Link new venue
+      await tx.venue.update({
+        where: { id: venue.id },
+        data: { teamId: team.id },
+      });
+    });
+
+    res.json({ status: 'success', message: `Leased ${venue.name} for your team. ${Math.round(venue.leaseRate * 100)}% of ticket revenue goes to ${venue.ownerId}.` });
+  })
+);
+
+// ─── Stadium Marketplace (Standalone Venue Sales) ───
+
+// GET /api/teams/venues/marketplace — list player-owned venues for sale
+router.get(
+  '/venues/marketplace',
+  authMiddleware,
+  asyncHandler(async (_req: AuthRequest, res) => {
+    const venues = await prisma.venue.findMany({
+      where: { isForSale: true, teamId: null },
+      orderBy: { salePrice: 'asc' },
+    });
+    res.json({ status: 'success', data: venues });
+  })
+);
+
+// POST /api/teams/venues/:venueId/list — list your venue for sale
+router.post(
+  '/venues/:venueId/list',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const venueId = routeParam(req.params.venueId, 'venueId');
+    const schema = z.object({
+      price: z.number().int().positive(),
+      currency: z.enum(['CASH', 'GRID', 'SOL']).default('CASH'),
+    });
+    const input = schema.parse(req.body);
+
+    const venue = await prisma.venue.findFirst({
+      where: { id: venueId, ownerId: userId, teamId: null },
+    });
+    if (!venue) {
+      throw new AppError(400, 'Venue not found or still in use by a team');
+    }
+    if (venue.isForSale) {
+      throw new AppError(400, 'Venue is already listed for sale');
+    }
+
+    await prisma.venue.update({
+      where: { id: venueId },
+      data: {
+        isForSale: true,
+        salePrice: input.price,
+        saleCurrency: input.currency,
+        saleListedAt: new Date(),
+      },
+    });
+
+    res.json({ status: 'success', message: `${venue.name} listed for ${input.price.toLocaleString()} ${input.currency}` });
+  })
+);
+
+// POST /api/teams/venues/:venueId/unlist — remove venue listing
+router.post(
+  '/venues/:venueId/unlist',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const venueId = routeParam(req.params.venueId, 'venueId');
+
+    const venue = await prisma.venue.findFirst({
+      where: { id: venueId, ownerId: userId },
+    });
+    if (!venue) {
+      throw new AppError(403, 'Venue not found or you do not own it');
+    }
+
+    await prisma.venue.update({
+      where: { id: venueId },
+      data: { isForSale: false, salePrice: null, saleListedAt: null },
+    });
+
+    res.json({ status: 'success', message: `${venue.name} removed from marketplace` });
+  })
+);
+
+// POST /api/teams/venues/:venueId/buy — buy a standalone venue from another player
+router.post(
+  '/venues/:venueId/buy',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const venueId = routeParam(req.params.venueId, 'venueId');
+
+    const venue = await prisma.venue.findFirst({
+      where: { id: venueId, isForSale: true, teamId: null },
+    });
+    if (!venue) {
+      throw new AppError(404, 'Venue not found or not for sale');
+    }
+    if (venue.ownerId === userId) {
+      throw new AppError(400, 'You cannot buy your own venue');
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+
+    const price = venue.salePrice || 0;
+    const currency = venue.saleCurrency || 'CASH';
+
+    if (currency === 'CASH') {
+      if (wallet.cash < price) {
+        throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
+      }
+    } else if (currency === 'GRID') {
+      if (wallet.gridTokens < price) {
+        throw new AppError(400, `Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+      }
+    } else {
+      if ((wallet.solBalance || 0) < price) {
+        throw new AppError(400, `Insufficient SOL. Need ${price} SOL`);
+      }
+    }
+
+    const sellerId = venue.ownerId;
+
+    await prisma.$transaction(async (tx: any) => {
+      // Transfer ownership
+      await tx.venue.update({
+        where: { id: venueId },
+        data: { ownerId: userId, isForSale: false, salePrice: null, saleListedAt: null },
+      });
+
+      if (currency === 'CASH') {
+        await tx.wallet.update({ where: { userId }, data: { cash: { decrement: price } } });
+        if (sellerId) {
+          await tx.wallet.update({ where: { userId: sellerId }, data: { cash: { increment: price } } });
+        }
+      } else if (currency === 'GRID') {
+        await tx.wallet.update({ where: { userId }, data: { gridTokens: { decrement: price } } });
+        if (sellerId) {
+          await tx.wallet.update({ where: { userId: sellerId }, data: { gridTokens: { increment: price } } });
+        }
+      } else {
+        await tx.wallet.update({ where: { userId }, data: { solBalance: { decrement: price } } });
+        if (sellerId) {
+          await tx.wallet.update({ where: { userId: sellerId }, data: { solBalance: { increment: price } } });
+        }
+      }
+    });
+
+    res.json({ status: 'success', message: `You now own ${venue.name}` });
+  })
+);
+
+// ─── Transport Preservation & Marketplace ───
+
+// GET /api/teams/transport/available — your transport not assigned to any team
+router.get(
+  '/transport/available',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const transport = await prisma.transportationAsset.findMany({
+      where: { ownerId: userId, teamId: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ status: 'success', data: transport });
+  })
+);
+
+// GET /api/teams/transport/marketplace — list transport for sale
+router.get(
+  '/transport/marketplace',
+  authMiddleware,
+  asyncHandler(async (_req: AuthRequest, res) => {
+    const transport = await prisma.transportationAsset.findMany({
+      where: { isForSale: true, teamId: null },
+      orderBy: { salePrice: 'asc' },
+    });
+    res.json({ status: 'success', data: transport });
+  })
+);
+
+// POST /api/teams/transport/:transportId/list — list your transport for sale
+router.post(
+  '/transport/:transportId/list',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const transportId = routeParam(req.params.transportId, 'transportId');
+    const schema = z.object({
+      price: z.number().int().positive(),
+      currency: z.enum(['CASH', 'GRID', 'SOL']).default('CASH'),
+    });
+    const input = schema.parse(req.body);
+
+    const transport = await prisma.transportationAsset.findFirst({
+      where: { id: transportId, ownerId: userId, teamId: null },
+    });
+    if (!transport) {
+      throw new AppError(400, 'Transport not found or still in use by a team');
+    }
+    if (transport.isForSale) {
+      throw new AppError(400, 'Transport is already listed for sale');
+    }
+
+    await prisma.transportationAsset.update({
+      where: { id: transportId },
+      data: {
+        isForSale: true,
+        salePrice: input.price,
+        saleCurrency: input.currency,
+        saleListedAt: new Date(),
+      },
+    });
+
+    res.json({ status: 'success', message: `${transport.name} listed for ${input.price.toLocaleString()} ${input.currency}` });
+  })
+);
+
+// POST /api/teams/transport/:transportId/unlist — remove transport listing
+router.post(
+  '/transport/:transportId/unlist',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const transportId = routeParam(req.params.transportId, 'transportId');
+
+    const transport = await prisma.transportationAsset.findFirst({
+      where: { id: transportId, ownerId: userId },
+    });
+    if (!transport) {
+      throw new AppError(403, 'Transport not found or you do not own it');
+    }
+
+    await prisma.transportationAsset.update({
+      where: { id: transportId },
+      data: { isForSale: false, salePrice: null, saleListedAt: null },
+    });
+
+    res.json({ status: 'success', message: `${transport.name} removed from marketplace` });
+  })
+);
+
+// POST /api/teams/transport/:transportId/buy — buy standalone transport from another player
+router.post(
+  '/transport/:transportId/buy',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const transportId = routeParam(req.params.transportId, 'transportId');
+
+    const transport = await prisma.transportationAsset.findFirst({
+      where: { id: transportId, isForSale: true, teamId: null },
+    });
+    if (!transport) {
+      throw new AppError(404, 'Transport not found or not for sale');
+    }
+    if (transport.ownerId === userId) {
+      throw new AppError(400, 'You cannot buy your own transport');
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+
+    const price = transport.salePrice || 0;
+    const currency = transport.saleCurrency || 'CASH';
+
+    if (currency === 'CASH') {
+      if (wallet.cash < price) {
+        throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
+      }
+    } else if (currency === 'GRID') {
+      if (wallet.gridTokens < price) {
+        throw new AppError(400, `Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+      }
+    } else {
+      if ((wallet.solBalance || 0) < price) {
+        throw new AppError(400, `Insufficient SOL. Need ${price} SOL`);
+      }
+    }
+
+    const sellerId = transport.ownerId;
+
+    await prisma.$transaction(async (tx: any) => {
+      await tx.transportationAsset.update({
+        where: { id: transportId },
+        data: { ownerId: userId, isForSale: false, salePrice: null, saleListedAt: null },
+      });
+
+      if (currency === 'CASH') {
+        await tx.wallet.update({ where: { userId }, data: { cash: { decrement: price } } });
+        if (sellerId) {
+          await tx.wallet.update({ where: { userId: sellerId }, data: { cash: { increment: price } } });
+        }
+      } else if (currency === 'GRID') {
+        await tx.wallet.update({ where: { userId }, data: { gridTokens: { decrement: price } } });
+        if (sellerId) {
+          await tx.wallet.update({ where: { userId: sellerId }, data: { gridTokens: { increment: price } } });
+        }
+      } else {
+        await tx.wallet.update({ where: { userId }, data: { solBalance: { decrement: price } } });
+        if (sellerId) {
+          await tx.wallet.update({ where: { userId: sellerId }, data: { solBalance: { increment: price } } });
+        }
+      }
+    });
+
+    res.json({ status: 'success', message: `You now own ${transport.name}` });
   })
 );
 

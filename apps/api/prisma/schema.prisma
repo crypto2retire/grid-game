@@ -136,6 +136,11 @@ model Venue {
   leaseRate   Float    @default(0.10) // % of ticket revenue paid to venue owner
   purchasePrice Int?
   solPrice      Float?   // SOL price (discounted vs CASH equivalent)
+  // ─── P2P Marketplace ───
+  isForSale   Boolean  @default(false)
+  salePrice   Int?
+  saleCurrency String @default("CASH") // CASH | GRID | SOL
+  saleListedAt DateTime?
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -144,6 +149,7 @@ model Venue {
 
   @@index([sportId, tier])
   @@index([ownerId])
+  @@index([isForSale])
 }
 
 model StadiumUpgrade {
@@ -170,12 +176,18 @@ model TransportationAsset {
   prestige       Int      @default(0)
   purchasePrice  Int?
   solPrice       Float?   // SOL price (discounted vs CASH equivalent)
+  // ─── P2P Marketplace ───
+  isForSale   Boolean  @default(false)
+  salePrice   Int?
+  saleCurrency String @default("CASH") // CASH | GRID | SOL
+  saleListedAt DateTime?
   metadata       Json     @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([teamId])
   @@index([ownerId])
+  @@index([isForSale])
 }
 
 model Sponsorship {
