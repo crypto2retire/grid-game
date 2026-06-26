@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import Layout from './components/Layout';
+import WorldLayout from './components/WorldLayout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
+import CityPage from './pages/CityPage';
 import TeamPage from './pages/TeamPage';
 import PlayersPage from './pages/PlayersPage';
 import MatchPage from './pages/MatchPage';
@@ -40,8 +40,9 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route element={<Layout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
+      <Route element={<WorldLayout />}>
+        <Route path="/city" element={<CityPage />} />
+        <Route path="/dashboard" element={<CityPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/team/:id" element={<TeamPage />} />
         <Route path="/players" element={<PlayersPage />} />
