@@ -16,6 +16,11 @@ import {
   BarChart3,
   ChevronLeft,
 } from 'lucide-react';
+import MatchDayAtmosphere, { type WeatherType } from '../components/match/MatchDayAtmosphere';
+
+const WEATHER_OPTIONS: WeatherType[] = ['sunny', 'cloudy', 'rain', 'snow', 'fog', 'night', 'windy'];
+const TIER_FALLBACK = 'PRO_STADIUM';
+const CAPACITY_FALLBACK = 65000;
 
 interface RosterPlayer {
   playerId: string;
@@ -126,7 +131,7 @@ export default function PlayableMatchPage() {
   const { id } = useParams<{ id: string }>();
   const matchId = id;
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<'LOADING' | 'INIT' | 'PREGAME' | 'PLAYING' | 'RESULT' | 'POSTGAME'>('LOADING');
+  const [phase, setPhase] = useState<'LOADING' | 'INIT' | 'ATMOSPHERE' | 'PREGAME' | 'PLAYING' | 'RESULT' | 'POSTGAME'>('LOADING');
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [homeRoster, setHomeRoster] = useState<RosterPlayer[]>([]);
   const [awayRoster, setAwayRoster] = useState<RosterPlayer[]>([]);
@@ -139,6 +144,8 @@ export default function PlayableMatchPage() {
   const [animating, setAnimating] = useState(false);
   const [postGameData, setPostGameData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [venueData, setVenueData] = useState<{ name: string; tier: string; capacity: number } | null>(null);
+  const [weather, setWeather] = useState<WeatherType>('sunny');
 
   const token = localStorage.getItem('token');
 
@@ -206,7 +213,31 @@ export default function PlayableMatchPage() {
         const defaultStarters = roster.slice(0, 11).map((p: RosterPlayer) => p.playerId);
         setSelectedOffense(defaultStarters);
         setSelectedDefense(defaultStarters);
-        setPhase('PREGAME');
+
+        // Fetch venue data for atmosphere
+        try {
+          const venueRes = await fetch('/api/teams/mine', { headers: { Authorization: `Bearer ${token}` } });
+          if (venueRes.ok) {
+            const venueJson = await venueRes.json();
+            const teams = venueJson.data || [];
+            const homeTeam = teams.find((t: any) => t.id === data.data.match.homeTeamId);
+            if (homeTeam?.venue) {
+              setVenueData({
+                name: homeTeam.venue.name,
+                tier: homeTeam.venue.tier,
+                capacity: homeTeam.venue.capacity,
+              });
+            } else {
+              setVenueData({ name: 'The Gridiron', tier: TIER_FALLBACK, capacity: CAPACITY_FALLBACK });
+            }
+          }
+        } catch {
+          setVenueData({ name: 'The Gridiron', tier: TIER_FALLBACK, capacity: CAPACITY_FALLBACK });
+        }
+
+        // Random weather
+        setWeather(WEATHER_OPTIONS[Math.floor(Math.random() * WEATHER_OPTIONS.length)]);
+        setPhase('ATMOSPHERE');
       } else {
         const data = await res.json();
         setError(data.message || 'Failed to initialize game');
@@ -423,6 +454,24 @@ export default function PlayableMatchPage() {
             You&apos;ll set your lineup and playbook before kickoff.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // ─── ATMOSPHERE ───
+  if (phase === 'ATMOSPHERE') {
+    return (
+      <div className="p-4 max-w-5xl mx-auto">
+        <MatchDayAtmosphere
+          homeTeamName={gameState?.homeTeam.name || 'Home'}
+          awayTeamName={gameState?.awayTeam.name || 'Away'}
+          venueName={venueData?.name || 'The Gridiron'}
+          venueTier={venueData?.tier || TIER_FALLBACK}
+          capacity={venueData?.capacity || CAPACITY_FALLBACK}
+          weather={weather}
+          onKickoff={() => setPhase('PREGAME')}
+          onSkip={() => setPhase('PREGAME')}
+        />
       </div>
     );
   }
