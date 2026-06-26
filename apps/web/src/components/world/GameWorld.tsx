@@ -21,31 +21,31 @@ interface Building {
 
 const BUILDINGS: Building[] = [
   {
-    id: 'stadium', label: 'Stadium', route: '/stadium/interior', icon: Shield, x: 420, y: 80, width: 160, height: 120, color: '#1e3a5f', accent: '#22c55e', tier: 3,
+    id: 'stadium', label: 'Stadium', route: '/stadium/interior', icon: Shield, x: 420, y: 60, width: 160, height: 120, color: '#1e3a5f', accent: '#22c55e', tier: 3,
   },
   {
-    id: 'transport', label: 'Garage', route: '/garage', icon: Bus, x: 80, y: 280, width: 140, height: 100, color: '#451a03', accent: '#fbbf24', tier: 2,
+    id: 'transport', label: 'Garage', route: '/garage', icon: Bus, x: 80, y: 240, width: 140, height: 100, color: '#451a03', accent: '#fbbf24', tier: 2,
   },
   {
-    id: 'training', label: 'Training', route: '/training', icon: Dumbbell, x: 780, y: 280, width: 140, height: 100, color: '#3f0f3f', accent: '#a855f7', tier: 2,
+    id: 'training', label: 'Training', route: '/training', icon: Dumbbell, x: 780, y: 240, width: 140, height: 100, color: '#3f0f3f', accent: '#a855f7', tier: 2,
   },
   {
-    id: 'market', label: 'Market', route: '/marketplace', icon: ShoppingCart, x: 80, y: 480, width: 140, height: 100, color: '#3f2e0f', accent: '#f59e0b', tier: 2,
+    id: 'market', label: 'Market', route: '/marketplace', icon: ShoppingCart, x: 80, y: 420, width: 140, height: 100, color: '#3f2e0f', accent: '#f59e0b', tier: 2,
   },
   {
-    id: 'team', label: 'Team Office', route: '/team', icon: Store, x: 430, y: 480, width: 140, height: 100, color: '#1e293b', accent: '#3b82f6', tier: 2,
+    id: 'team', label: 'Team Office', route: '/team', icon: Store, x: 430, y: 420, width: 140, height: 100, color: '#1e293b', accent: '#3b82f6', tier: 2,
   },
   {
-    id: 'wallet', label: 'Bank', route: '/wallet', icon: Wallet, x: 780, y: 480, width: 140, height: 100, color: '#3f2e0f', accent: '#eab308', tier: 2,
+    id: 'wallet', label: 'Bank', route: '/wallet', icon: Wallet, x: 780, y: 420, width: 140, height: 100, color: '#3f2e0f', accent: '#eab308', tier: 2,
   },
   {
-    id: 'dashboard', label: 'HQ', route: '/dashboard', icon: LayoutDashboard, x: 80, y: 80, width: 120, height: 90, color: '#0f172a', accent: '#E94560', tier: 1,
+    id: 'dashboard', label: 'HQ', route: '/dashboard', icon: LayoutDashboard, x: 80, y: 60, width: 120, height: 90, color: '#0f172a', accent: '#E94560', tier: 1,
   },
   {
-    id: 'world', label: 'World Map', route: '/world-map', icon: Globe, x: 820, y: 80, width: 120, height: 90, color: '#0c2e4e', accent: '#06b6d4', tier: 1,
+    id: 'world', label: 'World Map', route: '/world-map', icon: Globe, x: 820, y: 60, width: 120, height: 90, color: '#0c2e4e', accent: '#06b6d4', tier: 1,
   },
   {
-    id: 'leaderboard', label: 'Hall of Fame', route: '/leaderboard', icon: Trophy, x: 430, y: 280, width: 140, height: 100, color: '#2a1a0a', accent: '#fbbf24', tier: 2,
+    id: 'leaderboard', label: 'Hall of Fame', route: '/leaderboard', icon: Trophy, x: 430, y: 240, width: 140, height: 100, color: '#2a1a0a', accent: '#fbbf24', tier: 2,
   },
 ];
 
@@ -417,7 +417,7 @@ export default function GameWorld() {
 
   return (
     <div className="w-full h-full min-h-[600px] relative">
-      <svg viewBox="0 0 1000 620" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 1000 700" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
         <defs>
           {/* Ground pattern */}
           <pattern id="grass" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -435,8 +435,8 @@ export default function GameWorld() {
         </defs>
 
         {/* Background */}
-        <rect width="1000" height="620" fill="url(#grass)" rx="16" />
-        <rect width="1000" height="620" fill="url(#worldGlow)" rx="16" />
+        <rect width="1000" height="700" fill="url(#grass)" rx="16" />
+        <rect width="1000" height="700" fill="url(#worldGlow)" rx="16" />
 
         {/* Decorative city skyline silhouette */}
         <g opacity="0.08">
@@ -527,7 +527,7 @@ export default function GameWorld() {
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-card/90 backdrop-blur-md border border-white/10 text-sm text-white font-bold"
+            className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-card/90 backdrop-blur-md border border-white/10 text-xs text-white font-bold shadow-lg z-10"
           >
             Click to enter {BUILDINGS.find((b) => b.id === hoveredBuilding)?.label}
           </motion.div>

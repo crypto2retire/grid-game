@@ -67,7 +67,7 @@ export default function WorldLayout() {
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="h-[320px] max-h-[40vh]">
+              <div className="h-[440px]">
                 <GameWorld />
               </div>
             </motion.div>
