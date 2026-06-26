@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bus, Home, Landmark, ArrowUp, ArrowRight, ArrowDown, ShoppingCart } from 'lucide-react';
+import { Bus, Home, Landmark, ArrowUp, ArrowRight, ArrowDown, ShoppingCart, Wrench } from 'lucide-react';
 
 interface Venue {
   id: string;
@@ -185,23 +185,32 @@ export default function AssetsPage() {
               </div>
 
               {team.venue ? (
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <div className="text-muted-foreground">Capacity</div>
-                    <div className="text-white font-bold">{team.venue.capacity.toLocaleString()}</div>
+                <div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-xl bg-white/5 p-3">
+                      <div className="text-muted-foreground">Capacity</div>
+                      <div className="text-white font-bold">{team.venue.capacity.toLocaleString()}</div>
+                    </div>
+                    <div className="rounded-xl bg-white/5 p-3">
+                      <div className="text-muted-foreground">Ticket Price</div>
+                      <div className="text-white font-bold">${team.venue.ticketPrice}</div>
+                    </div>
+                    <div className="rounded-xl bg-white/5 p-3">
+                      <div className="text-muted-foreground">Condition</div>
+                      <div className="text-white font-bold">{team.venue.condition}%</div>
+                    </div>
+                    <div className="rounded-xl bg-white/5 p-3">
+                      <div className="text-muted-foreground">Prestige</div>
+                      <div className="text-white font-bold">{team.venue.prestige}</div>
+                    </div>
                   </div>
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <div className="text-muted-foreground">Ticket Price</div>
-                    <div className="text-white font-bold">${team.venue.ticketPrice}</div>
-                  </div>
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <div className="text-muted-foreground">Condition</div>
-                    <div className="text-white font-bold">{team.venue.condition}%</div>
-                  </div>
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <div className="text-muted-foreground">Prestige</div>
-                    <div className="text-white font-bold">{team.venue.prestige}</div>
-                  </div>
+                  <Link
+                    to="/stadium/interior"
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[#E94560]/30 bg-[#E94560]/10 px-4 py-2.5 font-bold text-[#E94560] hover:bg-[#E94560]/20 transition-colors"
+                  >
+                    <Wrench className="h-4 w-4" />
+                    View Stadium Interior
+                  </Link>
                 </div>
               ) : (
                 <p className="text-sm text-slate-300">No venue assigned to this team.</p>

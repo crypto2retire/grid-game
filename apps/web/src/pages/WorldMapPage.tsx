@@ -411,7 +411,7 @@ function CityDetailPanel({
         <div className="space-y-2">
           {isHome && activeTeam?.venue && (
             <Link
-              to="/assets"
+              to="/stadium/interior"
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#E94560] px-4 py-3 font-bold text-white hover:bg-[#E94560]/90 transition-colors"
             >
               <Home className="h-4 w-4" />
