@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTravel } from '../../components/travel/TravelSystem';
+import TravelVehicles from '../../components/travel/TravelVehicles';
 import { useAuthStore } from '../../store/authStore';
 import {
   LayoutDashboard, Shield, Bus, Dumbbell, ShoppingCart, Trophy, Wallet, Store, Globe,
@@ -372,10 +374,33 @@ function AvatarSVG({ x, y, color, isMoving }: { x: number; y: number; color: str
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
   const { openPanel, panels } = usePanels();
+  const { scheduleTrip, trips } = useTravel();
   const [hoveredBuilding, setHoveredBuilding] = useState<string | null>(null);
   const [avatarPos, setAvatarPos] = useState({ x: 140, y: 105 }); // Start at HQ
   const [isMoving, setIsMoving] = useState(false);
   const avatarColorRef = useState(() => hashToColor(localStorage.getItem('token') || 'guest'))[0];
+
+  // Building position lookup for travel system
+  const buildingPositions = useMemo(() => {
+    const pos: Record<string, { x: number; y: number; width: number; height: number }> = {};
+    BUILDINGS.forEach((b) => {
+      pos[b.id] = { x: b.x, y: b.y, width: b.width, height: b.height };
+    });
+    return pos;
+  }, []);
+
+  // Road path lookup for travel system
+  const roadPaths = useMemo(() => {
+    const paths: Record<string, string> = {};
+    ROADS.forEach((road) => {
+      const path = getRoadPath(road.from, road.to);
+      if (path) {
+        paths[`${road.from}-${road.to}`] = path;
+        paths[`${road.to}-${road.from}`] = path;
+      }
+    });
+    return paths;
+  }, []);
 
   const handleBuildingClick = (building: Building) => {
     if (isMoving) return;
@@ -493,6 +518,9 @@ export default function GameShell() {
           ))}
         </g>
 
+        {/* Travel Vehicles */}
+        <TravelVehicles buildingPositions={buildingPositions} roadPaths={roadPaths} />
+
         {/* Avatar */}
         <AvatarSVG x={avatarPos.x} y={avatarPos.y} color={avatarColorRef} isMoving={isMoving} />
 
@@ -503,7 +531,7 @@ export default function GameShell() {
         {/* Active panels count */}
         <rect x="780" y="10" width="200" height="28" rx="8" fill="#0f172a" opacity="0.8" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
         <text x="800" y="28" fill="#94a3b8" fontSize="10" fontWeight="600">
-          Open: <tspan fill="#fff" fontWeight="700">{panels.length}</tspan> panels
+          Open: <tspan fill="#fff" fontWeight="700">{panels.length}</tspan> panels • <tspan fill="#22c55e">{trips.filter(t => t.status === 'traveling' || t.status === 'departing').length}</tspan> traveling
         </text>
       </svg>
 
@@ -520,6 +548,31 @@ export default function GameShell() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Travel Test Controls */}
+      <div className="fixed bottom-4 right-4 z-20 flex flex-col items-end gap-2">
+        <div className="text-xs text-slate-500 mb-1">Travel Test</div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => scheduleTrip('transport', 'stadium', 'bus')}
+            className="px-3 py-2 rounded-xl bg-[#E94560]/10 border border-[#E94560]/30 text-[#E94560] text-xs font-bold hover:bg-[#E94560]/20 transition-colors"
+          >
+            Garage → Stadium
+          </button>
+          <button
+            onClick={() => scheduleTrip('transport', 'world', 'jet')}
+            className="px-3 py-2 rounded-xl bg-[#06b6d4]/10 border border-[#06b6d4]/30 text-[#06b6d4] text-xs font-bold hover:bg-[#06b6d4]/20 transition-colors"
+          >
+            Garage → World (Jet)
+          </button>
+          <button
+            onClick={() => scheduleTrip('dashboard', 'market', 'coach')}
+            className="px-3 py-2 rounded-xl bg-[#fbbf24]/10 border border-[#fbbf24]/30 text-[#fbbf24] text-xs font-bold hover:bg-[#fbbf24]/20 transition-colors"
+          >
+            HQ → Market (Coach)
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

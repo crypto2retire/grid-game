@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { PanelProvider, usePanels } from './components/world/PanelSystem';
+import { TravelProvider } from './components/travel/TravelSystem';
 import GameShell from './components/world/GameShell';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -78,10 +79,12 @@ function App() {
       <Route
         path="/*"
         element={
-          <PanelProvider>
-            <GameShell />
-            <AutoPanelOpener />
-          </PanelProvider>
+          <TravelProvider>
+            <PanelProvider>
+              <GameShell />
+              <AutoPanelOpener />
+            </PanelProvider>
+          </TravelProvider>
         }
       />
     </Routes>
