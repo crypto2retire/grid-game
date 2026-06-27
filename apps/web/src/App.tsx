@@ -1,32 +1,67 @@
-import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import WorldLayout from './components/WorldLayout';
+import { PanelProvider, usePanels } from './components/world/PanelSystem';
+import GameShell from './components/world/GameShell';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import CityPage from './pages/CityPage';
 import TeamPage from './pages/TeamPage';
-import PlayersPage from './pages/PlayersPage';
-import MatchPage from './pages/MatchPage';
-import MatchesPage from './pages/MatchesPage';
 import MarketplacePage from './pages/MarketplacePage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import WalletPage from './pages/WalletPage';
-import SportsEconomyPage from './pages/SportsEconomyPage';
-import AssetsPage from './pages/AssetsPage';
-import SponsorshipsPage from './pages/SponsorshipsPage';
 import TrainingPage from './pages/TrainingPage';
-import EquipmentPage from './pages/EquipmentPage';
-import StakingPage from './pages/StakingPage';
-import TeamCatalogPage from './pages/TeamCatalogPage';
-import TeamMarketplacePage from './pages/TeamMarketplacePage';
-import PlayableMatchPage from './pages/PlayableMatchPage';
-
-import TestDashboardPage from './pages/TestDashboardPage';
 import WorldMapPage from './pages/WorldMapPage';
 import StadiumInteriorPage from './pages/StadiumInteriorPage';
 import TransportGaragePage from './pages/TransportGaragePage';
+import TestDashboardPage from './pages/TestDashboardPage';
+
+// Map of routes to panel content for auto-opening panels on direct link
+const ROUTE_CONTENT: Record<string, { id: string; title: string; content: React.ReactNode }> = {
+  '/dashboard': { id: 'dashboard', title: 'HQ', content: <CityPage /> },
+  '/team': { id: 'team', title: 'Team Office', content: <TeamPage /> },
+  '/marketplace': { id: 'market', title: 'Market', content: <MarketplacePage /> },
+  '/leaderboard': { id: 'leaderboard', title: 'Hall of Fame', content: <LeaderboardPage /> },
+  '/wallet': { id: 'wallet', title: 'Bank', content: <WalletPage /> },
+  '/training': { id: 'training', title: 'Training', content: <TrainingPage /> },
+  '/world-map': { id: 'world', title: 'World Map', content: <WorldMapPage /> },
+  '/stadium/interior': { id: 'stadium', title: 'Stadium', content: <StadiumInteriorPage /> },
+  '/garage': { id: 'transport', title: 'Garage', content: <TransportGaragePage /> },
+  '/test-dashboard': { id: 'dashboard', title: 'HQ', content: <TestDashboardPage /> },
+};
+
+function AutoPanelOpener() {
+  const location = useLocation();
+  const { openPanel } = usePanels();
+  const [hasOpened, setHasOpened] = useState(false);
+
+  useEffect(() => {
+    if (!hasOpened && location.pathname !== '/city') {
+      const panelConfig = ROUTE_CONTENT[location.pathname];
+      if (panelConfig) {
+        // Small delay so the shell mounts first
+        setTimeout(() => {
+          openPanel({
+            id: panelConfig.id,
+            title: panelConfig.title,
+            buildingId: panelConfig.id,
+            x: 100 + Math.random() * 100,
+            y: 60 + Math.random() * 50,
+            width: 800,
+            height: 600,
+            minimized: false,
+            maximized: false,
+            content: panelConfig.content,
+          });
+        }, 100);
+      }
+      setHasOpened(true);
+    }
+  }, [location.pathname, hasOpened, openPanel]);
+
+  return null;
+}
 
 function App() {
   const { checkAuth } = useAuthStore();
@@ -40,32 +75,15 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route element={<WorldLayout />}>
-        <Route path="/city" element={<CityPage />} />
-        <Route path="/dashboard" element={<CityPage />} />
-        <Route path="/team" element={<TeamPage />} />
-        <Route path="/team/:id" element={<TeamPage />} />
-        <Route path="/players" element={<PlayersPage />} />
-        <Route path="/matches" element={<MatchesPage />} />
-        <Route path="/matches/:id" element={<MatchPage />} />
-        <Route path="/marketplace" element={<MarketplacePage />} />
-        <Route path="/sports-economy" element={<SportsEconomyPage />} />
-        <Route path="/assets" element={<AssetsPage />} />
-        <Route path="/sponsorships" element={<SponsorshipsPage />} />
-        <Route path="/training" element={<TrainingPage />} />
-        <Route path="/equipment" element={<EquipmentPage />} />
-        <Route path="/staking" element={<StakingPage />} />
-        <Route path="/team-catalog" element={<TeamCatalogPage />} />
-        <Route path="/team-marketplace" element={<TeamMarketplacePage />} />
-        <Route path="/matches/:id/play" element={<PlayableMatchPage />} />
-        <Route path="/leaderboard" element={<LeaderboardPage />} />
-        <Route path="/wallet" element={<WalletPage />} />
-        <Route path="/test-dashboard" element={<TestDashboardPage />} />
-        <Route path="/world-map" element={<WorldMapPage />} />
-        <Route path="/stadium/interior" element={<StadiumInteriorPage />} />
-        <Route path="/garage" element={<TransportGaragePage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="/*"
+        element={
+          <PanelProvider>
+            <GameShell />
+            <AutoPanelOpener />
+          </PanelProvider>
+        }
+      />
     </Routes>
   );
 }
