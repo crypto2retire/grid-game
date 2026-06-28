@@ -42,7 +42,7 @@ const FOCUS_LABELS: Record<string, string> = {
 const TRAINING_DURATION_SECONDS = 30; // Real-time seconds per training
 
 export default function TrainingPage() {
-  const { packages, activeTraining, isTraining, startTraining, cancelTraining, claimReward, playerFatigue, canTrain, completedSessions, loading: packagesLoading } = useTraining();
+  const { packages, activeTraining, isTraining, startTraining, cancelTraining, claimReward, playerFatigue, canTrain, completedSessions, loading: packagesLoading, refreshPlayers } = useTraining();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -62,6 +62,14 @@ export default function TrainingPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Load players when team changes
+  useEffect(() => {
+    if (selectedTeam) {
+      refreshPlayers(selectedTeam);
+      setSelectedPlayer(''); // Reset player selection when team changes
+    }
+  }, [selectedTeam, refreshPlayers]);
 
   const handleStartTraining = async (pkg: TrainingPackage) => {
     if (!selectedTeam) {

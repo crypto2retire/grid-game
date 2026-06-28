@@ -104,6 +104,7 @@ interface TrainingContextValue {
   canTrain: (playerId?: string) => { ok: boolean; reason?: string };
   refreshPackages: () => Promise<void>;
   refreshHistory: () => Promise<void>;
+  refreshPlayers: (teamId: string) => Promise<void>;
 }
 
 const TrainingContext = createContext<TrainingContextValue | null>(null);
@@ -358,6 +359,28 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
     setEquippedSlots(prev => prev.filter(s => !(s.playerId === playerId && s.slot === slot)));
   }, []);
 
+  // Load team players for training
+  const refreshPlayers = useCallback(async (teamId: string) => {
+    if (!teamId) return;
+    try {
+      const res = await fetchApi(`/teams/${teamId}/players`);
+      const players = res.data?.players || res.data || [];
+      if (players.length > 0) {
+        setPlayerFatigue(
+          players.map((p: any) => ({
+            playerId: p.id,
+            playerName: p.name,
+            fatigue: p.fatigue ?? Math.floor(Math.random() * 40),
+            lastTrainedAt: p.lastTrainedAt || null,
+            trainingStreak: p.trainingStreak || 0,
+          }))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to load team players:', e);
+    }
+  }, []);
+
   const value: TrainingContextValue = {
     packages,
     activeTraining,
@@ -375,6 +398,7 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
     canTrain,
     refreshPackages,
     refreshHistory,
+    refreshPlayers,
   };
 
   return (
