@@ -9,7 +9,7 @@ import { useAuthStore } from '../../store/authStore';
 import {
   LayoutDashboard, Shield, Bus, Dumbbell, ShoppingCart, Trophy, Wallet, Store, Globe, Shirt,
 } from 'lucide-react';
-import { usePanels } from './PanelSystem';
+import { usePanels, PanelOverlay } from './PanelSystem';
 
 // Import all page components for panels
 import CityPage from '../../pages/CityPage';
@@ -678,6 +678,9 @@ export default function GameShell() {
           </button>
         </div>
       </div>
+
+      {/* Floating Panels */}
+      <PanelOverlay />
     </div>
   );
 }
