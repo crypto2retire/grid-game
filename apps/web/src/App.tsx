@@ -9,6 +9,7 @@ import { MatchScheduleProvider } from './components/match/MatchScheduleSystem';
 import { MatchDayProvider } from './components/match/MatchDaySystem';
 import { GamePlanProvider } from './components/gameplan/GamePlanSystem';
 import { PlayerProgressionProvider } from './components/player/PlayerProgressionSystem';
+import { WorldProvider } from './components/world/WorldSystem';
 import PlayerProgressionPage from './pages/PlayerProgressionPage';
 import GameShell from './components/world/GameShell';
 import HomePage from './pages/HomePage';
@@ -97,10 +98,12 @@ function App() {
                   <TrainingProvider>
                     <TravelProvider>
                       <MatchDayProvider>
-                        <PanelProvider>
-                          <GameShell />
-                          <AutoPanelOpener />
-                        </PanelProvider>
+                        <WorldProvider>
+                          <PanelProvider>
+                            <GameShell />
+                            <AutoPanelOpener />
+                          </PanelProvider>
+                        </WorldProvider>
                       </MatchDayProvider>
                     </TravelProvider>
                   </TrainingProvider>
