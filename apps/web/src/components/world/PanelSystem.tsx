@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, type ReactNode } from 'react';
+import { useState, createContext, useContext, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Maximize2 } from 'lucide-react';
 
@@ -20,6 +20,7 @@ interface PanelContextValue {
   panels: Panel[];
   openPanel: (panel: Omit<Panel, 'zIndex'>) => void;
   closePanel: (id: string) => void;
+  closeAllPanels: () => void;
   minimizePanel: (id: string) => void;
   maximizePanel: (id: string) => void;
   bringToFront: (id: string) => void;
@@ -92,9 +93,38 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, width, height } : p)));
   };
 
+  const closeAllPanels = () => {
+    setPanels([]);
+    setActivePanel(null);
+  };
+
+  // Close panels on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setPanels((prev) => {
+          if (prev.length === 0) return prev;
+          // Close the highest zIndex (topmost) panel
+          const topmost = [...prev].sort((a, b) => b.zIndex - a.zIndex)[0];
+          if (topmost) {
+            const next = prev.filter((p) => p.id !== topmost.id);
+            setActivePanel(next.length > 0 ? next[next.length - 1].id : null);
+            return next;
+          }
+          return prev;
+        });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <PanelContext.Provider
-      value={{ panels, openPanel, closePanel, minimizePanel, maximizePanel, bringToFront, movePanel, resizePanel, activePanel }}
+      value={{ panels, openPanel, closePanel, closeAllPanels, minimizePanel, maximizePanel, bringToFront, movePanel, resizePanel, activePanel }}
     >
       {children}
     </PanelContext.Provider>
