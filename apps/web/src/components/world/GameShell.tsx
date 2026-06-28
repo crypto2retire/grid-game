@@ -484,6 +484,20 @@ export default function GameShell() {
     return pos;
   }, []);
 
+  // Helper: calculate SVG road path between two buildings
+  const getRoadPath = (fromId: string, toId: string): string | null => {
+    const from = BUILDINGS.find((b) => b.id === fromId);
+    const to = BUILDINGS.find((b) => b.id === toId);
+    if (!from || !to) return null;
+    const x1 = from.x + from.width / 2;
+    const y1 = from.y + from.height - 5;
+    const x2 = to.x + to.width / 2;
+    const y2 = to.y + to.height - 5;
+    const midX = (x1 + x2) / 2;
+    const midY = Math.max(y1, y2) + 20;
+    return `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
+  };
+
   // Road path lookup for travel system
   const roadPaths = useMemo(() => {
     const paths: Record<string, string> = {};
@@ -522,19 +536,6 @@ export default function GameShell() {
         content: building.getContent(),
       });
     }, 600);
-  };
-
-  const getRoadPath = (fromId: string, toId: string): string | null => {
-    const from = BUILDINGS.find((b) => b.id === fromId);
-    const to = BUILDINGS.find((b) => b.id === toId);
-    if (!from || !to) return null;
-    const x1 = from.x + from.width / 2;
-    const y1 = from.y + from.height - 5;
-    const x2 = to.x + to.width / 2;
-    const y2 = to.y + to.height - 5;
-    const midX = (x1 + x2) / 2;
-    const midY = Math.max(y1, y2) + 20;
-    return `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
   };
 
   if (isLoading) {
