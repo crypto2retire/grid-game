@@ -75,6 +75,13 @@ export const useMatchSchedule = () => {
   return ctx;
 };
 
+function determineResult(isHome: boolean, homeScore: number, awayScore: number): 'WIN' | 'LOSS' | 'TIE' {
+  if (homeScore === awayScore) return 'TIE';
+  const myScore = isHome ? homeScore : awayScore;
+  const oppScore = isHome ? awayScore : homeScore;
+  return myScore > oppScore ? 'WIN' : 'LOSS';
+}
+
 const VEHICLE_SPEEDS: Record<VehicleType, number> = {
   van: 80,
   bus: 90,
@@ -362,11 +369,4 @@ export function MatchScheduleProvider({ children }: { children: React.ReactNode 
       {children}
     </MatchScheduleContext.Provider>
   );
-}
-
-function determineResult(isHome: boolean, homeScore: number, awayScore: number): 'WIN' | 'LOSS' | 'TIE' {
-  if (homeScore === awayScore) return 'TIE';
-  const myScore = isHome ? homeScore : awayScore;
-  const oppScore = isHome ? awayScore : homeScore;
-  return myScore > oppScore ? 'WIN' : 'LOSS';
 }
