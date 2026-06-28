@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Star, ShoppingCart } from 'lucide-react';
+import { usePlayerProgression } from './PlayerProgressionSystem';
 
 export interface PlayerCardData {
   id: string;
@@ -440,8 +441,13 @@ function StatHex({ label, value, color }: { label: string; value: number; color:
 
 export default function PlayerCard({ player, showBuyButton, onBuy, buying, canAfford, className = '' }: PlayerCardProps) {
   const [flipped, setFlipped] = useState(false);
+  const { getPlayerProgression, getOverallBonus } = usePlayerProgression();
   const rarity = RARITY_CONFIG[player.rarity] || RARITY_CONFIG.COMMON;
   const posColor = POSITION_COLORS[player.position] || '#94a3b8';
+  
+  const progression = getPlayerProgression(player.id);
+  const overallBonus = getOverallBonus(player.id);
+  const totalOVR = player.overall + overallBonus;
 
   const handleFlip = () => {
     if (!buying) setFlipped(!flipped);
@@ -488,14 +494,37 @@ export default function PlayerCard({ player, showBuyButton, onBuy, buying, canAf
             )}
             <div className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-black/60 backdrop-blur-sm border-2 flex items-center justify-center" style={{ borderColor: posColor }}>
               <div className="text-center">
-                <div className="text-lg font-black text-white leading-none">{player.overall}</div>
+                <div className="text-lg font-black text-white leading-none">{totalOVR}</div>
                 <div className="text-[8px] text-slate-400 uppercase">OVR</div>
               </div>
             </div>
+            {progression && (
+              <div className="absolute top-2 right-2 w-8 h-8 rounded-full bg-amber-400/20 border border-amber-400/40 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-xs font-black text-amber-400 leading-none">{progression.level}</div>
+                </div>
+              </div>
+            )}
           </div>
 
           <h3 className="text-sm font-bold text-white truncate mb-1">{player.name}</h3>
-          <p className="text-[10px] text-slate-500 mb-3">{POSITION_LABELS[player.position] || player.position} • Age {player.age}</p>
+          <p className="text-[10px] text-slate-500 mb-2">{POSITION_LABELS[player.position] || player.position} • Age {player.age}</p>
+          
+          {/* XP Bar */}
+          {progression && progression.xpToNextLevel > 0 && (
+            <div className="mb-2">
+              <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#E94560] to-amber-400 rounded-full"
+                  style={{ width: `${(progression.xp / progression.xpToNextLevel) * 100}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[9px] text-white/30 mt-0.5">
+                <span>Level {progression.level}</span>
+                <span>{progression.xp}/{progression.xpToNextLevel} XP</span>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-2">
             {statBars.slice(0, 3).map((s) => (

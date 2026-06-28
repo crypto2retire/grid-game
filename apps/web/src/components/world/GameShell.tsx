@@ -2,9 +2,12 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTravel } from '../../components/travel/TravelSystem';
 import TravelVehicles from '../../components/travel/TravelVehicles';
+import { useMatchDay } from '../../components/match/MatchDaySystem';
+import { useMatchSchedule } from '../../components/match/MatchScheduleSystem';
+import { useTraining } from '../../components/training/TrainingSystem';
 import { useAuthStore } from '../../store/authStore';
 import {
-  LayoutDashboard, Shield, Bus, Dumbbell, ShoppingCart, Trophy, Wallet, Store, Globe,
+  LayoutDashboard, Shield, Bus, Dumbbell, ShoppingCart, Trophy, Wallet, Store, Globe, Shirt,
 } from 'lucide-react';
 import { usePanels } from './PanelSystem';
 
@@ -15,6 +18,7 @@ import MarketplacePage from '../../pages/MarketplacePage';
 import LeaderboardPage from '../../pages/LeaderboardPage';
 import WalletPage from '../../pages/WalletPage';
 import TrainingPage from '../../pages/TrainingPage';
+import EquipmentPage from '../../pages/EquipmentPage';
 import WorldMapPage from '../../pages/WorldMapPage';
 import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
 import TransportGaragePage from '../../pages/TransportGaragePage';
@@ -90,6 +94,12 @@ const BUILDINGS: Building[] = [
     panelWidth: 700, panelHeight: 550,
     getContent: () => <LeaderboardPage />,
   },
+  {
+    id: 'locker', label: 'Locker Room', route: '/locker', icon: Shirt,
+    x: 250, y: 240, width: 120, height: 90, color: '#1a1a2e', accent: '#64748b',
+    panelWidth: 800, panelHeight: 600,
+    getContent: () => <EquipmentPage />,
+  },
 ];
 
 const ROADS = [
@@ -100,11 +110,13 @@ const ROADS = [
   { from: 'transport', to: 'market' },
   { from: 'stadium', to: 'training' },
   { from: 'training', to: 'wallet' },
+  { from: 'training', to: 'locker' },
   { from: 'market', to: 'team' },
   { from: 'team', to: 'wallet' },
   { from: 'leaderboard', to: 'team' },
   { from: 'transport', to: 'leaderboard' },
   { from: 'training', to: 'leaderboard' },
+  { from: 'locker', to: 'world' },
 ];
 
 function hashToColor(str: string): string {
@@ -115,9 +127,12 @@ function hashToColor(str: string): string {
 
 // ─── Building SVG Components (same as before, abbreviated) ───
 
-function StadiumSVG({ building, isHovered }: { building: Building; isHovered: boolean }) {
+function StadiumSVG({ building, isHovered, activeMatch, scheduledMatch }: { building: Building; isHovered: boolean; activeMatch?: { awayTeamName: string; totalRevenue: number; elapsedSeconds: number; status: string }; scheduledMatch?: any }) {
   const { color, accent, x, y, width: w, height: h } = building;
-  const glow = isHovered ? 1 : 0.6;
+  const isMatchDay = activeMatch?.status === 'PLAYING';
+  const isScheduled = scheduledMatch && (scheduledMatch.phase === 'SCHEDULED' || scheduledMatch.phase === 'TRAVELING');
+  const glow = isHovered || isMatchDay || isScheduled ? 1 : 0.6;
+  const crowdOpacity = isMatchDay ? 0.8 : 0.2;
   return (
     <g transform={`translate(${x}, ${y})`} style={{ cursor: 'pointer' }}>
       <rect x="-5" y="-5" width={w + 10} height={h + 10} rx="12" fill={accent} opacity={glow * 0.15} />
@@ -127,14 +142,52 @@ function StadiumSVG({ building, isHovered }: { building: Building; isHovered: bo
       <path d={`M 5 5 Q ${w / 2} -5 ${w - 5} 5`} fill="none" stroke={accent} strokeWidth="2" opacity="0.7" />
       <rect x="30" y="55" width={w - 60} height="25" rx="4" fill="#14532d" opacity="0.6" />
       <line x1={w / 2} y1="55" x2={w / 2} y2="80" stroke="#fff" strokeWidth="1" opacity="0.3" />
+      {/* Crowd dots in stands */}
+      {(isMatchDay || isScheduled) && Array.from({ length: 20 }).map((_, i) => (
+        <circle
+          key={i}
+          cx={15 + (i % 10) * 13}
+          cy={8 + Math.floor(i / 10) * 8}
+          r="1.5"
+          fill="#fbbf24"
+          opacity={crowdOpacity}
+        >
+          <animate attributeName="opacity" values="0.8;0.3;0.8" dur={`${1 + Math.random()}s`} repeatCount="indefinite" />
+        </circle>
+      ))}
       <line x1="15" y1="5" x2="15" y2="-8" stroke={accent} strokeWidth="1.5" opacity="0.5" />
-      <circle cx="15" cy="-8" r="3" fill="#fbbf24" opacity={isHovered ? 0.8 : 0.3}>
-        <animate attributeName="opacity" values={isHovered ? '0.8;0.4;0.8' : '0.3;0.1;0.3'} dur="2s" repeatCount="indefinite" />
+      <circle cx="15" cy="-8" r="3" fill="#fbbf24" opacity={isHovered || isMatchDay ? 0.8 : 0.3}>
+        <animate attributeName="opacity" values={isHovered || isMatchDay ? '0.8;0.4;0.8' : '0.3;0.1;0.3'} dur="2s" repeatCount="indefinite" />
       </circle>
       <line x1={w - 15} y1="5" x2={w - 15} y2="-8" stroke={accent} strokeWidth="1.5" opacity="0.5" />
-      <circle cx={w - 15} cy="-8" r="3" fill="#fbbf24" opacity={isHovered ? 0.8 : 0.3}>
-        <animate attributeName="opacity" values={isHovered ? '0.8;0.4;0.8' : '0.3;0.1;0.3'} dur="2s" repeatCount="indefinite" />
+      <circle cx={w - 15} cy="-8" r="3" fill="#fbbf24" opacity={isHovered || isMatchDay ? 0.8 : 0.3}>
+        <animate attributeName="opacity" values={isHovered || isMatchDay ? '0.8;0.4;0.8' : '0.3;0.1;0.3'} dur="2s" repeatCount="indefinite" />
       </circle>
+      {/* Scheduled Match Banner */}
+      {isScheduled && (
+        <g>
+          <rect x="20" y="-18" width={w - 40} height="16" rx="4" fill="#3b82f6" opacity="0.9" />
+          <text x={w / 2} y="-7" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="900">SCHEDULED</text>
+          <text x={w / 2} y="-22" textAnchor="middle" fill="#94a3b8" fontSize="6" fontWeight="700">vs {scheduledMatch.awayTeamName}</text>
+        </g>
+      )}
+      {/* Match Day Banner */}
+      {isMatchDay && (
+        <g>
+          <rect x="20" y="-18" width={w - 40} height="16" rx="4" fill="#E94560" opacity="0.9" />
+          <text x={w / 2} y="-7" textAnchor="middle" fill="#fff" fontSize="8" fontWeight="900">MATCH DAY</text>
+          <text x={w / 2} y="-22" textAnchor="middle" fill="#fbbf24" fontSize="6" fontWeight="700">vs {activeMatch?.awayTeamName}</text>
+        </g>
+      )}
+      {/* Revenue Counter */}
+      {isMatchDay && (
+        <g>
+          <rect x={w / 2 - 35} y="-38" width="70" height="14" rx="4" fill="#0f172a" opacity="0.9" stroke="#22c55e" strokeWidth="0.5" />
+          <text x={w / 2} y="-28" textAnchor="middle" fill="#22c55e" fontSize="7" fontWeight="900">
+            +{(activeMatch?.totalRevenue || 0).toLocaleString()} CASH
+          </text>
+        </g>
+      )}
       <rect x="10" y={h - 22} width={w - 20} height="16" rx="4" fill="#0f172a" opacity="0.8" />
       <text x={w / 2} y={h - 10} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="700">{building.label}</text>
     </g>
@@ -167,9 +220,9 @@ function GarageSVG({ building, isHovered }: { building: Building; isHovered: boo
   );
 }
 
-function TrainingSVG({ building, isHovered }: { building: Building; isHovered: boolean }) {
+function TrainingSVG({ building, isHovered, isTraining }: { building: Building; isHovered: boolean; isTraining?: boolean }) {
   const { color, accent, x, y, width: w, height: h } = building;
-  const glow = isHovered ? 1 : 0.6;
+  const glow = isHovered || isTraining ? 1 : 0.6;
   return (
     <g transform={`translate(${x}, ${y})`} style={{ cursor: 'pointer' }}>
       <rect x="-5" y="-5" width={w + 10} height={h + 10} rx="12" fill={accent} opacity={glow * 0.15} />
@@ -180,6 +233,16 @@ function TrainingSVG({ building, isHovered }: { building: Building; isHovered: b
       <rect x={w / 2 - 8} y="30" width="16" height="4" rx="2" fill={accent} opacity="0.7" />
       <rect x={w / 2 - 12} y="28" width="4" height="8" rx="1" fill={accent} opacity="0.7" />
       <rect x={w / 2 + 8} y="28" width="4" height="8" rx="1" fill={accent} opacity="0.7" />
+      {/* Active training indicator */}
+      {isTraining && (
+        <>
+          <circle cx={w / 2} cy="12" r="5" fill="#22c55e" opacity="0.8">
+            <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1s" repeatCount="indefinite" />
+          </circle>
+          <rect x="20" y="-8" width={w - 40} height="12" rx="4" fill="#0f172a" opacity="0.9" stroke="#22c55e" strokeWidth="0.5" />
+          <text x={w / 2} y="0" textAnchor="middle" fill="#22c55e" fontSize="6" fontWeight="900">TRAINING</text>
+        </>
+      )}
       <rect x="10" y={h - 18} width={w - 20} height="14" rx="4" fill="#0f172a" opacity="0.8" />
       <text x={w / 2} y={h - 7} textAnchor="middle" fill="#fff" fontSize="9" fontWeight="700">{building.label}</text>
     </g>
@@ -321,11 +384,40 @@ function LeaderboardSVG({ building, isHovered }: { building: Building; isHovered
   );
 }
 
-function BuildingSVG({ building, isHovered }: { building: Building; isHovered: boolean }) {
+function LockerRoomSVG({ building, isHovered }: { building: Building; isHovered: boolean }) {
+  const { color, accent, x, y, width: w, height: h } = building;
+  const glow = isHovered ? 1 : 0.6;
+  return (
+    <g transform={`translate(${x}, ${y})`} style={{ cursor: 'pointer' }}>
+      <rect x="-5" y="-5" width={w + 10} height={h + 10} rx="12" fill={accent} opacity={glow * 0.15} />
+      <rect x="0" y="25" width={w} height={h - 25} rx="6" fill={color} stroke={accent} strokeWidth="2" opacity="0.9" />
+      {/* Lockers */}
+      <rect x="10" y="35" width="20" height="40" rx="2" fill="#1a1a1a" opacity="0.6" />
+      <rect x="35" y="35" width="20" height="40" rx="2" fill="#1a1a1a" opacity="0.6" />
+      <rect x="60" y="35" width="20" height="40" rx="2" fill="#1a1a1a" opacity="0.6" />
+      <rect x="85" y="35" width="20" height="40" rx="2" fill="#1a1a1a" opacity="0.6" />
+      {/* Locker handles */}
+      <circle cx="25" cy="45" r="2" fill={accent} opacity={isHovered ? 0.8 : 0.4} />
+      <circle cx="50" cy="45" r="2" fill={accent} opacity={isHovered ? 0.8 : 0.4} />
+      <circle cx="75" cy="45" r="2" fill={accent} opacity={isHovered ? 0.8 : 0.4} />
+      <circle cx="100" cy="45" r="2" fill={accent} opacity={isHovered ? 0.8 : 0.4} />
+      {/* Bench */}
+      <rect x="15" y="80" width={w - 30} height="6" rx="3" fill={accent} opacity={0.3} />
+      {/* Gear icon */}
+      <circle cx={w / 2} cy="15" r="8" fill={accent} opacity={0.2} />
+      <path d={`M ${w / 2 - 4} 15 L ${w / 2 + 4} 15 M ${w / 2} 11 L ${w / 2} 19`} stroke={accent} strokeWidth="2" opacity={0.6} />
+      <rect x="10" y={h - 18} width={w - 20} height="14" rx="4" fill="#0f172a" opacity="0.8" />
+      <text x={w / 2} y={h - 7} textAnchor="middle" fill="#fff" fontSize="9" fontWeight="700">{building.label}</text>
+    </g>
+  );
+}
+
+function BuildingSVG({ building, isHovered, activeMatch, scheduledMatch, isTraining }: { building: Building; isHovered: boolean; activeMatch?: any; scheduledMatch?: any; isTraining?: boolean }) {
   switch (building.id) {
-    case 'stadium': return <StadiumSVG building={building} isHovered={isHovered} />;
+    case 'stadium': return <StadiumSVG building={building} isHovered={isHovered} activeMatch={activeMatch} scheduledMatch={scheduledMatch} />;
     case 'transport': return <GarageSVG building={building} isHovered={isHovered} />;
-    case 'training': return <TrainingSVG building={building} isHovered={isHovered} />;
+    case 'training': return <TrainingSVG building={building} isHovered={isHovered} isTraining={isTraining} />;
+    case 'locker': return <LockerRoomSVG building={building} isHovered={isHovered} />;
     case 'market': return <MarketSVG building={building} isHovered={isHovered} />;
     case 'team': return <OfficeSVG building={building} isHovered={isHovered} />;
     case 'wallet': return <BankSVG building={building} isHovered={isHovered} />;
@@ -375,6 +467,9 @@ export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
   const { openPanel, panels } = usePanels();
   const { scheduleTrip, trips } = useTravel();
+  const { myHomeMatches } = useMatchDay();
+  const { getActiveMatch } = useMatchSchedule();
+  const { isTraining } = useTraining();
   const [hoveredBuilding, setHoveredBuilding] = useState<string | null>(null);
   const [avatarPos, setAvatarPos] = useState({ x: 140, y: 105 }); // Start at HQ
   const [isMoving, setIsMoving] = useState(false);
@@ -503,19 +598,28 @@ export default function GameShell() {
 
         {/* Buildings */}
         <g>
-          {BUILDINGS.map((building) => (
-            <g
-              key={building.id}
-              onMouseEnter={() => setHoveredBuilding(building.id)}
-              onMouseLeave={() => setHoveredBuilding(null)}
-              onClick={() => handleBuildingClick(building)}
-            >
-              <BuildingSVG
-                building={building}
-                isHovered={hoveredBuilding === building.id}
-              />
-            </g>
-          ))}
+          {BUILDINGS.map((building) => {
+            const match = building.id === 'stadium'
+              ? myHomeMatches.find(m => m.status === 'PLAYING')
+              : undefined;
+            const scheduledMatch = building.id === 'stadium' ? getActiveMatch() : undefined;
+            return (
+              <g
+                key={building.id}
+                onMouseEnter={() => setHoveredBuilding(building.id)}
+                onMouseLeave={() => setHoveredBuilding(null)}
+                onClick={() => handleBuildingClick(building)}
+              >
+                <BuildingSVG
+                  building={building}
+                  isHovered={hoveredBuilding === building.id}
+                  activeMatch={match}
+                  scheduledMatch={scheduledMatch}
+                  isTraining={building.id === 'training' && isTraining}
+                />
+              </g>
+            );
+          })}
         </g>
 
         {/* Travel Vehicles */}

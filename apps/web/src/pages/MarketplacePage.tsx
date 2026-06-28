@@ -368,6 +368,26 @@ export default function MarketplacePage() {
                     </div>
                   </div>
 
+                  {/* Player Equipment Preview */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex -space-x-1">
+                      {['helmet', 'pads', 'gloves', 'shoes', 'accessory'].map((slot, i) => (
+                        <div
+                          key={slot}
+                          className={`w-5 h-5 rounded-full border border-white/10 flex items-center justify-center text-[8px] font-bold ${
+                            i < 2 ? 'bg-amber-400/20 text-amber-400' :
+                            i < 4 ? 'bg-blue-400/20 text-blue-400' :
+                            'bg-purple-400/20 text-purple-400'
+                          }`}
+                          title={slot}
+                        >
+                          {slot[0].toUpperCase()}
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-xs text-white/30">+5 equipped</span>
+                  </div>
+
                   <div className="text-sm text-muted-foreground mb-3">
                     Seller: {listing.seller.username}
                   </div>
@@ -448,6 +468,24 @@ export default function MarketplacePage() {
                       {offer.listing.player.rarity}
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex -space-x-1">
+                      {['helmet', 'pads', 'gloves', 'shoes', 'accessory'].map((slot, i) => (
+                        <div
+                          key={slot}
+                          className={`w-5 h-5 rounded-full border border-white/10 flex items-center justify-center text-[8px] font-bold ${
+                            i < 2 ? 'bg-amber-400/20 text-amber-400' :
+                            i < 4 ? 'bg-blue-400/20 text-blue-400' :
+                            'bg-purple-400/20 text-purple-400'
+                          }`}
+                          title={slot}
+                        >
+                          {slot[0].toUpperCase()}
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-xs text-white/30">+5 equipped</span>
+                  </div>
                   <div className="flex items-center justify-between pt-3 border-t border-border">
                     <div>
                       <div className="text-xs text-muted-foreground">Your offer</div>
@@ -501,6 +539,24 @@ export default function MarketplacePage() {
                     <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityColor(listing.player.rarity)}`}>
                       {listing.player.rarity}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex -space-x-1">
+                      {['helmet', 'pads', 'gloves', 'shoes', 'accessory'].map((slot, i) => (
+                        <div
+                          key={slot}
+                          className={`w-5 h-5 rounded-full border border-white/10 flex items-center justify-center text-[8px] font-bold ${
+                            i < 2 ? 'bg-amber-400/20 text-amber-400' :
+                            i < 4 ? 'bg-blue-400/20 text-blue-400' :
+                            'bg-purple-400/20 text-purple-400'
+                          }`}
+                          title={slot}
+                        >
+                          {slot[0].toUpperCase()}
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-xs text-white/30">+5 equipped</span>
                   </div>
                   <div className="text-lg font-black text-yellow-400 mb-3">
                     {listing.price.toLocaleString()} CASH
@@ -576,6 +632,14 @@ export default function MarketplacePage() {
                           <div className="text-sm text-muted-foreground">
                             {player.position} • OVR {player.overall}
                           </div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <div className="flex -space-x-1">
+                              {['helmet','pads','gloves','shoes','accessory'].map((slot,i) => (
+                                <div key={slot} className={`w-4 h-4 rounded-full border border-white/10 flex items-center justify-center text-[6px] font-bold ${i<2?'bg-amber-400/20 text-amber-400':i<4?'bg-blue-400/20 text-blue-400':'bg-purple-400/20 text-purple-400'}`}>{slot[0].toUpperCase()}</div>
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-white/30">+5 equipped</span>
+                          </div>
                         </div>
                         <div className={`text-xs font-bold ${getRarityColor(player.rarity)}`}>
                           {player.rarity}
@@ -586,16 +650,30 @@ export default function MarketplacePage() {
                 </div>
 
                 {selectedPlayer && (
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1 block">Listing Price (CASH)</label>
-                    <input
-                      type="number"
-                      value={sellPrice}
-                      onChange={(e) => setSellPrice(e.target.value)}
-                      placeholder="Min 100"
-                      min="100"
-                      className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-                    />
+                  <div className="space-y-3">
+                    <div className="p-3 bg-white/5 rounded-xl">
+                      <div className="text-xs text-white/40 mb-1">Estimated Player Value</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xl font-black text-yellow-400">
+                          {(selectedPlayer.overall * 150 + 2500).toLocaleString()} CASH
+                        </div>
+                        <span className="text-xs text-emerald-400">+{(5 * 500).toLocaleString()} gear bonus</span>
+                      </div>
+                      <div className="text-xs text-white/30 mt-1">
+                        Base: {(selectedPlayer.overall * 150).toLocaleString()} • Equipment: +{(5 * 500).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Listing Price (CASH)</label>
+                      <input
+                        type="number"
+                        value={sellPrice}
+                        onChange={(e) => setSellPrice(e.target.value)}
+                        placeholder="Min 100"
+                        min="100"
+                        className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                    </div>
                   </div>
                 )}
 

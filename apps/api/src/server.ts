@@ -35,6 +35,31 @@ import { testingRouter } from './modules/testing/testing.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
 
+// ─── CORS helper ───
+function getCorsOrigins(): string[] {
+  const origins = new Set<string>();
+  
+  // Always allow localhost for dev
+  origins.add('http://localhost:5173');
+  origins.add('http://localhost:3000');
+  
+  // Add configured FRONTEND_URL
+  if (env.FRONTEND_URL && env.FRONTEND_URL !== 'http://localhost:5173') {
+    origins.add(env.FRONTEND_URL);
+  }
+  
+  // Parse comma-separated additional origins from env
+  const extra = process.env.CORS_ORIGINS;
+  if (extra) {
+    extra.split(',').forEach(o => {
+      const trimmed = o.trim();
+      if (trimmed) origins.add(trimmed);
+    });
+  }
+  
+  return Array.from(origins);
+}
+
 // ─── Seed Functions ───
 async function seedTeamMarketplaceListings(prisma: PrismaClient) {
   const listingCount = await prisma.teamMarketplaceListing.count({ where: { status: 'ACTIVE' } });
@@ -179,19 +204,23 @@ async function seedMarketplaceListings(prisma: PrismaClient) {
   console.log(`Seeded ${freePlayers.length} marketplace listings`);
 }
 
+const corsOrigins = getCorsOrigins();
+console.log('CORS allowed origins:', corsOrigins);
+
 const app = express();
 app.set('trust proxy', 1);
 const server = createServer(app);
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: env.FRONTEND_URL,
+    origin: corsOrigins,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
 app.use(helmet());
-app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,

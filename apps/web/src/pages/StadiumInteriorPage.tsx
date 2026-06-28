@@ -14,8 +14,12 @@ import {
   CheckCircle2,
   ArrowUpCircle,
   Info,
+  Swords,
+  Target,
 } from 'lucide-react';
 import StadiumInterior, { type StadiumInteriorData, type StadiumSection } from '../components/stadium/StadiumInterior';
+import MatchSchedulePage from './MatchSchedulePage';
+import GamePlanPage from './GamePlanPage';
 
 const TIER_LABELS: Record<string, string> = {
   PARK_FIELD: 'Park Field',
@@ -160,6 +164,7 @@ export default function StadiumInteriorPage() {
   const [upgrading, setUpgrading] = useState<Record<string, boolean>>({});
   const [upgradeMessages, setUpgradeMessages] = useState<Record<string, string>>({});
   const [wallet, setWallet] = useState({ cash: 0 });
+  const [stadiumTab, setStadiumTab] = useState<'venue' | 'matches' | 'gameplan'>('venue');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -327,65 +332,124 @@ export default function StadiumInteriorPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
-        {/* Left: Stadium Cutaway */}
-        <div className="rounded-3xl border border-white/10 bg-black/30 overflow-hidden">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Wrench className="h-4 w-4" />
-              <span>Click any section to view upgrade options</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-green-500" /> Good
-              <span className="w-2 h-2 rounded-full bg-yellow-500 ml-2" /> Fair
-              <span className="w-2 h-2 rounded-full bg-red-500 ml-2" /> Poor
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <button
+            onClick={() => navigate('/world-map')}
+            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-3 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to World Map
+          </button>
+          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+            <Home className="h-7 w-7 text-[#E94560]" />
+            {stadiumData.name}
+          </h1>
+          <div className="flex items-center gap-4 mt-2">
+            <span className={`text-sm font-bold ${TIER_COLORS[stadiumData.tier] || 'text-slate-400'}`}>
+              {TIER_LABELS[stadiumData.tier] || stadiumData.tier}
+            </span>
+            <span className="text-slate-500">•</span>
+            <span className="text-sm text-slate-400">{stadiumData.capacity.toLocaleString()} capacity</span>
+            <span className="text-slate-500">•</span>
+            <span className="text-sm text-slate-400">${stadiumData.ticketPrice}/ticket</span>
+            <span className="text-slate-500">•</span>
+            <span className="text-sm text-[#FFD700]">{stadiumData.prestige} prestige</span>
           </div>
-          <StadiumInterior
-            data={stadiumData}
-            onSectionClick={setSelectedSectionId}
-            selectedSectionId={selectedSectionId}
-          />
         </div>
-
-        {/* Right: Detail Panel */}
-        <div className="space-y-4">
-          <AnimatePresence mode="wait">
-            {selectedSection ? (
-              <motion.div
-                key={selectedSection.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <SectionDetailPanel
-                  section={selectedSection}
-                  onUpgrade={() => handleUpgrade(selectedSection.id)}
-                  upgrading={upgrading[selectedSection.id] || false}
-                  message={upgradeMessages[selectedSection.id] || ''}
-                  walletCash={wallet.cash}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="overview"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <RevenueOverviewPanel
-                  stadiumData={stadiumData}
-                  revenueBreakdown={revenueBreakdown}
-                  ticketRev={ticketRev}
-                  concessionRev={concessionRev}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="flex items-center gap-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">Wallet</div>
+            <div className="text-lg font-bold text-[#FFD700]">{wallet.cash.toLocaleString()} CASH</div>
+          </div>
         </div>
       </div>
+
+      {/* Stadium Tab Bar */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-1">
+        {[
+          { id: 'venue' as const, label: 'Venue', icon: Home },
+          { id: 'matches' as const, label: 'Match Office', icon: Swords },
+          { id: 'gameplan' as const, label: 'Game Plan', icon: Target },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setStadiumTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
+              stadiumTab === t.id
+                ? 'text-[#E94560] border-b-2 border-[#E94560]'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <t.icon className="h-4 w-4" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {stadiumTab === 'matches' && <MatchSchedulePage />}
+      {stadiumTab === 'gameplan' && <GamePlanPage />}
+
+      {stadiumTab === 'venue' && (
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
+          {/* Left: Stadium Cutaway */}
+          <div className="rounded-3xl border border-white/10 bg-black/30 overflow-hidden">
+            <div className="p-4 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <Wrench className="h-4 w-4" />
+                <span>Click any section to view upgrade options</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-green-500" /> Good
+                <span className="w-2 h-2 rounded-full bg-yellow-500 ml-2" /> Fair
+                <span className="w-2 h-2 rounded-full bg-red-500 ml-2" /> Poor
+              </div>
+            </div>
+            <StadiumInterior
+              data={stadiumData}
+              onSectionClick={setSelectedSectionId}
+              selectedSectionId={selectedSectionId}
+            />
+          </div>
+
+          {/* Right: Detail Panel */}
+          <div className="space-y-4">
+            <AnimatePresence mode="wait">
+              {selectedSection ? (
+                <motion.div
+                  key={selectedSection.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SectionDetailPanel
+                    section={selectedSection}
+                    onUpgrade={() => handleUpgrade(selectedSection.id)}
+                    upgrading={upgrading[selectedSection.id] || false}
+                    message={upgradeMessages[selectedSection.id] || ''}
+                    walletCash={wallet.cash}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <RevenueOverviewPanel
+                    stadiumData={stadiumData}
+                    revenueBreakdown={revenueBreakdown}
+                    ticketRev={ticketRev}
+                    concessionRev={concessionRev}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
