@@ -419,6 +419,11 @@ const startServer = async () => {
   } catch {
     console.warn('Redis unavailable');
   }
+
+  // Keep-alive: lightweight DB ping every 5 min to prevent free-tier sleep
+  setInterval(() => {
+    prisma.$queryRaw`SELECT 1`.catch(() => {});
+  }, 5 * 60 * 1000);
 };
 
 startServer();
