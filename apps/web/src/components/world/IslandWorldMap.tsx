@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePanels } from './PanelSystem';
 import {
@@ -55,7 +55,6 @@ const HUB_BUILDINGS: HubBuilding[] = [
   { id: 'matches', label: 'Games', icon: Swords, x: 60, y: 55, color: '#1a1a2e', accent: '#E94560', getContent: () => <CityPage /> },
 ];
 
-// Island shapes (SVG paths for different island types)
 const TIER_LABELS: Record<string, string> = {
   STATE_COLLEGE: 'State College',
   MID_COLLEGE: 'Mid College',
@@ -64,6 +63,78 @@ const TIER_LABELS: Record<string, string> = {
   PRO_ENTRY: 'Pro Entry',
   PRO_ELITE: 'Pro Elite',
 };
+
+// Animated wave layer for water
+function WaveLayer({ amplitude, frequency, speed, opacity, yOffset }: {
+  amplitude: number; frequency: number; speed: number; opacity: number; yOffset: number;
+}) {
+  const d = useMemo(() => {
+    const points = [];
+    for (let x = -400; x <= 400; x += 10) {
+      const y = Math.sin(x * frequency) * amplitude + yOffset;
+      points.push(`${x},${y}`);
+    }
+    return `M -400,${yOffset + amplitude} L ${points.join(' L ')} L 400,${yOffset + amplitude} Z`;
+  }, [amplitude, frequency, yOffset]);
+
+  return (
+    <motion.path
+      d={d}
+      fill="#1e3a5f"
+      opacity={opacity}
+      animate={{
+        d: [
+          d,
+          (() => {
+            const points = [];
+            for (let x = -400; x <= 400; x += 10) {
+              const y = Math.sin(x * frequency + Math.PI) * amplitude + yOffset;
+              points.push(`${x},${y}`);
+            }
+            return `M -400,${yOffset + amplitude} L ${points.join(' L ')} L 400,${yOffset + amplitude} Z`;
+          })(),
+          d,
+        ],
+      }}
+      transition={{ duration: speed, repeat: Infinity, ease: 'easeInOut' }}
+    />
+  );
+}
+
+// Small boat that travels between islands
+function TravelingBoat({ fromX, fromY, toX, toY }: { fromX: number; fromY: number; toX: number; toY: number }) {
+  return (
+    <motion.g
+      animate={{
+        x: [fromX, toX, fromX],
+        y: [fromY, toY, fromY],
+      }}
+      transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <motion.g
+        animate={{ rotate: [-3, 3, -3] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <ellipse cx={0} cy={2} rx={8} ry={3} fill="#64748b" />
+        <rect x={-2} y={-4} width={4} height={6} fill="#475569" />
+        <path d="M -2 -4 L 6 -2 L -2 0 Z" fill="#94a3b8" opacity={0.8} />
+      </motion.g>
+      {/* Wake */}
+      <motion.ellipse
+        cx={0}
+        cy={4}
+        rx={12}
+        ry={2}
+        fill="none"
+        stroke="#334155"
+        strokeWidth={0.5}
+        opacity={0.3}
+        animate={{ rx: [12, 18, 12], opacity: [0.3, 0, 0.3] }}
+        transition={{ duration: 1.5, repeat: Infinity }}
+      />
+    </motion.g>
+  );
+}
 
 export default function IslandWorldMap() {
   const { openPanel } = usePanels();
@@ -94,8 +165,7 @@ export default function IslandWorldMap() {
 
   const handleIslandClick = (island: Island) => {
     if (island.type === 'HUB') {
-      // Clicking hub opens it - buildings are visible on hover/click
-      // Hub buildings can be clicked separately
+      // Hub click
     } else if (island.league) {
       openPanel({
         id: `league-${island.league.id}`,
@@ -138,47 +208,104 @@ export default function IslandWorldMap() {
   const hubIsland = islands.find((i) => i.type === 'HUB');
   const leagueIslands = islands.filter((i) => i.type === 'LEAGUE');
 
+  // Generate static wave seed
+  const waveSeed = useMemo(() => Math.random(), []);
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#0a1628]">
-      {/* Water background with animated pattern */}
+      {/* Deep water background layers */}
       <div className="absolute inset-0">
-        <svg width="100%" height="100%" className="opacity-30">
+        <svg width="100%" height="100%">
           <defs>
-            <pattern id="water" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-              <circle cx="20" cy="20" r="1" fill="#1e3a5f" />
-              <circle cx="0" cy="0" r="0.5" fill="#1e3a5f" />
-              <circle cx="40" cy="0" r="0.5" fill="#1e3a5f" />
-              <circle cx="0" cy="40" r="0.5" fill="#1e3a5f" />
-              <circle cx="40" cy="40" r="0.5" fill="#1e3a5f" />
-            </pattern>
+            <radialGradient id="deepWater" cx="50%" cy="50%" r="70%">
+              <stop offset="0%" stopColor="#0c1e33" />
+              <stop offset="50%" stopColor="#091625" />
+              <stop offset="100%" stopColor="#060e1a" />
+            </radialGradient>
           </defs>
-          <rect width="100%" height="100%" fill="url(#water)" />
+          <rect width="100%" height="100%" fill="url(#deepWater)" />
         </svg>
       </div>
 
-      {/* Animated water shimmer */}
-      <motion.div
-        className="absolute inset-0"
-        animate={{ opacity: [0.3, 0.5, 0.3] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628] via-[#0f2640] to-[#0a1628] opacity-50" />
-      </motion.div>
+      {/* Animated water waves */}
+      <div className="absolute inset-0 opacity-40">
+        <svg width="100%" height="100%" viewBox="-400 -300 800 600" preserveAspectRatio="xMidYMid meet">
+          <WaveLayer amplitude={15} frequency={0.008} speed={4} opacity={0.15} yOffset={-200} />
+          <WaveLayer amplitude={12} frequency={0.012} speed={3.5} opacity={0.12} yOffset={-100} />
+          <WaveLayer amplitude={18} frequency={0.006} speed={5} opacity={0.1} yOffset={0} />
+          <WaveLayer amplitude={10} frequency={0.015} speed={3} opacity={0.08} yOffset={100} />
+          <WaveLayer amplitude={14} frequency={0.009} speed={4.5} opacity={0.1} yOffset={200} />
+        </svg>
+      </div>
+
+      {/* Sparkles on water */}
+      <div className="absolute inset-0">
+        <svg width="100%" height="100%" viewBox="-400 -300 800 600" preserveAspectRatio="xMidYMid meet">
+          {Array.from({ length: 20 }).map((_, idx) => {
+            const sx = ((idx * 137.5 + waveSeed * 100) % 800) - 400;
+            const sy = ((idx * 73.3 + waveSeed * 200) % 600) - 300;
+            return (
+              <motion.circle
+                key={`sparkle-${idx}`}
+                cx={sx}
+                cy={sy}
+                r={1 + (idx % 2)}
+                fill="#38bdf8"
+                opacity={0.2}
+                animate={{
+                  opacity: [0.1, 0.4, 0.1],
+                  r: [1, 2, 1],
+                }}
+                transition={{
+                  duration: 2 + (idx % 3),
+                  repeat: Infinity,
+                  delay: idx * 0.3,
+                  ease: 'easeInOut',
+                }}
+              />
+            );
+          })}
+        </svg>
+      </div>
 
       {/* World Map SVG */}
       <svg viewBox="-400 -300 800 600" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <filter id="islandGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="4" dy="6" stdDeviation="4" floodColor="#000" floodOpacity="0.3" />
+          </filter>
+        </defs>
+
         {/* Water routes between islands */}
         {hubIsland && leagueIslands.map((island) => (
           <motion.path
             key={`route-${island.id}`}
             d={`M ${hubIsland.x} ${hubIsland.y} Q ${(hubIsland.x + island.x) / 2} ${(hubIsland.y + island.y) / 2 + 30} ${island.x} ${island.y}`}
-            stroke="rgba(255,255,255,0.08)"
+            stroke="rgba(255,255,255,0.06)"
             strokeWidth="2"
             strokeDasharray="8 8"
             fill="none"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: 2, delay: 0.5 }}
+          />
+        ))}
+
+        {/* Traveling boats */}
+        {hubIsland && leagueIslands.slice(0, 3).map((island) => (
+          <TravelingBoat
+            key={`boat-${island.id}`}
+            fromX={hubIsland.x}
+            fromY={hubIsland.y}
+            toX={island.x}
+            toY={island.y}
           />
         ))}
 
@@ -191,39 +318,72 @@ export default function IslandWorldMap() {
             className="cursor-pointer"
           >
             {/* Island shadow */}
-            <ellipse cx={hubIsland.x + 8} cy={hubIsland.y + 8} rx={hubIsland.size * 60} ry={hubIsland.size * 40} fill="rgba(0,0,0,0.3)" />
+            <ellipse cx={hubIsland.x + 10} cy={hubIsland.y + 12} rx={hubIsland.size * 65} ry={hubIsland.size * 42} fill="rgba(0,0,0,0.4)" filter="url(#shadow)" />
             
-            {/* Island body */}
+            {/* Animated waterline around island */}
             <motion.ellipse
               cx={hubIsland.x}
-              cy={hubIsland.y}
-              rx={hubIsland.size * 60}
-              ry={hubIsland.size * 40}
-              fill={hubIsland.color}
-              stroke={hoveredIsland === hubIsland.id ? '#fff' : 'rgba(255,255,255,0.2)'}
-              strokeWidth={hoveredIsland === hubIsland.id ? 3 : 1}
-              animate={{ scale: hoveredIsland === hubIsland.id ? 1.05 : 1 }}
-              transition={{ duration: 0.3 }}
+              cy={hubIsland.y + 2}
+              rx={hubIsland.size * 62}
+              ry={hubIsland.size * 42}
+              fill="none"
+              stroke="rgba(56, 189, 248, 0.2)"
+              strokeWidth={2}
+              animate={{ rx: [hubIsland.size * 62, hubIsland.size * 65, hubIsland.size * 62] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             />
             
-            {/* Island detail (beach) */}
-            <ellipse
-              cx={hubIsland.x}
-              cy={hubIsland.y + 10}
-              rx={hubIsland.size * 55}
-              ry={hubIsland.size * 32}
-              fill="rgba(255,255,255,0.1)"
-            />
+            {/* Island body with gentle bob */}
+            <motion.g
+              animate={{ y: [0, -2, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <ellipse
+                cx={hubIsland.x}
+                cy={hubIsland.y}
+                rx={hubIsland.size * 60}
+                ry={hubIsland.size * 40}
+                fill={hubIsland.color}
+                stroke={hoveredIsland === hubIsland.id ? '#fff' : 'rgba(255,255,255,0.2)'}
+                strokeWidth={hoveredIsland === hubIsland.id ? 3 : 1}
+                filter="url(#islandGlow)"
+              />
+              
+              {/* Island detail (beach ring) */}
+              <ellipse
+                cx={hubIsland.x}
+                cy={hubIsland.y + 10}
+                rx={hubIsland.size * 55}
+                ry={hubIsland.size * 32}
+                fill="rgba(255,255,255,0.08)"
+              />
+              
+              {/* Trees / vegetation dots */}
+              {Array.from({ length: 12 }).map((_, i) => {
+                const tx = hubIsland.x + Math.sin(i * 2.1 + waveSeed * 10) * hubIsland.size * 35;
+                const ty = hubIsland.y + Math.cos(i * 1.7 + waveSeed * 10) * hubIsland.size * 20;
+                return (
+                  <circle
+                    key={i}
+                    cx={tx}
+                    cy={ty}
+                    r={2 + (i % 3)}
+                    fill="#4ade80"
+                    opacity={0.3}
+                  />
+                );
+              })}
+            </motion.g>
 
             {/* Hub label */}
-            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 50} textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">
+            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 50} textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
               {hubIsland.name}
             </text>
-            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 35} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="10">
+            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 35} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="10" style={{ pointerEvents: 'none' }}>
               Community Hub
             </text>
 
-            {/* Hub buildings (visible when hovered or always visible) */}
+            {/* Hub buildings */}
             {HUB_BUILDINGS.map((building) => {
               const bx = hubIsland.x + (building.x - 50) * hubIsland.size * 0.8;
               const by = hubIsland.y + (building.y - 50) * hubIsland.size * 0.6;
@@ -235,8 +395,9 @@ export default function IslandWorldMap() {
                     handleHubBuildingClick(building);
                   }}
                   className="cursor-pointer"
+                  style={{ pointerEvents: 'all' }}
                 >
-                  <rect
+                  <motion.rect
                     x={bx - 12}
                     y={by - 8}
                     width={24}
@@ -246,8 +407,10 @@ export default function IslandWorldMap() {
                     stroke={building.accent}
                     strokeWidth={1}
                     opacity={0.9}
+                    whileHover={{ scale: 1.1 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                   />
-                  <text x={bx} y={by + 20} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="6">
+                  <text x={bx} y={by + 20} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="6" style={{ pointerEvents: 'none' }}>
                     {building.label}
                   </text>
                 </g>
@@ -257,10 +420,11 @@ export default function IslandWorldMap() {
         )}
 
         {/* League Islands */}
-        {leagueIslands.map((island) => {
+        {leagueIslands.map((island, islandIndex) => {
           const isHovered = hoveredIsland === island.id;
           const league = island.league;
           const isFull = (island.teamCount || 0) >= (island.maxTeams || 12);
+          const bobDelay = islandIndex * 0.5;
           
           return (
             <g
@@ -271,50 +435,92 @@ export default function IslandWorldMap() {
               className="cursor-pointer"
             >
               {/* Island shadow */}
-              <ellipse cx={island.x + 5} cy={island.y + 5} rx={island.size * 50} ry={island.size * 35} fill="rgba(0,0,0,0.3)" />
+              <ellipse cx={island.x + 6} cy={island.y + 8} rx={island.size * 52} ry={island.size * 36} fill="rgba(0,0,0,0.4)" filter="url(#shadow)" />
               
-              {/* Island body */}
+              {/* Animated waterline */}
               <motion.ellipse
                 cx={island.x}
-                cy={island.y}
-                rx={island.size * 50}
-                ry={island.size * 35}
-                fill={island.color}
-                stroke={isHovered ? '#fff' : 'rgba(255,255,255,0.15)'}
-                strokeWidth={isHovered ? 2.5 : 1}
-                animate={{ scale: isHovered ? 1.08 : 1 }}
-                transition={{ duration: 0.3 }}
+                cy={island.y + 2}
+                rx={island.size * 52}
+                ry={island.size * 36}
+                fill="none"
+                stroke="rgba(56, 189, 248, 0.15)"
+                strokeWidth={1.5}
+                animate={{ rx: [island.size * 52, island.size * 55, island.size * 52] }}
+                transition={{ duration: 3 + islandIndex * 0.3, repeat: Infinity, ease: 'easeInOut', delay: bobDelay }}
               />
               
-              {/* Island texture */}
-              <ellipse
-                cx={island.x}
-                cy={island.y + 8}
-                rx={island.size * 42}
-                ry={island.size * 25}
-                fill="rgba(255,255,255,0.08)"
-              />
+              {/* Island body with gentle bob (staggered) */}
+              <motion.g
+                animate={{ y: [0, -2, 0] }}
+                transition={{ duration: 4 + islandIndex * 0.4, repeat: Infinity, ease: 'easeInOut', delay: bobDelay }}
+              >
+                <ellipse
+                  cx={island.x}
+                  cy={island.y}
+                  rx={island.size * 50}
+                  ry={island.size * 35}
+                  fill={island.color}
+                  stroke={isHovered ? '#fff' : 'rgba(255,255,255,0.15)'}
+                  strokeWidth={isHovered ? 2.5 : 1}
+                  filter="url(#islandGlow)"
+                />
+                
+                {/* Island texture */}
+                <ellipse
+                  cx={island.x}
+                  cy={island.y + 8}
+                  rx={island.size * 42}
+                  ry={island.size * 25}
+                  fill="rgba(255,255,255,0.08)"
+                />
+                
+                {/* Vegetation */}
+                {Array.from({ length: 8 }).map((_, i) => {
+                  const tx = island.x + Math.sin(i * 2.4 + islandIndex) * island.size * 25;
+                  const ty = island.y + Math.cos(i * 1.9 + islandIndex) * island.size * 15;
+                  return (
+                    <circle
+                      key={i}
+                      cx={tx}
+                      cy={ty}
+                      r={1.5 + (i % 2)}
+                      fill="#4ade80"
+                      opacity={0.25}
+                    />
+                  );
+                })}
 
-              {/* Stadium icon on island */}
-              <g transform={`translate(${island.x - 8}, ${island.y - 12})`}>
-                <rect x={0} y={0} width={16} height={10} rx={2} fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.3)" strokeWidth={0.5} />
-                <rect x={2} y={2} width={12} height={6} rx={1} fill="rgba(255,255,255,0.1)" />
-              </g>
+                {/* Stadium icon on island */}
+                <g transform={`translate(${island.x - 8}, ${island.y - 12})`}>
+                  <rect x={0} y={0} width={16} height={10} rx={2} fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.3)" strokeWidth={0.5} />
+                  <rect x={2} y={2} width={12} height={6} rx={1} fill="rgba(255,255,255,0.1)" />
+                  {/* Small light on stadium */}
+                  <motion.circle
+                    cx={8}
+                    cy={-2}
+                    r={2}
+                    fill="#fbbf24"
+                    animate={{ opacity: [0.4, 0.8, 0.4] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                </g>
+              </motion.g>
 
               {/* Island name */}
-              <text x={island.x} y={island.y - island.size * 42} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">
+              <text x={island.x} y={island.y - island.size * 42} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
                 {island.name}
               </text>
               
               {/* Tier label */}
               {league && (
-                <text x={island.x} y={island.y - island.size * 30} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="8">
+                <text x={island.x} y={island.y - island.size * 30} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="8" style={{ pointerEvents: 'none' }}>
                   {TIER_LABELS[league.tier] || league.tier}
                 </text>
               )}
 
               {/* Team count / capacity */}
-              <text x={island.x} y={island.y + island.size * 40} textAnchor="middle" fill={isFull ? '#f87171' : 'rgba(255,255,255,0.5)'} fontSize="8">
+              <text x={island.x} y={island.y + island.size * 40} textAnchor="middle" fill={isFull ? '#f87171' : 'rgba(255,255,255,0.5)'} fontSize="8" style={{ pointerEvents: 'none' }}>
                 {island.teamCount || 0} / {island.maxTeams || 12} teams
               </text>
 
@@ -328,15 +534,28 @@ export default function IslandWorldMap() {
                 </g>
               )}
 
-              {/* Player avatars (simulated - 3 random dots) */}
+              {/* Animated player dots (small avatars walking around island) */}
               {[0, 1, 2].map((i) => (
-                <circle
+                <motion.circle
                   key={i}
                   cx={island.x + (Math.sin(i * 2.1) * island.size * 25)}
                   cy={island.y + (Math.cos(i * 1.7) * island.size * 15)}
                   r={3}
                   fill={['#E94560', '#3b82f6', '#fbbf24'][i]}
                   opacity={0.7}
+                  animate={{
+                    cx: [
+                      island.x + (Math.sin(i * 2.1) * island.size * 25),
+                      island.x + (Math.sin(i * 2.1 + 0.5) * island.size * 25),
+                      island.x + (Math.sin(i * 2.1) * island.size * 25),
+                    ],
+                    cy: [
+                      island.y + (Math.cos(i * 1.7) * island.size * 15),
+                      island.y + (Math.cos(i * 1.7 + 0.3) * island.size * 15),
+                      island.y + (Math.cos(i * 1.7) * island.size * 15),
+                    ],
+                  }}
+                  transition={{ duration: 4 + i, repeat: Infinity, ease: 'easeInOut', delay: i * 0.5 }}
                 />
               ))}
             </g>

@@ -8,6 +8,7 @@ export interface WorldPlayer {
   targetX: number;
   targetY: number;
   isMoving: boolean;
+  facing: 'left' | 'right' | 'up' | 'down';
   avatarColor: string;
   teamId?: string;
   lastSeen: number;
@@ -121,9 +122,9 @@ export function WorldProvider({ children }: { children: React.ReactNode }) {
       setOnlinePlayers((prev) => {
         if (prev.length > 0) return prev;
         return [
-          { userId: 'player-1', username: 'GridKing', x: 200, y: 300, targetX: 200, targetY: 300, isMoving: false, avatarColor: '#E94560', lastSeen: Date.now() },
-          { userId: 'player-2', username: 'TouchdownTom', x: 500, y: 400, targetX: 500, targetY: 400, isMoving: false, avatarColor: '#22c55e', lastSeen: Date.now() },
-          { userId: 'player-3', username: 'StadiumBoss', x: 700, y: 200, targetX: 700, targetY: 200, isMoving: false, avatarColor: '#3b82f6', lastSeen: Date.now() },
+          { userId: 'player-1', username: 'GridKing', x: 200, y: 300, targetX: 200, targetY: 300, isMoving: false, facing: 'right', avatarColor: '#E94560', lastSeen: Date.now() },
+          { userId: 'player-2', username: 'TouchdownTom', x: 500, y: 400, targetX: 500, targetY: 400, isMoving: false, facing: 'left', avatarColor: '#22c55e', lastSeen: Date.now() },
+          { userId: 'player-3', username: 'StadiumBoss', x: 700, y: 200, targetX: 700, targetY: 200, isMoving: false, facing: 'down', avatarColor: '#3b82f6', lastSeen: Date.now() },
         ];
       });
     } catch (e) {
@@ -146,10 +147,14 @@ export function WorldProvider({ children }: { children: React.ReactNode }) {
             return { ...p, x: p.targetX, y: p.targetY, isMoving: false };
           }
           const speed = 2;
+          const newX = p.x + (dx / dist) * speed;
+          const newY = p.y + (dy / dist) * speed;
+          const facing = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
           return {
             ...p,
-            x: p.x + (dx / dist) * speed,
-            y: p.y + (dy / dist) * speed,
+            x: newX,
+            y: newY,
+            facing,
           };
         })
       );

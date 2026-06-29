@@ -7,9 +7,10 @@ import { useAuthStore } from '../../store/authStore';
 import { useWorld } from './WorldSystem';
 import { usePanels, PanelOverlay } from './PanelSystem';
 import IslandWorldMap from './IslandWorldMap';
-import CommunityBuildingSVG from './CommunityBuildingSVG';
+import IsometricBuilding from './IsometricBuilding';
+import IsometricAvatar, { type AvatarState } from './IsometricAvatar';
 import PlayerStadiumSVG from './PlayerStadiumSVG';
-import PlayerAvatarSVG from './PlayerAvatarSVG';
+import { FloatingParticles, Fireflies, SmokePuff, GrassTufts } from './AmbientEffects';
 import {
   LayoutDashboard, Dumbbell, ShoppingCart, Trophy, Wallet, Globe, Shirt, Map
 } from 'lucide-react';
@@ -33,8 +34,10 @@ interface CommunityBuilding {
   y: number;
   width: number;
   height: number;
+  depth: number;
   color: string;
   accent: string;
+  variant: 'hq' | 'shop' | 'training' | 'bank' | 'generic' | 'stadium';
   panelWidth: number;
   panelHeight: number;
   getContent: () => React.ReactNode;
@@ -43,44 +46,44 @@ interface CommunityBuilding {
 const COMMUNITY_BUILDINGS: CommunityBuilding[] = [
   {
     id: 'dashboard', label: 'HQ', route: '/dashboard', icon: LayoutDashboard,
-    x: 60, y: 40, width: 100, height: 75, color: '#0f172a', accent: '#E94560',
-    panelWidth: 700, panelHeight: 500,
+    x: 130, y: 90, width: 70, height: 55, depth: 35, color: '#0f172a', accent: '#E94560',
+    variant: 'hq', panelWidth: 700, panelHeight: 500,
     getContent: () => <CityPage />,
   },
   {
     id: 'market', label: 'Market', route: '/marketplace', icon: ShoppingCart,
-    x: 190, y: 40, width: 100, height: 75, color: '#3f2e0f', accent: '#f59e0b',
-    panelWidth: 800, panelHeight: 600,
+    x: 280, y: 70, width: 70, height: 50, depth: 35, color: '#3f2e0f', accent: '#f59e0b',
+    variant: 'shop', panelWidth: 800, panelHeight: 600,
     getContent: () => <MarketplacePage />,
   },
   {
     id: 'training', label: 'Training', route: '/training', icon: Dumbbell,
-    x: 320, y: 40, width: 100, height: 75, color: '#3f0f3f', accent: '#a855f7',
-    panelWidth: 700, panelHeight: 550,
+    x: 430, y: 90, width: 70, height: 52, depth: 35, color: '#3f0f3f', accent: '#a855f7',
+    variant: 'training', panelWidth: 700, panelHeight: 550,
     getContent: () => <TrainingPage />,
   },
   {
     id: 'leaderboard', label: 'Hall of Fame', route: '/leaderboard', icon: Trophy,
-    x: 450, y: 40, width: 110, height: 75, color: '#2a1a0a', accent: '#fbbf24',
-    panelWidth: 700, panelHeight: 550,
+    x: 570, y: 70, width: 75, height: 58, depth: 38, color: '#2a1a0a', accent: '#fbbf24',
+    variant: 'generic', panelWidth: 700, panelHeight: 550,
     getContent: () => <LeaderboardPage />,
   },
   {
     id: 'wallet', label: 'Bank', route: '/wallet', icon: Wallet,
-    x: 590, y: 40, width: 100, height: 75, color: '#3f2e0f', accent: '#eab308',
-    panelWidth: 600, panelHeight: 500,
+    x: 720, y: 90, width: 70, height: 55, depth: 35, color: '#3f2e0f', accent: '#eab308',
+    variant: 'bank', panelWidth: 600, panelHeight: 500,
     getContent: () => <WalletPage />,
   },
   {
     id: 'world', label: 'Travel Hub', route: '/world-map', icon: Globe,
-    x: 720, y: 40, width: 100, height: 75, color: '#0c2e4e', accent: '#06b6d4',
-    panelWidth: 900, panelHeight: 600,
+    x: 860, y: 70, width: 70, height: 50, depth: 35, color: '#0c2e4e', accent: '#06b6d4',
+    variant: 'generic', panelWidth: 900, panelHeight: 600,
     getContent: () => <WorldMapPage />,
   },
   {
     id: 'locker', label: 'Locker', route: '/locker', icon: Shirt,
-    x: 850, y: 40, width: 90, height: 75, color: '#1a1a2e', accent: '#64748b',
-    panelWidth: 800, panelHeight: 600,
+    x: 130, y: 200, width: 70, height: 50, depth: 35, color: '#1a1a2e', accent: '#64748b',
+    variant: 'generic', panelWidth: 800, panelHeight: 600,
     getContent: () => <EquipmentPage />,
   },
 ];
@@ -91,48 +94,50 @@ const COMMUNITY_ROADS = [
   { from: 'training', to: 'leaderboard' },
   { from: 'leaderboard', to: 'wallet' },
   { from: 'wallet', to: 'world' },
-  { from: 'world', to: 'locker' },
 ];
 
-// Generate road path between two points
 function getRoadPath(x1: number, y1: number, x2: number, y2: number): string {
   const midX = (x1 + x2) / 2;
   const midY = Math.max(y1, y2) + 15;
   return `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
 }
 
-function hashToColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+function getFacingDirection(fromX: number, fromY: number, toX: number, toY: number): 'left' | 'right' | 'up' | 'down' {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? 'right' : 'left';
   }
-  const hue = Math.abs(hash % 360);
-  return `hsl(${hue}, 70%, 55%)`;
+  return dy > 0 ? 'down' : 'up';
 }
 
 export default function GameShell() {
-  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
   const { openPanel } = usePanels();
   const { myHomeMatches } = useMatchDay();
   const { isTraining } = useTraining();
   const { onlinePlayers, myStadium, otherStadiums } = useWorld();
   const [hoveredBuilding, setHoveredBuilding] = useState<string | null>(null);
-  const [avatarPos, setAvatarPos] = useState({ x: 110, y: 77 });
+  const [avatarState, setAvatarState] = useState<AvatarState>({
+    x: 130, y: 77, isMoving: false, facing: 'right', username: 'You', color: '#E94560',
+  });
   const [isMoving, setIsMoving] = useState(false);
   const [activeView, setActiveView] = useState<'hub' | 'islands'>('islands');
-  const avatarColor = useMemo(() => hashToColor(user?.id || 'guest'), [user?.id]);
 
   const handleBuildingClick = useCallback((building: CommunityBuilding) => {
     if (isMoving) return;
     setIsMoving(true);
     setHoveredBuilding(null);
 
-    const targetX = building.x + building.width / 2;
-    const targetY = building.y + building.height - 10;
-    setAvatarPos({ x: targetX, y: targetY });
+    const targetX = building.x;
+    const targetY = building.y + building.depth * 0.5;
+    const facing = getFacingDirection(avatarState.x, avatarState.y, targetX, targetY);
+
+    setAvatarState(prev => ({ ...prev, isMoving: true, facing, x: targetX, y: targetY }));
 
     setTimeout(() => {
       setIsMoving(false);
+      setAvatarState(prev => ({ ...prev, isMoving: false }));
       openPanel({
         id: building.id,
         title: building.label,
@@ -145,8 +150,8 @@ export default function GameShell() {
         maximized: false,
         content: building.getContent(),
       });
-    }, 600);
-  }, [isMoving, openPanel]);
+    }, 700);
+  }, [isMoving, openPanel, avatarState.x, avatarState.y]);
 
   const handleStadiumClick = useCallback(() => {
     openPanel({
@@ -208,10 +213,33 @@ export default function GameShell() {
   const buildingPositions = useMemo(() => {
     const pos: Record<string, { x: number; y: number; width: number; height: number }> = {};
     COMMUNITY_BUILDINGS.forEach((b) => {
-      pos[b.id] = { x: b.x + b.width / 2, y: b.y + b.height - 5, width: b.width, height: b.height };
+      pos[b.id] = { x: b.x, y: b.y + b.depth * 0.5, width: b.width, height: b.height };
     });
     return pos;
   }, []);
+
+  // Convert online players to AvatarState format
+  const worldPlayers: AvatarState[] = useMemo(() => {
+    return onlinePlayers.map(p => ({
+      x: p.x,
+      y: p.y,
+      isMoving: p.isMoving,
+      facing: p.targetX > p.x ? 'right' : p.targetX < p.x ? 'left' : p.targetY > p.y ? 'down' : 'up',
+      username: p.username,
+      color: p.avatarColor,
+      teamColor: p.avatarColor,
+    }));
+  }, [onlinePlayers]);
+
+  // Ground decoration points
+  const grassPoints = useMemo(() => [
+    { x: 200, y: 300 }, { x: 450, y: 320 }, { x: 700, y: 280 },
+    { x: 850, y: 340 }, { x: 100, y: 350 }, { x: 600, y: 380 },
+  ], []);
+
+  const smokePoints = useMemo(() => [
+    { x: 430, y: 55 }, { x: 570, y: 45 }, { x: 280, y: 45 },
+  ], []);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
@@ -264,41 +292,57 @@ export default function GameShell() {
             exit={{ opacity: 0 }}
             className="absolute inset-0 pt-10"
           >
-            <svg viewBox="0 0 1000 700" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+            <svg viewBox="0 0 1000 500" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
               <defs>
-                <pattern id="grass" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <rect width="40" height="40" fill="#0a0f1a" />
-                  <circle cx="20" cy="20" r="1" fill="#1a2332" opacity="0.5" />
-                  <circle cx="5" cy="5" r="0.5" fill="#1a2332" opacity="0.3" />
-                  <circle cx="35" cy="35" r="0.5" fill="#1a2332" opacity="0.3" />
+                {/* Ground tile pattern */}
+                <pattern id="grass" width="60" height="60" patternUnits="userSpaceOnUse">
+                  <rect width="60" height="60" fill="#0d1520" />
+                  <path d="M 0 30 L 30 0 L 60 30 L 30 60 Z" fill="#0f1725" opacity="0.5" />
+                  <circle cx="30" cy="30" r="1" fill="#1a2535" opacity="0.4" />
+                  <circle cx="15" cy="15" r="0.5" fill="#1a2535" opacity="0.2" />
+                  <circle cx="45" cy="45" r="0.5" fill="#1a2535" opacity="0.2" />
                 </pattern>
-                <pattern id="stars" width="100" height="100" patternUnits="userSpaceOnUse">
-                  <circle cx="50" cy="50" r="0.8" fill="#ffffff" opacity="0.15" />
-                  <circle cx="20" cy="80" r="0.5" fill="#ffffff" opacity="0.1" />
-                  <circle cx="80" cy="20" r="0.5" fill="#ffffff" opacity="0.1" />
-                  <circle cx="10" cy="30" r="0.3" fill="#ffffff" opacity="0.2" />
-                  <circle cx="70" cy="70" r="0.3" fill="#ffffff" opacity="0.2" />
-                  <circle cx="90" cy="10" r="0.6" fill="#ffffff" opacity="0.1" />
-                </pattern>
+                
+                {/* Atmospheric vignette */}
+                <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+                  <stop offset="0%" stopColor="rgba(0,0,0,0)" />
+                  <stop offset="100%" stopColor="rgba(0,0,0,0.5)" />
+                </radialGradient>
+                
+                {/* Glow filter for active buildings */}
+                <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
               </defs>
 
-              <rect width="1000" height="700" fill="url(#grass)" />
-              <rect width="1000" height="700" fill="url(#stars)" />
-
-              <text x="500" y="22" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
+              {/* Background ground */}
+              <rect width="1000" height="500" fill="url(#grass)" />
+              <rect width="1000" height="500" fill="url(#vignette)" pointerEvents="none" />
+              
+              {/* District labels */}
+              <text x="500" y="22" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2" style={{ pointerEvents: 'none' }}>
                 COMMUNITY DISTRICT
               </text>
-              <text x="500" y="200" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
+              <text x="500" y="200" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2" style={{ pointerEvents: 'none' }}>
                 MY STADIUM
               </text>
-              <text x="500" y="500" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
+              <text x="500" y="420" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2" style={{ pointerEvents: 'none' }}>
                 OTHER STADIUMS
               </text>
 
               <line x1="20" y1="150" x2="980" y2="150" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
-              <line x1="20" y1="480" x2="980" y2="480" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+              <line x1="20" y1="400" x2="980" y2="400" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
 
-              <g opacity="0.4">
+              {/* Ambient floating particles */}
+              <FloatingParticles width={1000} height={500} particleCount={25} />
+              <Fireflies width={1000} height={500} fireflies={12} />
+
+              {/* Road paths */}
+              <g opacity="0.3">
                 {COMMUNITY_ROADS.map((road, i) => {
                   const from = buildingPositions[road.from];
                   const to = buildingPositions[road.to];
@@ -308,9 +352,10 @@ export default function GameShell() {
                       key={i}
                       d={getRoadPath(from.x, from.y, to.x, to.y)}
                       fill="none"
-                      stroke="#334155"
-                      strokeWidth="3"
+                      stroke="#475569"
+                      strokeWidth="4"
                       strokeDasharray="6 4"
+                      opacity="0.6"
                     />
                   );
                 })}
@@ -318,22 +363,43 @@ export default function GameShell() {
 
               <TravelVehicles buildingPositions={buildingPositions} roadPaths={{}} />
 
+              {/* Grass tufts */}
+              {grassPoints.map((gp, i) => (
+                <GrassTufts key={i} x={gp.x} y={gp.y} count={4 + (i % 3)} />
+              ))}
+
+              {/* Community Buildings */}
               {COMMUNITY_BUILDINGS.map((building) => (
-                <CommunityBuildingSVG
+                <IsometricBuilding
                   key={building.id}
-                  {...building}
+                  id={building.id}
+                  label={building.label}
+                  x={building.x}
+                  y={building.y}
+                  width={building.width}
+                  height={building.height}
+                  depth={building.depth}
+                  color={building.color}
+                  accent={building.accent}
+                  variant={building.variant}
                   isHovered={hoveredBuilding === building.id}
+                  isActive={building.id === 'training' && isTraining}
                   onClick={() => handleBuildingClick(building)}
                   onHover={setHoveredBuilding}
-                  isActive={building.id === 'training' && isTraining}
                 />
               ))}
 
+              {/* Smoke from buildings */}
+              {smokePoints.map((sp, i) => (
+                <SmokePuff key={i} x={sp.x} y={sp.y} color="#475569" />
+              ))}
+
+              {/* My Stadium */}
               {myStadium ? (
                 <PlayerStadiumSVG
                   stadium={myStadium}
-                  x={380}
-                  y={220}
+                  x={500}
+                  y={250}
                   isMyStadium={true}
                   isHovered={hoveredBuilding === 'my-stadium'}
                   onClick={handleStadiumClick}
@@ -346,11 +412,12 @@ export default function GameShell() {
                   onMouseLeave={() => setHoveredBuilding(null)}
                   style={{ cursor: 'pointer' }}
                 >
-                  <rect x="380" y="220" width="120" height="85" rx="8" fill="#1e293b" stroke="#64748b" strokeWidth="1" opacity="0.5" />
-                  <text x="440" y="265" textAnchor="middle" fill="#64748b" fontSize="12">No Stadium Yet</text>
+                  <rect x="440" y="200" width="120" height="85" rx="8" fill="#1e293b" stroke="#64748b" strokeWidth="1" opacity="0.5" />
+                  <text x="500" y="245" textAnchor="middle" fill="#64748b" fontSize="12">No Stadium Yet</text>
                 </g>
               )}
 
+              {/* Other Stadiums */}
               {otherStadiums.map((stadium) => (
                 <PlayerStadiumSVG
                   key={stadium.venueId}
@@ -364,32 +431,28 @@ export default function GameShell() {
                 />
               ))}
 
-              {onlinePlayers.map((player) => (
-                <PlayerAvatarSVG
-                  key={player.userId}
+              {/* Other players with isometric avatars */}
+              {worldPlayers.map((player) => (
+                <IsometricAvatar
+                  key={player.username}
                   player={player}
+                  scale={0.8}
                 />
               ))}
 
-              <g transform={`translate(${avatarPos.x}, ${avatarPos.y})`} style={{ cursor: 'pointer' }}>
-                <text x="0" y="-18" textAnchor="middle" fill="#e2e8f0" fontSize="9" fontWeight="bold">You</text>
-                <circle cx="0" cy="-8" r="7" fill={avatarColor} opacity="0.9" />
-                <circle cx="0" cy="-16" r="5" fill={avatarColor} />
-                {isMoving && (
-                  <motion.g animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }}>
-                    <circle cx="0" cy="4" r="2" fill={avatarColor} opacity="0.5" />
-                    <circle cx="-6" cy="6" r="1.5" fill={avatarColor} opacity="0.3" />
-                    <circle cx="6" cy="6" r="1.5" fill={avatarColor} opacity="0.3" />
-                  </motion.g>
-                )}
-              </g>
+              {/* Player avatar (You) */}
+              <IsometricAvatar
+                player={avatarState}
+                scale={1}
+              />
 
+              {/* Live match light beams */}
               <AnimatePresence>
                 {myStadium?.liveMatch?.status === 'PLAYING' && (
                   <motion.g initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-                    <polygon points="500,220 480,300 520,300" fill="#E94560" opacity="0.15" />
-                    <polygon points="500,220 450,300 480,300" fill="#E94560" opacity="0.1" />
-                    <polygon points="500,220 520,300 550,300" fill="#E94560" opacity="0.1" />
+                    <polygon points="500,200 480,280 520,280" fill="#E94560" opacity="0.15" />
+                    <polygon points="500,200 450,280 480,280" fill="#E94560" opacity="0.1" />
+                    <polygon points="500,200 520,280 550,280" fill="#E94560" opacity="0.1" />
                   </motion.g>
                 )}
               </AnimatePresence>
