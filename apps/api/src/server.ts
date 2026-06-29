@@ -362,6 +362,19 @@ app.use('/api/game-time', gameTimeRouter);
 app.use('/api/islands', islandRouter);
 app.use('/api/leagues', leagueRouter);
 
+// Health check — Render expects this for the healthCheckPath
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    env: env.NODE_ENV,
+  });
+});
+
+// Serve frontend static files (CSS/JS assets from Vite build)
+app.use(express.static(path.join(__dirname, '../public')));
+
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path === '/health') {
