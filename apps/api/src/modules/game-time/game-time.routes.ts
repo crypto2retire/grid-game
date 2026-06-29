@@ -94,7 +94,7 @@ export function validateRosterForTier(
 
 // GET /api/game-time — current in-game time
 router.get(
-  '/game-time',
+  '/',
   authMiddleware,
   asyncHandler(async (_req: AuthRequest, res: Response) => {
     const settings = await (prisma as any).gameSettings.findUnique({ where: { id: 'main' } });

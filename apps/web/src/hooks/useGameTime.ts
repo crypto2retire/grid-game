@@ -58,7 +58,7 @@ export function useTeamSlotPricing() {
 
   const fetchPricing = useCallback(async () => {
     try {
-      const res = await fetchApi('/api/team-slot-pricing');
+      const res = await fetchApi('/api/game-time/team-slot-pricing');
       if (res.data) setPricing(res.data);
     } catch (err) {
       console.error('Failed to fetch team slot pricing:', err);
@@ -79,7 +79,7 @@ export function useLeagueTierConfig() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchApi('/api/league-tier-config')
+    fetchApi('/api/game-time/league-tier-config')
       .then((res) => {
         if (res.data) setConfig(res.data);
       })
