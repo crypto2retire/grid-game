@@ -97,8 +97,13 @@ router.get(
   '/',
   authMiddleware,
   asyncHandler(async (_req: AuthRequest, res: Response) => {
-    const settings = await (prisma as any).gameSettings.findUnique({ where: { id: 'main' } });
-    const epochStart = settings?.gameEpochStart || new Date('2026-01-01');
+    let epochStart = new Date('2026-01-01');
+    try {
+      const settings = await (prisma as any).gameSettings.findUnique({ where: { id: 'main' } });
+      if (settings?.gameEpochStart) epochStart = settings.gameEpochStart;
+    } catch (err: any) {
+      if (err.code !== 'P2021') throw err; // Ignore missing table, use default epoch
+    }
     const gameTime = getGameTime(epochStart);
     res.json({ status: 'success', data: gameTime });
   })

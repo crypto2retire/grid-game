@@ -31,7 +31,9 @@ WORKDIR /app
 
 # Install production dependencies
 COPY package*.json ./
+COPY turbo.json ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
 RUN npm install --omit=dev
 
 # Copy backend runtime files
@@ -49,4 +51,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3000
 
-CMD ["node", "dist/server.js"]
+# Run migrations before starting server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

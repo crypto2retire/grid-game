@@ -407,16 +407,25 @@ const startServer = async () => {
       await connectDatabase();
       console.log('Database connected');
 
-      // Ensure GameSettings singleton exists for time compression
-      await (prisma as any).gameSettings.upsert({
-        where: { id: 'main' },
-        update: {},
-        create: { id: 'main', gameEpochStart: new Date('2026-01-01') },
-      });
+      // Ensure GameSettings singleton exists for time compression (ignore if table doesn't exist yet)
+      try {
+        await (prisma as any).gameSettings.upsert({
+          where: { id: 'main' },
+          update: {},
+          create: { id: 'main', gameEpochStart: new Date('2026-01-01') },
+        });
+      } catch (gsErr: any) {
+        if (gsErr.code === 'P2021') {
+          console.log('GameSettings table not ready yet, skipping upsert');
+        } else {
+          console.error('GameSettings upsert error:', gsErr.message);
+        }
+      }
 
-      exec('npx prisma migrate deploy', { cwd: process.cwd() }, (err, stdout) => {
+      exec('npx prisma migrate deploy', { cwd: process.cwd() }, (err, stdout, stderr) => {
         if (err) {
           console.log('Migration status:', err.message);
+          if (stderr) console.log('Migration stderr:', stderr);
         } else {
           console.log('Migrations:', stdout?.trim() || 'OK');
         }
