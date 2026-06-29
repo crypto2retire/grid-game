@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useGameStore } from '../../store/gameStore';
 
 // ─── Types ───
 
@@ -101,35 +102,33 @@ const MILESTONE_BADGES: Record<string, { thresholds: number[]; names: string[] }
   },
 };
 
-// ─── Mock Data Generator ───
-
-function generateMockProgression(playerId: string, playerName: string, position: string): PlayerProgression {
+function createNewProgression(playerId: string, playerName: string, position: string): PlayerProgression {
   return {
     playerId,
     playerName,
     position,
-    level: 1 + Math.floor(Math.random() * 15),
+    level: 1,
     xp: 0,
-    xpToNextLevel: 0,
-    totalXpEarned: Math.floor(Math.random() * 5000),
+    xpToNextLevel: XP_THRESHOLDS[1] || BASE_XP,
+    totalXpEarned: 0,
     careerStats: {
-      gamesPlayed: Math.floor(Math.random() * 20),
-      gamesStarted: Math.floor(Math.random() * 15),
-      wins: Math.floor(Math.random() * 10),
-      losses: Math.floor(Math.random() * 8),
-      ties: Math.floor(Math.random() * 2),
-      rushingYards: Math.floor(Math.random() * 800),
-      passingYards: Math.floor(Math.random() * 1500),
-      receivingYards: Math.floor(Math.random() * 600),
-      touchdowns: Math.floor(Math.random() * 8),
-      passingTouchdowns: Math.floor(Math.random() * 6),
-      tackles: Math.floor(Math.random() * 40),
-      sacks: Math.floor(Math.random() * 5),
-      interceptions: Math.floor(Math.random() * 3),
-      fieldGoals: Math.floor(Math.random() * 4),
-      fumbles: Math.floor(Math.random() * 3),
-      fumblesRecovered: Math.floor(Math.random() * 2),
-      seasonBest: 6 + Math.floor(Math.random() * 3),
+      gamesPlayed: 0,
+      gamesStarted: 0,
+      wins: 0,
+      losses: 0,
+      ties: 0,
+      rushingYards: 0,
+      passingYards: 0,
+      receivingYards: 0,
+      touchdowns: 0,
+      passingTouchdowns: 0,
+      tackles: 0,
+      sacks: 0,
+      interceptions: 0,
+      fieldGoals: 0,
+      fumbles: 0,
+      fumblesRecovered: 0,
+      seasonBest: 0,
     },
     badges: ['Debut'],
     isLocked: false,
@@ -147,19 +146,52 @@ export const usePlayerProgression = () => {
 };
 
 export function PlayerProgressionProvider({ children }: { children: React.ReactNode }) {
-  const [players, setPlayers] = useState<PlayerProgression[]>(
-    [
-      generateMockProgression('player-0', 'Marcus Johnson', 'RB'),
-      generateMockProgression('player-1', 'Tyree Wilson', 'QB'),
-      generateMockProgression('player-2', 'Darius Davis', 'WR'),
-      generateMockProgression('player-3', 'Khalil Brown', 'LB'),
-      generateMockProgression('player-4', 'Jalen Carter', 'DL'),
-      generateMockProgression('player-5', 'Devin White', 'CB'),
-      generateMockProgression('player-6', 'Jordan Smith', 'TE'),
-      generateMockProgression('player-7', 'Cameron Payne', 'K'),
-    ]
-  );
+  const { teams } = useGameStore();
+  const [players, setPlayers] = useState<PlayerProgression[]>([]);
   const [xpHistory, setXpHistory] = useState<XPGainEvent[]>([]);
+
+  // ─── Sync progression with real players from gameStore ───
+  useEffect(() => {
+    if (!teams || teams.length === 0) {
+      setPlayers([]);
+      return;
+    }
+
+    // Extract all unique players from all teams
+    const realPlayers = new Map<string, { id: string; name: string; position: string }>();
+    for (const team of teams) {
+      if (!team.teamPlayers) continue;
+      for (const tp of team.teamPlayers) {
+        if (tp.player && !realPlayers.has(tp.player.id)) {
+          realPlayers.set(tp.player.id, {
+            id: tp.player.id,
+            name: tp.player.name,
+            position: tp.player.position,
+          });
+        }
+      }
+    }
+
+    // Merge: keep existing progression data for known players, create new ones for new players
+    setPlayers((prev) => {
+      const existingMap = new Map(prev.map((p) => [p.playerId, p]));
+      const merged: PlayerProgression[] = [];
+      for (const [id, info] of realPlayers) {
+        const existing = existingMap.get(id);
+        if (existing) {
+          // Update name/position if changed, keep all XP/stats
+          merged.push({
+            ...existing,
+            playerName: info.name,
+            position: info.position,
+          });
+        } else {
+          merged.push(createNewProgression(id, info.name, info.position));
+        }
+      }
+      return merged;
+    });
+  }, [teams]);
 
   const getLevelForXP = useCallback((xp: number): number => {
     for (let i = MAX_LEVEL; i >= 0; i--) {

@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { useState, createContext, useContext, useCallback, useEffect, useRef } from 'react';
 import { fetchApi } from '../../lib/api';
 import { usePlayerProgression } from '../player/PlayerProgressionSystem';
+import { useGameStore } from '../../store/gameStore';
 
 // ─── Types ───
 
@@ -120,17 +121,6 @@ const FATIGUE_PER_TRAINING = 15;
 const FATIGUE_RECOVERY_RATE = 1; // per minute
 const TRAINING_DURATION_SECONDS = 30; // Client-side countdown for game feel
 
-function generateMockFatigue(): PlayerFatigue[] {
-  const names = ['Marcus Johnson', 'Tyree Wilson', 'Darius Davis', 'Khalil Brown', 'Jalen Carter', 'Devin White', 'Jordan Smith', 'Cameron Payne'];
-  return names.map((name, i) => ({
-    playerId: `player-${i}`,
-    playerName: name,
-    fatigue: Math.floor(Math.random() * 40),
-    lastTrainedAt: null,
-    trainingStreak: 0,
-  }));
-}
-
 const EQUIPMENT_NAMES: Record<string, string[]> = {
   helmet: ['Pro Cap', 'Elite Visor', 'Titan Helmet', 'Velocity Cap', 'Guardian Dome'],
   pads: ['Flex Pads', 'Impact Guards', 'Titan Shell', 'Lightweight Vest', 'Heavy Hitter'],
@@ -173,14 +163,50 @@ function generateMockEquipment(count: number = 12): EquipmentItem[] {
 
 export function TrainingProvider({ children }: { children: React.ReactNode }) {
   const { addXP, getXPGainFromTraining } = usePlayerProgression();
+  const { teams, selectedTeamId, refreshTeams } = useGameStore();
+  
   const [packages, setPackages] = useState<TrainingPackage[]>([]);
   const [activeTraining, setActiveTraining] = useState<ActiveTrainingSession | null>(null);
   const [completedSessions, setCompletedSessions] = useState<PlayerTraining[]>([]);
-  const [playerFatigue, setPlayerFatigue] = useState<PlayerFatigue[]>(generateMockFatigue());
+  const [playerFatigue, setPlayerFatigue] = useState<PlayerFatigue[]>([]);
   const [equipment] = useState<EquipmentItem[]>(generateMockEquipment(12));
   const [equippedSlots, setEquippedSlots] = useState<EquippedSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasLoadedRef = useRef(false);
+
+  // ─── Sync playerFatigue with gameStore teams ───
+  // This ensures Training and Locker Room always show the same players as Team Page
+  useEffect(() => {
+    if (!selectedTeamId) {
+      setPlayerFatigue([]);
+      return;
+    }
+    const team = teams.find((t) => t.id === selectedTeamId);
+    if (team?.teamPlayers?.length) {
+      setPlayerFatigue(
+        team.teamPlayers.map((tp: any) => ({
+          playerId: tp.player.id,
+          playerName: tp.player.name,
+          position: tp.player.position,
+          fatigue: tp.player.fatigue ?? 0,
+          lastTrainedAt: null,
+          trainingStreak: 0,
+        }))
+      );
+    } else if (teams.length > 0) {
+      // Team exists but has no players yet
+      setPlayerFatigue([]);
+    }
+  }, [selectedTeamId, teams]);
+
+  // ─── Auto-refresh teams on mount if empty ───
+  useEffect(() => {
+    if (!hasLoadedRef.current && teams.length === 0) {
+      hasLoadedRef.current = true;
+      refreshTeams();
+    }
+  }, [teams.length, refreshTeams]);
 
   // Load training packages on mount
   const refreshPackages = useCallback(async () => {
@@ -321,7 +347,9 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
       const player = playerFatigue.find(p => p.playerId === playerId);
       if (player && player.fatigue >= 90) return { ok: false, reason: 'Player is too fatigued' };
     } else {
-      const avgFatigue = playerFatigue.reduce((sum, p) => sum + p.fatigue, 0) / playerFatigue.length;
+      const avgFatigue = playerFatigue.length > 0 
+        ? playerFatigue.reduce((sum, p) => sum + p.fatigue, 0) / playerFatigue.length 
+        : 0;
       if (avgFatigue >= 85) return { ok: false, reason: 'Team is too fatigued' };
     }
     
@@ -359,27 +387,11 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
     setEquippedSlots(prev => prev.filter(s => !(s.playerId === playerId && s.slot === slot)));
   }, []);
 
-  // Load team players for training
+  // refreshPlayers is kept for backward compat; it refreshes the game store teams
   const refreshPlayers = useCallback(async (teamId: string) => {
     if (!teamId) return;
-    try {
-      const res = await fetchApi(`/teams/${teamId}/players`);
-      const players = res.data?.players || res.data || [];
-      if (players.length > 0) {
-        setPlayerFatigue(
-          players.map((p: any) => ({
-            playerId: p.id,
-            playerName: p.name,
-            fatigue: p.fatigue ?? Math.floor(Math.random() * 40),
-            lastTrainedAt: p.lastTrainedAt || null,
-            trainingStreak: p.trainingStreak || 0,
-          }))
-        );
-      }
-    } catch (e) {
-      console.error('Failed to load team players:', e);
-    }
-  }, []);
+    await refreshTeams();
+  }, [refreshTeams]);
 
   const value: TrainingContextValue = {
     packages,

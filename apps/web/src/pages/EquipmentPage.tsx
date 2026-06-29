@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTraining, type EquipmentItem } from '../components/training/TrainingSystem';
+import { useGameStore } from '../store/gameStore';
 import {
   Shirt, Shield, Hand, Footprints, Gem, Star, Minus, Plus,
 } from 'lucide-react';
@@ -28,8 +29,10 @@ const RARITY_BG: Record<string, string> = {
 
 export default function EquipmentPage() {
   const { equipment, equippedSlots, equipItem, unequipItem, playerFatigue } = useTraining();
+  const { teams, selectedTeamId, setSelectedTeamId } = useGameStore();
+  
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<string>('player-0');
+  const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [filterSlot, setFilterSlot] = useState<string>('all');
 
   const slots = ['helmet', 'pads', 'gloves', 'shoes', 'accessory'];
@@ -69,10 +72,39 @@ export default function EquipmentPage() {
         </div>
       </div>
 
+      {/* Team Selector */}
+      <div className="glass-card p-4">
+        <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Team</h3>
+        <div className="flex gap-2 flex-wrap">
+          {teams.length === 0 && (
+            <p className="text-sm text-white/40">No teams available. Create a team in the Team Office first.</p>
+          )}
+          {teams.map((team) => (
+            <button
+              key={team.id}
+              onClick={() => setSelectedTeamId(team.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                selectedTeamId === team.id
+                  ? 'bg-[#E94560] text-white'
+                  : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {team.name} ({team.teamPlayers?.length || 0} players)
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Player Selector */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Player</h3>
         <div className="flex gap-2 flex-wrap">
+          {playerFatigue.length === 0 && selectedTeamId && (
+            <p className="text-sm text-white/40">This team has no players. Hire players in the Team Office.</p>
+          )}
+          {!selectedTeamId && (
+            <p className="text-sm text-white/40">Select a team to view players.</p>
+          )}
           {playerFatigue.map((p) => (
             <button
               key={p.playerId}
@@ -92,7 +124,7 @@ export default function EquipmentPage() {
       {/* Equipped Gear Display */}
       <div className="glass-card p-5">
         <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-4">
-          Equipped on {playerFatigueData?.playerName}
+          Equipped on {playerFatigueData?.playerName || '—'}
         </h3>
         <div className="grid grid-cols-5 gap-3">
           {slots.map((slot) => {
@@ -207,15 +239,19 @@ export default function EquipmentPage() {
                     onClick={() => {
                       if (!equipped) equipItem(selectedPlayer, item.id);
                     }}
-                    disabled={equipped}
+                    disabled={equipped || !selectedPlayer}
                     className={`w-full py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                       equipped
                         ? 'bg-white/5 text-white/30 cursor-not-allowed'
+                        : !selectedPlayer
+                        ? 'bg-white/5 text-white/20 cursor-not-allowed'
                         : 'bg-[#E94560]/20 text-[#E94560] hover:bg-[#E94560]/30'
                     }`}
                   >
                     {equipped ? (
                       <>Equipped</>
+                    ) : !selectedPlayer ? (
+                      <>Select a Player</>
                     ) : (
                       <>
                         <Plus className="w-4 h-4" />

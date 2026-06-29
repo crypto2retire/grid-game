@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTraining } from '../components/training/TrainingSystem';
-import { fetchApi } from '../lib/api';
+import { useGameStore } from '../store/gameStore';
 import {
   Users, Target, Shield, Zap, PersonStanding, Coins, CheckCircle, Timer, AlertTriangle, Activity, TrendingUp,
 } from 'lucide-react';
@@ -16,11 +16,6 @@ interface TrainingPackage {
   costCash: number;
   statBoosts: Record<string, number>;
   maxUsesPerPlayer: number;
-}
-
-interface Team {
-  id: string;
-  name: string;
 }
 
 const FOCUS_ICONS: Record<string, any> = {
@@ -42,37 +37,36 @@ const FOCUS_LABELS: Record<string, string> = {
 const TRAINING_DURATION_SECONDS = 30; // Real-time seconds per training
 
 export default function TrainingPage() {
-  const { packages, activeTraining, isTraining, startTraining, cancelTraining, claimReward, playerFatigue, canTrain, completedSessions, loading: packagesLoading, refreshPlayers } = useTraining();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<string>('');
+  const { packages, activeTraining, isTraining, startTraining, cancelTraining, claimReward, playerFatigue, canTrain, completedSessions, loading: packagesLoading } = useTraining();
+  const { teams, selectedTeamId, setSelectedTeamId, wallet, refreshTeams } = useGameStore();
+  
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [wallet, setWallet] = useState({ cash: 0, gridTokens: 0 });
 
+  // Load teams on mount if not already loaded
   useEffect(() => {
-    Promise.all([
-      fetchApi('/teams/mine').then((r) => setTeams(r.data || [])),
-      fetchApi('/economy/wallet').then((r) => {
-        const w = r.data || { cash: 0, gridTokens: 0 };
-        setWallet(w);
-      }),
-    ])
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  // Load players when team changes
-  useEffect(() => {
-    if (selectedTeam) {
-      refreshPlayers(selectedTeam);
-      setSelectedPlayer(''); // Reset player selection when team changes
+    if (teams.length === 0) {
+      refreshTeams().then(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-  }, [selectedTeam, refreshPlayers]);
+  }, [teams.length, refreshTeams]);
+
+  // Reset player selection when team changes
+  useEffect(() => {
+    setSelectedPlayer('');
+  }, [selectedTeamId]);
+
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeamId(teamId || null);
+  };
+
+  const selectedTeam = teams.find(t => t.id === selectedTeamId);
 
   const handleStartTraining = async (pkg: TrainingPackage) => {
-    if (!selectedTeam) {
+    if (!selectedTeamId) {
       setMessage('Please select a team first');
       return;
     }
@@ -81,7 +75,7 @@ export default function TrainingPage() {
       return;
     }
 
-    const teamName = teams.find(t => t.id === selectedTeam)?.name || 'Team';
+    const teamName = selectedTeam?.name || 'Team';
     const playerName = pkg.focusType === 'INDIVIDUAL' 
       ? playerFatigue.find(p => p.playerId === selectedPlayer)?.playerName 
       : undefined;
@@ -96,7 +90,7 @@ export default function TrainingPage() {
     setMessage(null);
 
     const success = await startTraining({
-      teamId: selectedTeam,
+      teamId: selectedTeamId,
       teamName,
       packageId: pkg.id,
       packageName: pkg.name,
@@ -144,8 +138,8 @@ export default function TrainingPage() {
         </div>
         <div className="flex items-center gap-3">
           <select
-            value={selectedTeam}
-            onChange={(e) => setSelectedTeam(e.target.value)}
+            value={selectedTeamId || ''}
+            onChange={(e) => handleTeamChange(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm"
           >
             <option value="">Select Team</option>
@@ -272,7 +266,7 @@ export default function TrainingPage() {
       </div>
 
       {/* Player selector for individual training */}
-      {selectedTeam && (
+      {selectedTeamId && (
         <div className="glass-card p-4">
           <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Player (for Individual Training)</h3>
           <div className="flex gap-2 flex-wrap">
@@ -348,16 +342,16 @@ export default function TrainingPage() {
                 </div>
                 <button
                   onClick={() => handleStartTraining(pkg)}
-                  disabled={isTraining || starting || !canAfford || !selectedTeam || !check.ok}
+                  disabled={isTraining || starting || !canAfford || !selectedTeamId || !check.ok}
                   className="px-4 py-2 bg-gradient-to-r from-[#E94560] to-[#FF6B6B] text-white rounded-xl font-medium text-sm hover:shadow-glow transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isTraining ? 'Training...' : starting ? 'Starting...' : 'Start Training'}
                 </button>
               </div>
-              {!canAfford && selectedTeam && (
+              {!canAfford && selectedTeamId && (
                 <p className="text-xs text-red-300 mt-2">Not enough funds</p>
               )}
-              {!check.ok && selectedTeam && (
+              {!check.ok && selectedTeamId && (
                 <p className="text-xs text-amber-300 mt-2">{check.reason}</p>
               )}
             </div>
