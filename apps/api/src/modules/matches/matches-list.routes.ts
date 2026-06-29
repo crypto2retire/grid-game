@@ -18,7 +18,13 @@ router.get(
         { awayTeam: { ownerId: userId } },
       ],
     };
-    if (status) where.status = status as string;
+    const statusMap: Record<string, string> = {
+      PLAYING: 'IN_PROGRESS',
+      SCHEDULED: 'SCHEDULED',
+      COMPLETED: 'COMPLETED',
+      CANCELLED: 'CANCELLED',
+    };
+    if (status) where.status = statusMap[status as string] || status as string;
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
@@ -36,10 +42,15 @@ router.get(
       prisma.match.count({ where }),
     ]);
 
+    const mappedMatches = matches.map((m) => ({
+      ...m,
+      status: m.status === 'IN_PROGRESS' ? 'PLAYING' : m.status,
+    }));
+
     res.json({
       status: 'success',
       data: {
-        matches,
+        matches: mappedMatches,
         pagination: {
           page: parseInt(page as string),
           limit: parseInt(limit as string),

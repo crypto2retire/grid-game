@@ -1,5 +1,10 @@
 import { prisma } from '../../config/database';
 
+// Map Prisma MatchStatus enum to frontend-friendly strings
+export function mapMatchStatus(status: string): string {
+  return status === 'IN_PROGRESS' ? 'PLAYING' : status;
+}
+
 export async function getMyStadium(userId: string) {
   const team = await prisma.team.findFirst({
     where: { ownerId: userId },
@@ -52,8 +57,8 @@ export async function getMyStadium(userId: string) {
       awayScore: liveMatch.awayScore || 0,
       venueId: venue.id,
       venueName: venue.name,
-      status: liveMatch.status,
-      phase: liveMatch.gamePhase || 'SCHEDULED',
+      status: mapMatchStatus(liveMatch.status),
+      phase: liveMatch.gamePhase === 'IN_PROGRESS' ? 'PLAYING' : (liveMatch.gamePhase || 'SCHEDULED'),
       elapsedSeconds: liveMatch.currentQuarter ? (4 - liveMatch.currentQuarter) * 900 + (900 - (liveMatch.gameClock || 0)) : 0,
       totalRevenue: 0,
       attendance: 0,
@@ -126,8 +131,8 @@ export async function getLiveMatches() {
     awayScore: match.awayScore || 0,
     venueId: '', // Will be looked up from homeTeam's venue
     venueName: 'Stadium',
-    status: match.status,
-    phase: match.gamePhase || 'SCHEDULED',
+    status: mapMatchStatus(match.status),
+    phase: match.gamePhase === 'IN_PROGRESS' ? 'PLAYING' : (match.gamePhase || 'SCHEDULED'),
     elapsedSeconds: match.currentQuarter ? (4 - match.currentQuarter) * 900 + (900 - (match.gameClock || 0)) : 0,
     totalRevenue: 0,
     attendance: 0,

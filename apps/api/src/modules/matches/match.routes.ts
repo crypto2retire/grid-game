@@ -150,7 +150,12 @@ router.get(
       throw new AppError(404, 'Match not found');
     }
 
-    res.json({ status: 'success', data: match });
+    const mappedMatch = {
+      ...match,
+      status: match!.status === 'IN_PROGRESS' ? 'PLAYING' : match!.status,
+    };
+
+    res.json({ status: 'success', data: mappedMatch });
   })
 );
 

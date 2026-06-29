@@ -12,12 +12,12 @@
   "workspaces": [
     "apps/*"
   ],
+  "dependencies": {
+    "@prisma/client": "^6.2.0",
+    "prisma": "^6.2.0"
+  },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
-    "prisma": "^6.2.0",
     "turbo": "^2.4.0"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.2.0"
   }
 }
