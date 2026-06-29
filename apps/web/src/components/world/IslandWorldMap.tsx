@@ -190,6 +190,9 @@ export default function IslandWorldMap() {
     fetchIslands();
   }, [fetchIslands]);
 
+  // Static wave seed — MUST be before any conditional return
+  const waveSeed = useMemo(() => Math.random(), []);
+
   const handleIslandClick = (island: Island) => {
     if (island.type === 'HUB') {
       // Hub click
@@ -234,9 +237,6 @@ export default function IslandWorldMap() {
 
   const hubIsland = islands.find((i) => i.type === 'HUB');
   const leagueIslands = islands.filter((i) => i.type === 'LEAGUE');
-
-  // Generate static wave seed (must be before conditional return for hooks, but we're past loading now)
-  const waveSeed = useMemo(() => Math.random(), []);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#0a1628]">
