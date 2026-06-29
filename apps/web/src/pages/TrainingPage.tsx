@@ -235,7 +235,7 @@ export default function TrainingPage() {
           </h3>
           <span className="text-xs text-white/40">Recovers 1% per minute</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {playerFatigue.map((p) => {
             const isHigh = p.fatigue >= 80;
             const isCritical = p.fatigue >= 90;
@@ -291,7 +291,7 @@ export default function TrainingPage() {
       )}
 
       {/* Training Packages */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {packages.map((pkg) => {
           const FocusIcon = FOCUS_ICONS[pkg.focusType] || Users;
           const canAfford = wallet.gridTokens >= pkg.costGrid && wallet.cash >= pkg.costCash;

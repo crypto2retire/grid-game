@@ -149,13 +149,15 @@ export default function LeaderboardPage() {
           ) : (
             <div className="space-y-3">
               {teams.map((team, index) => (
-                <div key={team.id} className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${index < 3 ? 'bg-secondary/50' : 'bg-secondary/30'}`}>
-                  <div className="w-8 flex justify-center">{getRankIcon((page - 1) * 20 + index + 1)}</div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-white">{team.name}</div>
-                    <div className="text-sm text-muted-foreground">{team.owner.displayName || team.owner.username} • {team._count.teamPlayers} players</div>
+                <div key={team.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg transition-colors ${index < 3 ? 'bg-secondary/50' : 'bg-secondary/30'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 flex justify-center shrink-0">{getRankIcon((page - 1) * 20 + index + 1)}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-white text-sm">{team.name}</div>
+                      <div className="text-xs text-muted-foreground">{team.owner.displayName || team.owner.username} • {team._count.teamPlayers} players</div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-3 text-sm ml-11 sm:ml-0">
                     <div className="text-center">
                       <div className="font-bold text-white">{team.wins}-{team.losses}-{team.draws}</div>
                       <div className="text-xs text-muted-foreground">W-L-T</div>
@@ -164,7 +166,7 @@ export default function LeaderboardPage() {
                       <div className="font-bold text-white">{team.goalsFor}:{team.goalsAgainst}</div>
                       <div className="text-xs text-muted-foreground">PF:PA</div>
                     </div>
-                    <div className="text-center w-16">
+                    <div className="text-center w-12">
                       <div className="font-bold text-accent text-lg">{team.points}</div>
                       <div className="text-xs text-muted-foreground">PTS</div>
                     </div>
@@ -204,18 +206,22 @@ export default function LeaderboardPage() {
               {players.map((player, index) => {
                 const s = player.seasonStats;
                 return (
-                  <div key={player.id} className="grid gap-4 rounded-lg bg-secondary/30 p-4 md:grid-cols-[auto_1fr_repeat(6,minmax(58px,auto))] md:items-center">
-                    <div className="w-8 flex justify-center">{getRankIcon((page - 1) * 20 + index + 1)}</div>
-                    <div>
-                      <div className="font-semibold text-white">{player.name}</div>
-                      <div className="text-sm text-muted-foreground">{player.position} • OVR {player.overall} • Form {player.form ?? '—'} • Morale {player.morale ?? '—'} • Fatigue {player.fatigue ?? '—'}</div>
+                  <div key={player.id} className="rounded-lg bg-secondary/30 p-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 flex justify-center shrink-0">{getRankIcon((page - 1) * 20 + index + 1)}</div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-white text-sm">{player.name}</div>
+                        <div className="text-xs text-muted-foreground">{player.position} • OVR {player.overall} • Form {player.form ?? '—'} • Morale {player.morale ?? '—'} • Fatigue {player.fatigue ?? '—'}</div>
+                      </div>
                     </div>
-                    <Stat label="MVP" value={Math.round(s?.mvpScore || 0)} />
-                    <Stat label="GP" value={s?.gamesPlayed || 0} />
-                    <Stat label="TD" value={(s?.touchdowns || 0) + (s?.passingTouchdowns || 0)} />
-                    <Stat label="YDS" value={s?.yards || 0} />
-                    <Stat label="TCK" value={s?.tackles || 0} />
-                    <Stat label="RAT" value={s?.ratingAverage?.toFixed(1) || '—'} />
+                    <div className="grid grid-cols-6 gap-2 text-sm ml-11">
+                      <Stat label="MVP" value={Math.round(s?.mvpScore || 0)} />
+                      <Stat label="GP" value={s?.gamesPlayed || 0} />
+                      <Stat label="TD" value={(s?.touchdowns || 0) + (s?.passingTouchdowns || 0)} />
+                      <Stat label="YDS" value={s?.yards || 0} />
+                      <Stat label="TCK" value={s?.tackles || 0} />
+                      <Stat label="RAT" value={s?.ratingAverage?.toFixed(1) || '—'} />
+                    </div>
                   </div>
                 );
               })}

@@ -147,7 +147,7 @@ export default function WalletPage() {
       </div>
 
       {/* Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="glass-card p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-yellow-400/10 rounded-lg flex items-center justify-center">
@@ -237,34 +237,31 @@ export default function WalletPage() {
             {transactions.map((t) => {
               const positive = t.amount >= 0;
               return (
-                <div key={t.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      positive ? 'bg-green-400/10' : 'bg-red-400/10'
-                    }`}>
-                      {positive ? (
-                        <ArrowUp className="w-5 h-5 text-green-400" />
-                      ) : (
-                        <ArrowDown className="w-5 h-5 text-red-400" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium text-white">
-                        {formatReason(t.reason)}
+                <div key={t.id} className="p-3 bg-secondary rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        positive ? 'bg-green-400/10' : 'bg-red-400/10'
+                      }`}>
+                        {positive ? (
+                          <ArrowUp className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <ArrowDown className="w-4 h-4 text-red-400" />
+                        )}
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {t.sourceType || 'Ledger'}{t.metadata?.sportId ? ` • ${t.metadata.sportId}` : ''} • {new Date(t.createdAt).toLocaleString()}
-                      </div>
+                      <div className="font-medium text-white text-sm">{formatReason(t.reason)}</div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-bold ${positive ? 'text-green-400' : 'text-red-400'}`}>
+                    <div className={`font-bold text-sm ${positive ? 'text-green-400' : 'text-red-400'}`}>
                       {positive ? '+' : ''}{t.amount.toLocaleString()} {t.currency}
                     </div>
-                    {t.balanceAfter !== null && (
-                      <div className="text-sm text-muted-foreground">Balance: {t.balanceAfter.toLocaleString()}</div>
-                    )}
                   </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{t.sourceType || 'Ledger'}{t.metadata?.sportId ? ` • ${t.metadata.sportId}` : ''}</span>
+                    <span>{new Date(t.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  {t.balanceAfter !== null && (
+                    <div className="text-xs text-muted-foreground">Balance: {t.balanceAfter.toLocaleString()}</div>
+                  )}
                 </div>
               );
             })}

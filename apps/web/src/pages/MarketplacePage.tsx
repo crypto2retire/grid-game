@@ -385,7 +385,7 @@ export default function MarketplacePage() {
           ) : marketItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No items available in the market</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {marketItems.map((item) => (
                 <div key={item.id} className="glass-card p-4 flex flex-col">
                   <div className="flex items-start justify-between mb-3">
@@ -513,7 +513,7 @@ export default function MarketplacePage() {
               <p className="text-sm mt-1">Be the first to list an item!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {itemListings.filter(l => l.status === 'ACTIVE').map((listing) => (
                 <div key={listing.id} className="glass-card p-4">
                   <div className="flex items-start justify-between mb-3">
@@ -579,7 +579,7 @@ export default function MarketplacePage() {
               <p>No players listed for sale</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {playerListings.filter(l => l.status === 'ACTIVE').map((listing) => (
                 <div key={listing.id} className="glass-card p-4">
                   <div className="flex items-start justify-between mb-3">

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Building2, TrendingUp, Users, Trophy, ArrowRight } from 'lucide-react';
+import { Building2, TrendingUp, Users, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function CityPage() {
@@ -32,7 +32,7 @@ export default function CityPage() {
         </motion.p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {quickActions.map((action, i) => {
           const Icon = action.icon;
           return (
@@ -42,35 +42,36 @@ export default function CityPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 + i * 0.05 }}
               onClick={() => navigate(action.route)}
-              className="group rounded-2xl border border-white/10 bg-white/5 p-5 text-left hover:bg-white/10 transition-all hover:border-white/20"
+              className="group rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:bg-white/10 transition-all hover:border-white/20"
             >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ backgroundColor: `${action.color}20` }}>
-                <Icon className="w-5 h-5" style={{ color: action.color }} />
-              </div>
-              <h3 className="font-bold text-white group-hover:text-white/90">{action.label}</h3>
-              <p className="text-xs text-slate-400 mt-1">{action.desc}</p>
-              <div className="mt-3 flex items-center gap-1 text-xs font-bold" style={{ color: action.color }}>
-                Go <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${action.color}20` }}>
+                  <Icon className="w-5 h-5" style={{ color: action.color }} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-white group-hover:text-white/90 text-sm">{action.label}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{action.desc}</p>
+                </div>
               </div>
             </motion.button>
           );
         })}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-lg font-bold text-white mb-2">How to Play</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-400">
-          <div className="space-y-1">
-            <span className="text-white font-bold">1. Build Your Team</span>
-            <p>Start with your free college team. Develop players through matches and training.</p>
+      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+        <h2 className="text-base font-bold text-white mb-3">How to Play</h2>
+        <div className="space-y-2 text-sm text-slate-400">
+          <div className="p-2 rounded-lg bg-white/5">
+            <span className="text-white font-bold text-sm">1. Build Your Team</span>
+            <p className="text-xs mt-0.5">Start with your free college team. Develop players through matches and training.</p>
           </div>
-          <div className="space-y-1">
-            <span className="text-white font-bold">2. Upgrade Facilities</span>
-            <p>Buy bigger stadiums, better transport, and training equipment to earn more revenue.</p>
+          <div className="p-2 rounded-lg bg-white/5">
+            <span className="text-white font-bold text-sm">2. Upgrade Facilities</span>
+            <p className="text-xs mt-0.5">Buy bigger stadiums, better transport, and training equipment to earn more revenue.</p>
           </div>
-          <div className="space-y-1">
-            <span className="text-white font-bold">3. Trade & Compete</span>
-            <p>Sell developed players, buy teams, and climb the leaderboard to become a pro.</p>
+          <div className="p-2 rounded-lg bg-white/5">
+            <span className="text-white font-bold text-sm">3. Trade & Compete</span>
+            <p className="text-xs mt-0.5">Sell developed players, buy teams, and climb the leaderboard to become a pro.</p>
           </div>
         </div>
       </div>

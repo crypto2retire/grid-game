@@ -176,7 +176,7 @@ export default function EquipmentPage() {
       {/* Player Selector */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Player</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {players.length === 0 && (
             <p className="text-sm text-white/40 col-span-full">No players on this team.</p>
           )}
@@ -215,7 +215,7 @@ export default function EquipmentPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-3 mb-4">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             {slots.map((slot) => {
               const equipped = getEquippedItem(selectedPlayer, slot);
               const SlotIcon = SLOT_ICONS[slot] || Gem;
@@ -257,7 +257,7 @@ export default function EquipmentPage() {
           {selectedPlayer.playerItems?.length === 0 ? (
             <p className="text-sm text-white/30">No items in inventory. Visit the Market to buy equipment.</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {selectedPlayer.playerItems?.map((pi) => {
                 const SlotIcon = SLOT_ICONS[pi.item.slot] || Gem;
                 return (
