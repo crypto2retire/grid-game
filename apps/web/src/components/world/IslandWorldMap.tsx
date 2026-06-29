@@ -1,9 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePanels } from './PanelSystem';
-import {
-  LayoutDashboard, Dumbbell, ShoppingCart, Trophy, Wallet, Shirt, Swords, ArrowRight
-} from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+import { useWorld } from './WorldSystem';
+import { useMatchDay } from '../../components/match/MatchDaySystem';
+import IsometricBuilding from './IsometricBuilding';
+import IsometricAvatar, { type AvatarState } from './IsometricAvatar';
+import PlayerStadiumSVG from './PlayerStadiumSVG';
+import { FloatingParticles, Fireflies } from './AmbientEffects';
 import CityPage from '../../pages/CityPage';
 import MarketplacePage from '../../pages/MarketplacePage';
 import LeaderboardPage from '../../pages/LeaderboardPage';
@@ -11,655 +15,639 @@ import WalletPage from '../../pages/WalletPage';
 import TrainingPage from '../../pages/TrainingPage';
 import EquipmentPage from '../../pages/EquipmentPage';
 import LeagueIslandPage from '../../pages/LeagueIslandPage';
+import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
+import WorldMapPage from '../../pages/WorldMapPage';
+import {
+  MessageSquare, X, MapPin, Users, Compass
+} from 'lucide-react';
 
+// ═══════════════════════════════════════════════════════════
+//  WORLD CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const WW = 2400;  // world width in SVG units
+const WH = 1600;  // world height in SVG units
+
+// ═══════════════════════════════════════════════════════════
+//  ISLANDS — Hub + 6 League Islands
+// ═══════════════════════════════════════════════════════════
 interface Island {
   id: string;
   name: string;
   type: 'HUB' | 'LEAGUE';
   x: number;
   y: number;
-  size: number;
-  color: string;
-  theme: string;
-  teamCount?: number;
-  maxTeams?: number;
-  league?: {
-    id: string;
-    name: string;
-    tier: string;
-    visibility: string;
-    minOverall: number;
-    maxOverall: number;
-    creator?: { username: string; displayName: string | null };
-  };
-}
-
-interface HubBuilding {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  x: number;
-  y: number;
+  w: number;
+  h: number;
   color: string;
   accent: string;
+  ground: string;
+  tier?: string;
+}
+
+const ISLANDS: Island[] = [
+  { id: 'hub', name: 'Grid City Central', type: 'HUB', x: 0, y: 0, w: 600, h: 400, color: '#E94560', accent: '#E94560', ground: '#0f172a' },
+  { id: 'state', name: 'State College', type: 'LEAGUE', x: -550, y: -350, w: 280, h: 200, color: '#86efac', accent: '#22c55e', ground: '#1a2e1a', tier: 'STATE_COLLEGE' },
+  { id: 'mid', name: 'Mid-College', type: 'LEAGUE', x: 550, y: -350, w: 280, h: 200, color: '#22d3ee', accent: '#06b6d4', ground: '#0a2e2e', tier: 'MID_COLLEGE' },
+  { id: 'top', name: 'Top College', type: 'LEAGUE', x: 0, y: -550, w: 280, h: 200, color: '#fbbf24', accent: '#d97706', ground: '#2e2a0a', tier: 'TOP_COLLEGE' },
+  { id: 'regional', name: 'Regional Pro', type: 'LEAGUE', x: 550, y: 0, w: 280, h: 200, color: '#94a3b8', accent: '#475569', ground: '#1a1a2e', tier: 'REGIONAL_PRO' },
+  { id: 'pro', name: 'Pro Entry', type: 'LEAGUE', x: -550, y: 350, w: 280, h: 200, color: '#e2e8f0', accent: '#64748b', ground: '#2e2e3e', tier: 'PRO_ENTRY' },
+  { id: 'elite', name: 'Pro Elite', type: 'LEAGUE', x: 550, y: 350, w: 280, h: 200, color: '#f87171', accent: '#dc2626', ground: '#2e1a1a', tier: 'PRO_ELITE' },
+];
+
+function getIsland(id: string): Island {
+  return ISLANDS.find(i => i.id === id) || ISLANDS[0];
+}
+
+function getIslandByPosition(x: number, y: number): Island | null {
+  return ISLANDS.find(island => {
+    const dx = x - island.x;
+    const dy = y - island.y;
+    return (dx * dx) / ((island.w / 2) * (island.w / 2)) + (dy * dy) / ((island.h / 2) * (island.h / 2)) <= 1;
+  }) || null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BUILDINGS
+// ═══════════════════════════════════════════════════════════
+interface WorldBuilding {
+  id: string;
+  label: string;
+  islandId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  d: number;
+  color: string;
+  accent: string;
+  variant: 'hq' | 'shop' | 'training' | 'bank' | 'generic' | 'stadium';
+  panelWidth: number;
+  panelHeight: number;
   getContent: () => React.ReactNode;
 }
 
-const HUB_BUILDINGS: HubBuilding[] = [
-  { id: 'dashboard', label: 'HQ', icon: LayoutDashboard, x: 30, y: 25, color: '#0f172a', accent: '#E94560', getContent: () => <CityPage /> },
-  { id: 'market', label: 'Market', icon: ShoppingCart, x: 70, y: 15, color: '#3f2e0f', accent: '#f59e0b', getContent: () => <MarketplacePage /> },
-  { id: 'training', label: 'Training', icon: Dumbbell, x: 80, y: 50, color: '#3f0f3f', accent: '#a855f7', getContent: () => <TrainingPage /> },
-  { id: 'leaderboard', label: 'Hall of Fame', icon: Trophy, x: 50, y: 75, color: '#2a1a0a', accent: '#fbbf24', getContent: () => <LeaderboardPage /> },
-  { id: 'wallet', label: 'Bank', icon: Wallet, x: 20, y: 60, color: '#3f2e0f', accent: '#eab308', getContent: () => <WalletPage /> },
-  { id: 'locker', label: 'Locker', icon: Shirt, x: 45, y: 35, color: '#1a1a2e', accent: '#64748b', getContent: () => <EquipmentPage /> },
-  { id: 'matches', label: 'Games', icon: Swords, x: 60, y: 55, color: '#1a1a2e', accent: '#E94560', getContent: () => <CityPage /> },
+const BUILDINGS: WorldBuilding[] = [
+  // Hub buildings
+  { id: 'hq', label: 'HQ', islandId: 'hub', x: -180, y: -80, w: 70, h: 55, d: 35, color: '#0f172a', accent: '#E94560', variant: 'hq', panelWidth: 700, panelHeight: 500, getContent: () => <CityPage /> },
+  { id: 'market', label: 'Market', islandId: 'hub', x: -60, y: -100, w: 70, h: 50, d: 35, color: '#3f2e0f', accent: '#f59e0b', variant: 'shop', panelWidth: 800, panelHeight: 600, getContent: () => <MarketplacePage /> },
+  { id: 'training', label: 'Training', islandId: 'hub', x: 60, y: -100, w: 70, h: 52, d: 35, color: '#3f0f3f', accent: '#a855f7', variant: 'training', panelWidth: 700, panelHeight: 550, getContent: () => <TrainingPage /> },
+  { id: 'hof', label: 'Hall of Fame', islandId: 'hub', x: 180, y: -80, w: 75, h: 58, d: 38, color: '#2a1a0a', accent: '#fbbf24', variant: 'generic', panelWidth: 700, panelHeight: 550, getContent: () => <LeaderboardPage /> },
+  { id: 'bank', label: 'Bank', islandId: 'hub', x: 180, y: 60, w: 70, h: 55, d: 35, color: '#3f2e0f', accent: '#eab308', variant: 'bank', panelWidth: 600, panelHeight: 500, getContent: () => <WalletPage /> },
+  { id: 'locker', label: 'Locker', islandId: 'hub', x: 60, y: 80, w: 70, h: 50, d: 35, color: '#1a1a2e', accent: '#64748b', variant: 'generic', panelWidth: 800, panelHeight: 600, getContent: () => <EquipmentPage /> },
+  { id: 'travel', label: 'Travel', islandId: 'hub', x: -60, y: 80, w: 70, h: 50, d: 35, color: '#0c2e4e', accent: '#06b6d4', variant: 'generic', panelWidth: 900, panelHeight: 600, getContent: () => <WorldMapPage /> },
+
+  // League stadiums
+  { id: 'stm-state', label: 'State Stadium', islandId: 'state', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#1a2e1a', accent: '#22c55e', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-state-001" leagueId="league-state-001" /> },
+  { id: 'stm-mid', label: 'Mid Stadium', islandId: 'mid', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#0a2e2e', accent: '#06b6d4', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-mid-001" leagueId="league-mid-001" /> },
+  { id: 'stm-top', label: 'Top Stadium', islandId: 'top', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#2e2a0a', accent: '#d97706', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-top-001" leagueId="league-top-001" /> },
+  { id: 'stm-regional', label: 'Regional Stadium', islandId: 'regional', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#1a1a2e', accent: '#475569', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-regional-001" leagueId="league-regional-001" /> },
+  { id: 'stm-pro', label: 'Pro Stadium', islandId: 'pro', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#2e2e3e', accent: '#64748b', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-pro-001" leagueId="league-pro-001" /> },
+  { id: 'stm-elite', label: 'Elite Stadium', islandId: 'elite', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#2e1a1a', accent: '#dc2626', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-elite-001" leagueId="league-elite-001" /> },
 ];
 
-const TIER_LABELS: Record<string, string> = {
-  STATE_COLLEGE: 'State College',
-  MID_COLLEGE: 'Mid College',
-  TOP_COLLEGE: 'Top College',
-  REGIONAL_PRO: 'Regional Pro',
-  PRO_ENTRY: 'Pro Entry',
-  PRO_ELITE: 'Pro Elite',
-};
-
-// ─── Frontend fallback: mirrors backend DEFAULT_ISLANDS exactly ───
-// Used when API returns empty data (DB table exists but has no rows)
-const DEFAULT_ISLANDS: Island[] = [
-  { id: 'island-hub', name: 'Grid City Central', type: 'HUB', x: 0, y: 0, size: 2.5, theme: 'grass', color: '#4ade80', teamCount: 0, maxTeams: 999, league: { id: 'league-hub', name: 'Grid City Central', tier: 'HUB', visibility: 'PUBLIC', minOverall: 0, maxOverall: 99 } },
-  { id: 'island-state-001', name: 'State College Circuit', type: 'LEAGUE', x: -200, y: -150, size: 1.0, theme: 'grass', color: '#86efac', teamCount: 0, maxTeams: 16, league: { id: 'league-state-001', name: 'State College Circuit', tier: 'STATE_COLLEGE', visibility: 'PUBLIC', minOverall: 50, maxOverall: 69 } },
-  { id: 'island-mid-001', name: 'Mid-College Conference', type: 'LEAGUE', x: 200, y: -150, size: 1.1, theme: 'tropical', color: '#22d3ee', teamCount: 0, maxTeams: 16, league: { id: 'league-mid-001', name: 'Mid-College Conference', tier: 'MID_COLLEGE', visibility: 'PUBLIC', minOverall: 60, maxOverall: 74 } },
-  { id: 'island-top-001', name: 'Top College Tournament', type: 'LEAGUE', x: -250, y: 100, size: 1.2, theme: 'desert', color: '#fbbf24', teamCount: 0, maxTeams: 12, league: { id: 'league-top-001', name: 'Top College Tournament', tier: 'TOP_COLLEGE', visibility: 'PUBLIC', minOverall: 70, maxOverall: 79 } },
-  { id: 'island-regional-001', name: 'Regional Pro Circuit', type: 'LEAGUE', x: 250, y: 100, size: 1.3, theme: 'industrial', color: '#94a3b8', teamCount: 0, maxTeams: 12, league: { id: 'league-regional-001', name: 'Regional Pro Circuit', tier: 'REGIONAL_PRO', visibility: 'PUBLIC', minOverall: 75, maxOverall: 84 } },
-  { id: 'island-pro-001', name: 'Pro Entry League', type: 'LEAGUE', x: -150, y: 250, size: 1.4, theme: 'snow', color: '#e2e8f0', teamCount: 0, maxTeams: 10, league: { id: 'league-pro-001', name: 'Pro Entry League', tier: 'PRO_ENTRY', visibility: 'PUBLIC', minOverall: 80, maxOverall: 89 } },
-  { id: 'island-elite-001', name: 'Pro Elite Championship', type: 'LEAGUE', x: 150, y: 250, size: 1.5, theme: 'volcanic', color: '#f87171', teamCount: 0, maxTeams: 8, league: { id: 'league-elite-001', name: 'Pro Elite Championship', tier: 'PRO_ELITE', visibility: 'PUBLIC', minOverall: 85, maxOverall: 99 } },
+const BRIDGES = [
+  { from: 'hub', to: 'state' },
+  { from: 'hub', to: 'mid' },
+  { from: 'hub', to: 'top' },
+  { from: 'hub', to: 'regional' },
+  { from: 'hub', to: 'pro' },
+  { from: 'hub', to: 'elite' },
 ];
 
-// Animated wave layer for water
-function WaveLayer({ amplitude, frequency, speed, opacity, yOffset }: {
-  amplitude: number; frequency: number; speed: number; opacity: number; yOffset: number;
-}) {
-  const d = useMemo(() => {
-    const points = [];
-    for (let x = -400; x <= 400; x += 10) {
-      const y = Math.sin(x * frequency) * amplitude + yOffset;
-      points.push(`${x},${y}`);
-    }
-    return `M -400,${yOffset + amplitude} L ${points.join(' L ')} L 400,${yOffset + amplitude} Z`;
-  }, [amplitude, frequency, yOffset]);
-
-  return (
-    <motion.path
-      d={d}
-      fill="#38bdf8"
-      opacity={opacity}
-      animate={{
-        d: [
-          d,
-          (() => {
-            const points = [];
-            for (let x = -400; x <= 400; x += 10) {
-              const y = Math.sin(x * frequency + Math.PI) * amplitude + yOffset;
-              points.push(`${x},${y}`);
-            }
-            return `M -400,${yOffset + amplitude} L ${points.join(' L ')} L 400,${yOffset + amplitude} Z`;
-          })(),
-          d,
-        ],
-      }}
-      transition={{ duration: speed, repeat: Infinity, ease: 'easeInOut' }}
-    />
-  );
-}
-
-// Small boat that travels between islands
-function TravelingBoat({ fromX, fromY, toX, toY }: { fromX: number; fromY: number; toX: number; toY: number }) {
-  return (
-    <motion.g
-      animate={{
-        x: [fromX, toX, fromX],
-        y: [fromY, toY, fromY],
-      }}
-      transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-    >
-      <motion.g
-        animate={{ rotate: [-3, 3, -3] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <ellipse cx={0} cy={2} rx={8} ry={3} fill="#64748b" />
-        <rect x={-2} y={-4} width={4} height={6} fill="#475569" />
-        <path d="M -2 -4 L 6 -2 L -2 0 Z" fill="#94a3b8" opacity={0.8} />
-      </motion.g>
-      {/* Wake */}
-      <motion.ellipse
-        cx={0}
-        cy={4}
-        rx={12}
-        ry={2}
-        fill="none"
-        stroke="#334155"
-        strokeWidth={0.5}
-        opacity={0.3}
-        animate={{ rx: [12, 18, 12], opacity: [0.3, 0, 0.3] }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-      />
-    </motion.g>
-  );
-}
-
+// ═══════════════════════════════════════════════════════════
+//  COMPONENT
+// ═══════════════════════════════════════════════════════════
 export default function IslandWorldMap() {
   const { openPanel } = usePanels();
-  const [islands, setIslands] = useState<Island[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hoveredIsland, setHoveredIsland] = useState<string | null>(null);
-  const [apiFailed, setApiFailed] = useState(false);
+  const { onlinePlayers, myStadium, otherStadiums } = useWorld();
+  const { myHomeMatches } = useMatchDay();
+  const { user } = useAuthStore();
 
-  const fetchIslands = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/islands', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const fetched = data.data || [];
-        if (fetched.length === 0) {
-          // API returned empty array — use frontend fallback
-          setIslands(DEFAULT_ISLANDS);
-          setApiFailed(true);
-        } else {
-          setIslands(fetched);
-          setApiFailed(false);
-        }
-      } else {
-        // API failed — use frontend fallback
-        setIslands(DEFAULT_ISLANDS);
-        setApiFailed(true);
-      }
-    } catch (err) {
-      console.error('Failed to fetch islands:', err);
-      setIslands(DEFAULT_ISLANDS);
-      setApiFailed(true);
-    } finally {
-      setLoading(false);
-    }
+  // Window size
+  const [win, setWin] = useState({
+    w: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    h: typeof window !== 'undefined' ? window.innerHeight : 750,
+  });
+  useEffect(() => {
+    const onResize = () => setWin({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // Player state
+  const [px, setPx] = useState(0);
+  const [py, setPy] = useState(0);
+  const [isMoving, setIsMoving] = useState(false);
+  const [facing, setFacing] = useState<'left' | 'right' | 'up' | 'down'>('right');
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  // Chat
+  const [chatOpen, setChatOpen] = useState(false);
+  const [msgs, setMsgs] = useState<{ u: string; t: string }[]>([
+    { u: 'System', t: 'Welcome to Grid Sports! Click anywhere on the ground to walk. Click buildings to interact.' },
+  ]);
+
+  // Camera smooth follow (lerp)
+  const targetCamRef = useRef({ x: 0, y: 0 });
+  const [cam, setCam] = useState({ x: 0, y: 0 });
+
+  useEffect(() => { targetCamRef.current = { x: px, y: py }; }, [px, py]);
+
   useEffect(() => {
-    fetchIslands();
-  }, [fetchIslands]);
+    let raf: number;
+    const smooth = () => {
+      setCam(prev => {
+        const dx = targetCamRef.current.x - prev.x;
+        const dy = targetCamRef.current.y - prev.y;
+        let nx = prev.x + dx * 0.06;
+        let ny = prev.y + dy * 0.06;
+        const minX = -WW / 2 + win.w / 2;
+        const maxX = WW / 2 - win.w / 2;
+        const minY = -WH / 2 + win.h / 2;
+        const maxY = WH / 2 - win.h / 2;
+        nx = Math.max(minX, Math.min(maxX, nx));
+        ny = Math.max(minY, Math.min(maxY, ny));
+        return { x: nx, y: ny };
+      });
+      raf = requestAnimationFrame(smooth);
+    };
+    raf = requestAnimationFrame(smooth);
+    return () => cancelAnimationFrame(raf);
+  }, [win.w, win.h]);
 
-  // Static wave seed — MUST be before any conditional return
-  const waveSeed = useMemo(() => Math.random(), []);
+  // Movement timeout ref
+  const moveTimeoutRef = useRef<number | null>(null);
 
-  const handleIslandClick = (island: Island) => {
-    if (island.type === 'HUB') {
-      // Hub click
-    } else if (island.league) {
+  // Convert screen click to world coordinates
+  const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    // Check if click was on a building or stadium
+    const targetEl = e.target as Element;
+    if (targetEl.closest('[data-building]') || targetEl.closest('[data-stadium]')) return;
+
+    // Convert to world coordinates
+    const worldX = sx - win.w / 2 + cam.x;
+    const worldY = sy - win.h / 2 + cam.y;
+
+    // Check if on an island
+    const onIsland = ISLANDS.some(island => {
+      const dx = worldX - island.x;
+      const dy = worldY - island.y;
+      return (dx * dx) / ((island.w / 2) * (island.w / 2)) + (dy * dy) / ((island.h / 2) * (island.h / 2)) <= 1;
+    });
+
+    // Check if on a bridge
+    const onBridge = BRIDGES.some(bridge => {
+      const from = getIsland(bridge.from);
+      const to = getIsland(bridge.to);
+      const lineDx = to.x - from.x;
+      const lineDy = to.y - from.y;
+      const lineLenSq = lineDx * lineDx + lineDy * lineDy;
+      if (lineLenSq === 0) return false;
+      const t = Math.max(0, Math.min(1, ((worldX - from.x) * lineDx + (worldY - from.y) * lineDy) / lineLenSq));
+      const projX = from.x + t * lineDx;
+      const projY = from.y + t * lineDy;
+      const dist = Math.sqrt((worldX - projX) ** 2 + (worldY - projY) ** 2);
+      return dist < 30;
+    });
+
+    if (!onIsland && !onBridge) return;
+
+    // Set facing direction
+    const dx = worldX - px;
+    const dy = worldY - py;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      setFacing(dx > 0 ? 'right' : 'left');
+    } else {
+      setFacing(dy > 0 ? 'down' : 'up');
+    }
+
+    // Move player
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
+    setIsMoving(true);
+    setPx(worldX);
+    setPy(worldY);
+    const duration = Math.min(dist / 150 + 0.3, 3);
+    moveTimeoutRef.current = window.setTimeout(() => setIsMoving(false), duration * 1000);
+  }, [win.w, win.h, cam.x, cam.y, px, py]);
+
+  // Building click
+  const handleBuildingClick = useCallback((b: WorldBuilding) => {
+    const island = getIsland(b.islandId);
+    const worldX = island.x + b.x;
+    const worldY = island.y + b.y;
+
+    const dx = worldX - px;
+    const dy = worldY - py;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
+    setIsMoving(true);
+    setPx(worldX);
+    setPy(worldY);
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      setFacing(dx > 0 ? 'right' : 'left');
+    } else {
+      setFacing(dy > 0 ? 'down' : 'up');
+    }
+
+    const duration = Math.min(dist / 150 + 0.3, 3);
+    moveTimeoutRef.current = window.setTimeout(() => {
+      setIsMoving(false);
       openPanel({
-        id: `league-${island.league.id}`,
-        title: island.league.name,
-        buildingId: 'league',
-        x: 100 + Math.random() * 100,
-        y: 60 + Math.random() * 50,
-        width: 900,
-        height: 650,
+        id: b.id,
+        title: b.label,
+        buildingId: b.id,
+        x: 100 + Math.random() * 200,
+        y: 60 + Math.random() * 100,
+        width: b.panelWidth,
+        height: b.panelHeight,
         minimized: false,
         maximized: false,
-        content: <LeagueIslandPage islandId={island.id} leagueId={island.league.id} />,
+        content: b.getContent(),
       });
-    }
-  };
+    }, duration * 1000);
+  }, [px, py, openPanel]);
 
-  const handleHubBuildingClick = (building: HubBuilding) => {
+  // Stadium click handlers
+  const handleStadiumClick = useCallback(() => {
     openPanel({
-      id: building.id,
-      title: building.label,
-      buildingId: building.id,
-      x: 100 + Math.random() * 100,
-      y: 60 + Math.random() * 50,
-      width: 800,
-      height: 600,
+      id: 'my-stadium',
+      title: 'My Stadium',
+      buildingId: 'stadium',
+      x: 150 + Math.random() * 100,
+      y: 80 + Math.random() * 50,
+      width: 900,
+      height: 650,
       minimized: false,
       maximized: false,
-      content: building.getContent(),
+      content: <StadiumInteriorPage />,
     });
-  };
+  }, [openPanel]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E94560]" />
-      </div>
-    );
-  }
+  const handleOtherStadiumClick = useCallback((stadium: any) => {
+    openPanel({
+      id: `stadium-${stadium.venueId}`,
+      title: stadium.venueName,
+      buildingId: 'stadium',
+      x: 150 + Math.random() * 100,
+      y: 80 + Math.random() * 50,
+      width: 700,
+      height: 500,
+      minimized: false,
+      maximized: false,
+      content: (
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-white mb-4">{stadium.venueName}</h2>
+          <p className="text-white/60">Owner: {stadium.ownerUsername}</p>
+          <p className="text-white/60">Capacity: {stadium.capacity.toLocaleString()}</p>
+          <p className="text-white/60">Condition: {stadium.condition}%</p>
+          <p className="text-white/60">Tier: {stadium.tier}</p>
+        </div>
+      ),
+    });
+  }, [openPanel]);
 
-  const hubIsland = islands.find((i) => i.type === 'HUB');
-  const leagueIslands = islands.filter((i) => i.type === 'LEAGUE');
+  // Convert online players to avatar format
+  const worldPlayers: AvatarState[] = useMemo(() => {
+    return onlinePlayers.map((p: any) => ({
+      x: p.x,
+      y: p.y,
+      isMoving: p.isMoving,
+      facing: p.facing,
+      username: p.username,
+      color: p.avatarColor,
+      teamColor: p.avatarColor,
+    }));
+  }, [onlinePlayers]);
+
+  // Camera CSS translation
+  const camTx = -cam.x + win.w / 2 - WW / 2;
+  const camTy = -cam.y + win.h / 2 - WH / 2;
+
+  const currentIsland = getIslandByPosition(px, py);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#0a1628]">
-      {/* Deep water background layers */}
-      <div className="absolute inset-0">
-        <svg width="100%" height="100%">
+    <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
+      {/* ═══════════════════════════════════════════════════════
+          WORLD CAMERA — translated container
+      ═══════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          transform: `translate(${camTx}px, ${camTy}px)`,
+          willChange: 'transform',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+      >
+        <svg
+          width={WW}
+          height={WH}
+          viewBox={`${-WW / 2} ${-WH / 2} ${WW} ${WH}`}
+          onClick={handleClick}
+          style={{ cursor: 'crosshair' }}
+        >
           <defs>
-            <radialGradient id="deepWater" cx="50%" cy="50%" r="70%">
-              <stop offset="0%" stopColor="#0c1e33" />
-              <stop offset="50%" stopColor="#091625" />
-              <stop offset="100%" stopColor="#060e1a" />
-            </radialGradient>
+            {/* Grass tile pattern */}
+            <pattern id="grass" width="60" height="60" patternUnits="userSpaceOnUse">
+              <rect width="60" height="60" fill="#0d1520" />
+              <path d="M 0 30 L 30 0 L 60 30 L 30 60 Z" fill="#0f1725" opacity="0.5" />
+              <circle cx="30" cy="30" r="1" fill="#1a2535" opacity="0.4" />
+            </pattern>
+            {/* Water tile pattern */}
+            <pattern id="water" width="40" height="40" patternUnits="userSpaceOnUse">
+              <rect width="40" height="40" fill="#0c1e33" />
+              <path d="M 0 20 L 20 0 L 40 20 L 20 40 Z" fill="#0a1628" opacity="0.3" />
+            </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#deepWater)" />
-        </svg>
-      </div>
 
-      {/* Animated water waves — MORE VISIBLE */}
-      <div className="absolute inset-0">
-        <svg width="100%" height="100%" viewBox="-400 -300 800 600" preserveAspectRatio="xMidYMid meet">
-          <WaveLayer amplitude={20} frequency={0.007} speed={5} opacity={0.25} yOffset={-220} />
-          <WaveLayer amplitude={16} frequency={0.011} speed={4} opacity={0.20} yOffset={-110} />
-          <WaveLayer amplitude={22} frequency={0.005} speed={6} opacity={0.18} yOffset={0} />
-          <WaveLayer amplitude={14} frequency={0.013} speed={3.5} opacity={0.15} yOffset={110} />
-          <WaveLayer amplitude={18} frequency={0.008} speed={5.5} opacity={0.18} yOffset={220} />
-        </svg>
-      </div>
+          {/* Water background */}
+          <rect x={-WW / 2} y={-WH / 2} width={WW} height={WH} fill="url(#water)" />
 
-      {/* Sparkles on water — MORE VISIBLE */}
-      <div className="absolute inset-0">
-        <svg width="100%" height="100%" viewBox="-400 -300 800 600" preserveAspectRatio="xMidYMid meet">
-          {Array.from({ length: 30 }).map((_, idx) => {
-            const sx = ((idx * 137.5 + waveSeed * 100) % 800) - 400;
-            const sy = ((idx * 73.3 + waveSeed * 200) % 600) - 300;
-            return (
-              <motion.circle
-                key={`sparkle-${idx}`}
-                cx={sx}
-                cy={sy}
-                r={1.5 + (idx % 2) * 1.5}
-                fill="#7dd3fc"
-                opacity={0.5}
-                animate={{
-                  opacity: [0.2, 0.7, 0.2],
-                  r: [1.5, 3, 1.5],
-                }}
-                transition={{
-                  duration: 2 + (idx % 3),
-                  repeat: Infinity,
-                  delay: idx * 0.25,
-                  ease: 'easeInOut',
-                }}
-              />
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* World Map SVG */}
-      <svg viewBox="-400 -300 800 600" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <filter id="islandGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="8" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="4" dy="6" stdDeviation="4" floodColor="#000" floodOpacity="0.3" />
-          </filter>
-        </defs>
-
-        {/* Water routes between islands */}
-        {hubIsland && leagueIslands.map((island) => (
-          <motion.path
-            key={`route-${island.id}`}
-            d={`M ${hubIsland.x} ${hubIsland.y} Q ${(hubIsland.x + island.x) / 2} ${(hubIsland.y + island.y) / 2 + 30} ${island.x} ${island.y}`}
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth="2"
-            strokeDasharray="8 8"
-            fill="none"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 2, delay: 0.5 }}
-          />
-        ))}
-
-        {/* Traveling boats */}
-        {hubIsland && leagueIslands.slice(0, 3).map((island) => (
-          <TravelingBoat
-            key={`boat-${island.id}`}
-            fromX={hubIsland.x}
-            fromY={hubIsland.y}
-            toX={island.x}
-            toY={island.y}
-          />
-        ))}
-
-        {/* Hub Island */}
-        {hubIsland && (
-          <g
-            onClick={() => handleIslandClick(hubIsland)}
-            onMouseEnter={() => setHoveredIsland(hubIsland.id)}
-            onMouseLeave={() => setHoveredIsland(null)}
-            className="cursor-pointer"
-          >
-            {/* Island shadow */}
-            <ellipse cx={hubIsland.x + 10} cy={hubIsland.y + 12} rx={hubIsland.size * 65} ry={hubIsland.size * 42} fill="rgba(0,0,0,0.4)" filter="url(#shadow)" />
-            
-            {/* Animated waterline around island */}
-            <motion.ellipse
-              cx={hubIsland.x}
-              cy={hubIsland.y + 2}
-              rx={hubIsland.size * 62}
-              ry={hubIsland.size * 42}
-              fill="none"
-              stroke="rgba(56, 189, 248, 0.35)"
-              strokeWidth={2}
-              animate={{ rx: [hubIsland.size * 62, hubIsland.size * 65, hubIsland.size * 62] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            
-            {/* Island body with gentle bob */}
-            <motion.g
-              animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            >
+          {/* ─── Islands ─── */}
+          {ISLANDS.map(island => (
+            <g key={island.id}>
+              {/* Island body */}
               <ellipse
-                cx={hubIsland.x}
-                cy={hubIsland.y}
-                rx={hubIsland.size * 60}
-                ry={hubIsland.size * 40}
-                fill={hubIsland.color}
-                stroke={hoveredIsland === hubIsland.id ? '#fff' : 'rgba(255,255,255,0.25)'}
-                strokeWidth={hoveredIsland === hubIsland.id ? 3 : 1.5}
-                filter="url(#islandGlow)"
-              />
-              
-              {/* Island detail (beach ring) */}
-              <ellipse
-                cx={hubIsland.x}
-                cy={hubIsland.y + 10}
-                rx={hubIsland.size * 55}
-                ry={hubIsland.size * 32}
-                fill="rgba(255,255,255,0.12)"
-              />
-              
-              {/* Trees / vegetation dots */}
-              {Array.from({ length: 16 }).map((_, i) => {
-                const tx = hubIsland.x + Math.sin(i * 2.1 + waveSeed * 10) * hubIsland.size * 35;
-                const ty = hubIsland.y + Math.cos(i * 1.7 + waveSeed * 10) * hubIsland.size * 20;
-                return (
-                  <circle
-                    key={i}
-                    cx={tx}
-                    cy={ty}
-                    r={2 + (i % 3)}
-                    fill="#22c55e"
-                    opacity={0.4}
-                  />
-                );
-              })}
-            </motion.g>
-
-            {/* Hub label */}
-            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 52} textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-              {hubIsland.name}
-            </text>
-            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 37} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="10" style={{ pointerEvents: 'none' }}>
-              Community Hub
-            </text>
-
-            {/* Hub buildings */}
-            {HUB_BUILDINGS.map((building) => {
-              const bx = hubIsland.x + (building.x - 50) * hubIsland.size * 0.8;
-              const by = hubIsland.y + (building.y - 50) * hubIsland.size * 0.6;
-              return (
-                <g
-                  key={building.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleHubBuildingClick(building);
-                  }}
-                  className="cursor-pointer"
-                  style={{ pointerEvents: 'all' }}
-                >
-                  <motion.rect
-                    x={bx - 12}
-                    y={by - 8}
-                    width={24}
-                    height={16}
-                    rx={4}
-                    fill={building.color}
-                    stroke={building.accent}
-                    strokeWidth={1}
-                    opacity={0.9}
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                  />
-                  <text x={bx} y={by + 20} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize="6" style={{ pointerEvents: 'none' }}>
-                    {building.label}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        )}
-
-        {/* League Islands */}
-        {leagueIslands.map((island, islandIndex) => {
-          const isHovered = hoveredIsland === island.id;
-          const league = island.league;
-          const isFull = (island.teamCount || 0) >= (island.maxTeams || 12);
-          const bobDelay = islandIndex * 0.5;
-          
-          return (
-            <g
-              key={island.id}
-              onClick={() => handleIslandClick(island)}
-              onMouseEnter={() => setHoveredIsland(island.id)}
-              onMouseLeave={() => setHoveredIsland(null)}
-              className="cursor-pointer"
-            >
-              {/* Island shadow */}
-              <ellipse cx={island.x + 6} cy={island.y + 8} rx={island.size * 52} ry={island.size * 36} fill="rgba(0,0,0,0.4)" filter="url(#shadow)" />
-              
-              {/* Animated waterline */}
-              <motion.ellipse
                 cx={island.x}
-                cy={island.y + 2}
-                rx={island.size * 52}
-                ry={island.size * 36}
-                fill="none"
-                stroke="rgba(56, 189, 248, 0.25)"
-                strokeWidth={1.5}
-                animate={{ rx: [island.size * 52, island.size * 55, island.size * 52] }}
-                transition={{ duration: 3 + islandIndex * 0.3, repeat: Infinity, ease: 'easeInOut', delay: bobDelay }}
+                cy={island.y}
+                rx={island.w / 2}
+                ry={island.h / 2}
+                fill={island.ground}
+                stroke={island.color}
+                strokeWidth={2}
+                opacity={0.9}
               />
-              
-              {/* Island body with gentle bob (staggered) */}
-              <motion.g
-                animate={{ y: [0, -2, 0] }}
-                transition={{ duration: 4 + islandIndex * 0.4, repeat: Infinity, ease: 'easeInOut', delay: bobDelay }}
-              >
-                <ellipse
-                  cx={island.x}
-                  cy={island.y}
-                  rx={island.size * 50}
-                  ry={island.size * 35}
-                  fill={island.color}
-                  stroke={isHovered ? '#fff' : 'rgba(255,255,255,0.2)'}
-                  strokeWidth={isHovered ? 2.5 : 1.5}
-                  filter="url(#islandGlow)"
-                />
-                
-                {/* Island texture */}
-                <ellipse
-                  cx={island.x}
-                  cy={island.y + 8}
-                  rx={island.size * 42}
-                  ry={island.size * 25}
-                  fill="rgba(255,255,255,0.1)"
-                />
-                
-                {/* Vegetation */}
-                {Array.from({ length: 10 }).map((_, i) => {
-                  const tx = island.x + Math.sin(i * 2.4 + islandIndex) * island.size * 25;
-                  const ty = island.y + Math.cos(i * 1.9 + islandIndex) * island.size * 15;
-                  return (
-                    <circle
-                      key={i}
-                      cx={tx}
-                      cy={ty}
-                      r={1.5 + (i % 2)}
-                      fill="#22c55e"
-                      opacity={0.35}
-                    />
-                  );
-                })}
-
-                {/* Stadium icon on island */}
-                <g transform={`translate(${island.x - 8}, ${island.y - 12})`}>
-                  <rect x={0} y={0} width={16} height={10} rx={2} fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.3)" strokeWidth={0.5} />
-                  <rect x={2} y={2} width={12} height={6} rx={1} fill="rgba(255,255,255,0.1)" />
-                  {/* Small light on stadium */}
-                  <motion.circle
-                    cx={8}
-                    cy={-2}
-                    r={2}
-                    fill="#fbbf24"
-                    animate={{ opacity: [0.4, 0.9, 0.4] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                </g>
-              </motion.g>
-
+              {/* Island grass texture */}
+              <ellipse
+                cx={island.x}
+                cy={island.y}
+                rx={island.w / 2 - 10}
+                ry={island.h / 2 - 10}
+                fill="url(#grass)"
+                opacity={0.5}
+              />
               {/* Island name */}
-              <text x={island.x} y={island.y - island.size * 42} textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+              <text
+                x={island.x}
+                y={island.y - island.h / 2 - 18}
+                textAnchor="middle"
+                fill="white"
+                fontSize="14"
+                fontWeight="bold"
+                style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+              >
                 {island.name}
               </text>
-              
-              {/* Tier label */}
-              {league && (
-                <text x={island.x} y={island.y - island.size * 30} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="8" style={{ pointerEvents: 'none' }}>
-                  {TIER_LABELS[league.tier] || league.tier}
+              {island.type === 'LEAGUE' && island.tier && (
+                <text
+                  x={island.x}
+                  y={island.y - island.h / 2 - 5}
+                  textAnchor="middle"
+                  fill={island.color}
+                  fontSize="9"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {island.tier.replace('_', ' ')}
                 </text>
               )}
-
-              {/* Team count / capacity */}
-              <text x={island.x} y={island.y + island.size * 40} textAnchor="middle" fill={isFull ? '#f87171' : 'rgba(255,255,255,0.5)'} fontSize="8" style={{ pointerEvents: 'none' }}>
-                {island.teamCount || 0} / {island.maxTeams || 12} teams
-              </text>
-
-              {/* Visibility badge */}
-              {league && league.visibility !== 'PUBLIC' && (
-                <g transform={`translate(${island.x + island.size * 35}, ${island.y - island.size * 25})`}>
-                  <circle r={6} fill={league.visibility === 'PRIVATE' ? '#ef4444' : '#f59e0b'} />
-                  <text y={2} textAnchor="middle" fill="white" fontSize={5}>
-                    {league.visibility === 'PRIVATE' ? '🔒' : '⭐'}
-                  </text>
-                </g>
-              )}
-
-              {/* Animated player dots (small avatars walking around island) */}
-              {[0, 1, 2].map((i) => (
-                <motion.circle
-                  key={i}
-                  cx={island.x + (Math.sin(i * 2.1) * island.size * 25)}
-                  cy={island.y + (Math.cos(i * 1.7) * island.size * 15)}
-                  r={3}
-                  fill={['#E94560', '#3b82f6', '#fbbf24'][i]}
-                  opacity={0.7}
-                  animate={{
-                    cx: [
-                      island.x + (Math.sin(i * 2.1) * island.size * 25),
-                      island.x + (Math.sin(i * 2.1 + 0.5) * island.size * 25),
-                      island.x + (Math.sin(i * 2.1) * island.size * 25),
-                    ],
-                    cy: [
-                      island.y + (Math.cos(i * 1.7) * island.size * 15),
-                      island.y + (Math.cos(i * 1.7 + 0.3) * island.size * 15),
-                      island.y + (Math.cos(i * 1.7) * island.size * 15),
-                    ],
-                  }}
-                  transition={{ duration: 4 + i, repeat: Infinity, ease: 'easeInOut', delay: i * 0.5 }}
-                />
-              ))}
             </g>
-          );
-        })}
-      </svg>
+          ))}
 
-      {/* API fallback notice */}
-      {apiFailed && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-lg text-xs text-amber-300">
-          Showing default world map — database islands will appear once seeded
+          {/* ─── Bridges ─── */}
+          {BRIDGES.map((bridge, i) => {
+            const from = getIsland(bridge.from);
+            const to = getIsland(bridge.to);
+            return (
+              <g key={i}>
+                <line
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke="#1e293b"
+                  strokeWidth={14}
+                  opacity={0.7}
+                />
+                <line
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke="#475569"
+                  strokeWidth={6}
+                  strokeDasharray="8 4"
+                  opacity={0.8}
+                />
+              </g>
+            );
+          })}
+
+          {/* ─── Buildings ─── */}
+          {BUILDINGS.map(b => {
+            const island = getIsland(b.islandId);
+            const wx = island.x + b.x;
+            const wy = island.y + b.y;
+            return (
+              <g
+                key={b.id}
+                transform={`translate(${wx}, ${wy})`}
+                data-building="true"
+              >
+                <IsometricBuilding
+                  id={b.id}
+                  label={b.label}
+                  x={0}
+                  y={0}
+                  width={b.w}
+                  height={b.h}
+                  depth={b.d}
+                  color={b.color}
+                  accent={b.accent}
+                  variant={b.variant}
+                  isHovered={hovered === b.id}
+                  onClick={() => handleBuildingClick(b)}
+                  onHover={setHovered}
+                />
+              </g>
+            );
+          })}
+
+          {/* ─── My Stadium ─── */}
+          {myStadium && (
+            <g data-stadium="true" transform="translate(0, 150)">
+              <PlayerStadiumSVG
+                stadium={myStadium}
+                x={0}
+                y={0}
+                isMyStadium={true}
+                isHovered={hovered === 'my-stadium'}
+                onClick={handleStadiumClick}
+                onHover={setHovered}
+              />
+            </g>
+          )}
+
+          {/* ─── Other Stadiums ─── */}
+          {otherStadiums.map((stadium: any) => (
+            <g key={stadium.venueId} data-stadium="true" transform={`translate(${stadium.x}, ${stadium.y})`}>
+              <PlayerStadiumSVG
+                stadium={stadium}
+                x={0}
+                y={0}
+                isMyStadium={false}
+                isHovered={hovered === `stadium-${stadium.venueId}`}
+                onClick={() => handleOtherStadiumClick(stadium)}
+                onHover={setHovered}
+              />
+            </g>
+          ))}
+
+          {/* ─── Other players ─── */}
+          {worldPlayers.map(player => (
+            <IsometricAvatar key={player.username} player={player} scale={0.8} />
+          ))}
+
+          {/* ─── Player avatar (You) ─── */}
+          <IsometricAvatar
+            player={{
+              x: px,
+              y: py,
+              isMoving,
+              facing,
+              username: user?.username || 'You',
+              color: '#E94560',
+              teamColor: '#E94560',
+            }}
+            scale={1}
+          />
+
+          {/* ─── Ambient particles ─── */}
+          <FloatingParticles width={WW} height={WH} particleCount={40} />
+          <Fireflies width={WW} height={WH} fireflies={20} />
+        </svg>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          UI OVERLAYS
+      ═══════════════════════════════════════════════════════ */}
+
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-2 bg-[#0a0f1a]/80 backdrop-blur-sm border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <Compass className="w-5 h-5 text-[#E94560]" />
+          <div className="text-white font-black text-lg tracking-tight">
+            GRID <span className="text-[#E94560]">SPORTS</span>
+          </div>
         </div>
-      )}
-
-      {/* Legend / Info panel */}
-      <div className="absolute bottom-4 left-4 glass-card px-4 py-3 rounded-xl">
-        <div className="text-xs text-white/50 mb-2 font-semibold uppercase tracking-wider">World Map</div>
-        <div className="flex items-center gap-4 text-xs text-white/60">
+        <div className="flex items-center gap-3 text-xs text-slate-400">
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-[#4ade80]" /> Hub
+            <MapPin className="w-3 h-3 text-[#E94560]" />
+            {currentIsland?.name || 'Open Water'}
           </span>
           <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-[#fbbf24]" /> League
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-[#E94560]" /> Players
+            <Users className="w-3 h-3" />
+            {onlinePlayers.length + 1} online
           </span>
         </div>
       </div>
 
-      {/* Island tooltip on hover */}
+      {/* Minimap */}
+      <div className="absolute top-14 right-4 w-52 h-36 bg-black/60 rounded-xl border border-white/10 overflow-hidden z-20">
+        <svg viewBox={`${-WW / 2} ${-WH / 2} ${WW} ${WH}`} className="w-full h-full">
+          <rect x={-WW / 2} y={-WH / 2} width={WW} height={WH} fill="#0c1e33" />
+          {ISLANDS.map(island => (
+            <ellipse
+              key={island.id}
+              cx={island.x}
+              cy={island.y}
+              rx={island.w / 2}
+              ry={island.h / 2}
+              fill={island.color}
+              opacity={0.6}
+            />
+          ))}
+          <circle cx={px} cy={py} r={30} fill="#E94560" />
+          <rect
+            x={cam.x - win.w / 2}
+            y={cam.y - win.h / 2}
+            width={win.w}
+            height={win.h}
+            fill="none"
+            stroke="white"
+            strokeWidth={10}
+            opacity={0.4}
+          />
+        </svg>
+      </div>
+
+      {/* Chat toggle */}
+      <button
+        onClick={() => setChatOpen(!chatOpen)}
+        className="absolute bottom-12 left-4 z-20 p-2.5 bg-black/60 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors"
+      >
+        <MessageSquare className="w-5 h-5" />
+      </button>
+
+      {/* Chat panel */}
       <AnimatePresence>
-        {hoveredIsland && (() => {
-          const island = islands.find((i) => i.id === hoveredIsland);
-          if (!island || island.type === 'HUB') return null;
-          const league = island.league;
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="absolute top-14 right-4 glass-card p-4 rounded-xl max-w-xs"
-            >
-              <h3 className="font-bold text-white text-sm">{island.name}</h3>
-              {league && (
-                <div className="mt-2 space-y-1 text-xs text-white/60">
-                  <div className="flex justify-between">
-                    <span>Tier</span>
-                    <span className="text-white">{TIER_LABELS[league.tier] || league.tier}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>OVR Range</span>
-                    <span className="text-white">{league.minOverall}-{league.maxOverall}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Teams</span>
-                    <span className="text-white">{island.teamCount || 0} / {island.maxTeams || 12}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Type</span>
-                    <span className="text-white capitalize">{league.visibility.toLowerCase()}</span>
-                  </div>
-                  {league.creator && (
-                    <div className="flex justify-between">
-                      <span>Founder</span>
-                      <span className="text-white">{league.creator.displayName || league.creator.username}</span>
-                    </div>
-                  )}
+        {chatOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-12 left-16 w-80 h-72 bg-black/80 rounded-xl border border-white/10 p-3 flex flex-col z-20"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-bold text-white/50 uppercase tracking-wider">Chat</div>
+              <button onClick={() => setChatOpen(false)} className="text-white/50 hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-1.5 text-xs pr-1">
+              {msgs.map((msg, i) => (
+                <div key={i} className="text-white/70">
+                  <span className="text-[#E94560] font-bold">{msg.u}:</span> {msg.t}
                 </div>
-              )}
-              <div className="mt-3 text-xs text-[#E94560] font-medium flex items-center gap-1">
-                Click to explore <ArrowRight className="w-3 h-3" />
-              </div>
-            </motion.div>
-          );
-        })()}
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Type a message..."
+              className="mt-2 px-2.5 py-1.5 bg-white/5 rounded-lg text-xs text-white placeholder-white/30 border border-white/10 focus:outline-none focus:border-white/20"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const input = e.target as HTMLInputElement;
+                  if (input.value.trim()) {
+                    setMsgs(prev => [...prev, { u: user?.username || 'You', t: input.value }]);
+                    input.value = '';
+                  }
+                }
+              }}
+            />
+          </motion.div>
+        )}
       </AnimatePresence>
+
+      {/* Bottom bar */}
+      <div className="fixed bottom-0 left-0 right-0 h-10 bg-[#0a0f1a]/80 border-t border-white/5 flex items-center px-4 gap-6 text-xs text-slate-500 z-20">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          {onlinePlayers.length + 1} players online
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-[#E94560]" />
+          {myHomeMatches.length} home matches
+        </span>
+        <span className="ml-auto text-slate-600">Click ground to walk • Click buildings to interact</span>
+      </div>
     </div>
   );
 }
