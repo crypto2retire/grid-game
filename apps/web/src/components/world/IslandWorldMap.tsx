@@ -197,6 +197,9 @@ export default function IslandWorldMap() {
     });
   };
 
+  // Generate static wave seed — MUST be before any conditional return
+  const waveSeed = useMemo(() => Math.random(), []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -207,9 +210,6 @@ export default function IslandWorldMap() {
 
   const hubIsland = islands.find((i) => i.type === 'HUB');
   const leagueIslands = islands.filter((i) => i.type === 'LEAGUE');
-
-  // Generate static wave seed
-  const waveSeed = useMemo(() => Math.random(), []);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#0a1628]">

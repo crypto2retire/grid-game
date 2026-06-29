@@ -124,6 +124,38 @@ export default function GameShell() {
   const [isMoving, setIsMoving] = useState(false);
   const [activeView, setActiveView] = useState<'hub' | 'islands'>('islands');
 
+  // MUST be before any conditional return (Rules of Hooks)
+  const buildingPositions = useMemo(() => {
+    const pos: Record<string, { x: number; y: number; width: number; height: number }> = {};
+    COMMUNITY_BUILDINGS.forEach((b) => {
+      pos[b.id] = { x: b.x, y: b.y + b.depth * 0.5, width: b.width, height: b.height };
+    });
+    return pos;
+  }, []);
+
+  // Convert online players to AvatarState format
+  const worldPlayers: AvatarState[] = useMemo(() => {
+    return onlinePlayers.map(p => ({
+      x: p.x,
+      y: p.y,
+      isMoving: p.isMoving,
+      facing: p.facing,
+      username: p.username,
+      color: p.avatarColor,
+      teamColor: p.avatarColor,
+    }));
+  }, [onlinePlayers]);
+
+  // Ground decoration points
+  const grassPoints = useMemo(() => [
+    { x: 200, y: 300 }, { x: 450, y: 320 }, { x: 700, y: 280 },
+    { x: 850, y: 340 }, { x: 100, y: 350 }, { x: 600, y: 380 },
+  ], []);
+
+  const smokePoints = useMemo(() => [
+    { x: 430, y: 55 }, { x: 570, y: 45 }, { x: 280, y: 45 },
+  ], []);
+
   const handleBuildingClick = useCallback((building: CommunityBuilding) => {
     if (isMoving) return;
     setIsMoving(true);
@@ -209,37 +241,6 @@ export default function GameShell() {
     window.location.href = '/login';
     return null;
   }
-
-  const buildingPositions = useMemo(() => {
-    const pos: Record<string, { x: number; y: number; width: number; height: number }> = {};
-    COMMUNITY_BUILDINGS.forEach((b) => {
-      pos[b.id] = { x: b.x, y: b.y + b.depth * 0.5, width: b.width, height: b.height };
-    });
-    return pos;
-  }, []);
-
-  // Convert online players to AvatarState format
-  const worldPlayers: AvatarState[] = useMemo(() => {
-    return onlinePlayers.map(p => ({
-      x: p.x,
-      y: p.y,
-      isMoving: p.isMoving,
-      facing: p.targetX > p.x ? 'right' : p.targetX < p.x ? 'left' : p.targetY > p.y ? 'down' : 'up',
-      username: p.username,
-      color: p.avatarColor,
-      teamColor: p.avatarColor,
-    }));
-  }, [onlinePlayers]);
-
-  // Ground decoration points
-  const grassPoints = useMemo(() => [
-    { x: 200, y: 300 }, { x: 450, y: 320 }, { x: 700, y: 280 },
-    { x: 850, y: 340 }, { x: 100, y: 350 }, { x: 600, y: 380 },
-  ], []);
-
-  const smokePoints = useMemo(() => [
-    { x: 430, y: 55 }, { x: 570, y: 45 }, { x: 280, y: 45 },
-  ], []);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
