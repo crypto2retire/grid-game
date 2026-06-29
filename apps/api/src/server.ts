@@ -38,7 +38,6 @@ import { islandRouter } from './modules/islands/island.routes';
 import { leagueRouter } from './modules/leagues/league.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
-import { prisma } from './config/database';
 
 // ─── Memory Monitor ───
 function logMemory() {
