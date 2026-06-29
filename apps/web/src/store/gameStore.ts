@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 interface Team {
   id: string;
   name: string;
+  tier: string;
   wins: number;
   draws: number;
   losses: number;

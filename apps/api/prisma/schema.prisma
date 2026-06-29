@@ -28,6 +28,12 @@ model User {
   userStakes      UserStake[]
   hasPaidPurchase Boolean @default(false)
   teamMarketplaceListings TeamMarketplaceListing[]
+  
+  // ─── League Management ───
+  createdLeagues  League[] @relation("CreatedLeagues")
+  sentInvitations LeagueInvitation[] @relation("SentInvitations")
+  receivedInvitations LeagueInvitation[] @relation("ReceivedInvitations")
+  leagueApplications LeagueApplication[]
 
   @@index([email])
   @@index([username])
@@ -96,14 +102,108 @@ model League {
   name        String
   tier        String
   level       Int      @default(1)
+  minOverall  Int      @default(50)
+  maxOverall  Int      @default(99)
+  
+  // ─── Island & Ownership ───
+  creatorId   String?  // User who created this league (null = game default)
+  creator     User?    @relation("CreatedLeagues", fields: [creatorId], references: [id], onDelete: SetNull)
+  islandId    String?  @unique
+  island      Island?  @relation(fields: [islandId], references: [id], onDelete: SetNull)
+  
+  // ─── Entry Settings ───
+  visibility  String   @default("PUBLIC") // PUBLIC | PRIVATE | RATING_BASED
+  entryFee    Int      @default(0) // GRID cost to join
+  maxTeams    Int      @default(12)
+  minTeamRating Int    @default(0) // For RATING_BASED leagues
+  isDefault   Boolean  @default(false) // Game-created default league
+  status      String   @default("ACTIVE") // ACTIVE | INACTIVE | ARCHIVED
+  
   metadata    Json     @default("{}")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   memberships TeamLeagueMembership[]
   sponsorships Sponsorship[]
+  invitations LeagueInvitation[]
+  applications LeagueApplication[]
 
   @@index([sportId, tier])
+  @@index([visibility, status])
+  @@index([creatorId])
+  @@index([isDefault])
+}
+
+model Island {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   @default("LEAGUE") // HUB | LEAGUE
+  
+  // ─── World Map Position ───
+  x           Float    @default(0)
+  y           Float    @default(0)
+  size        Float    @default(1.0) // Scale factor for island size
+  
+  // ─── Visual ───
+  theme       String   @default("grass") // grass | desert | snow | tropical | industrial
+  color       String   @default("#4ade80")
+  icon        String?  // emoji or icon name
+  
+  // ─── Capacity & Stats ───
+  teamCount   Int      @default(0)
+  maxTeams    Int      @default(12)
+  prestige    Int      @default(10)
+  
+  // ─── Relations ───
+  league      League?
+  
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([x, y])
+}
+
+model LeagueInvitation {
+  id          String   @id @default(uuid())
+  leagueId    String
+  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  inviterId   String
+  inviter     User     @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeId   String
+  invitee     User     @relation("ReceivedInvitations", fields: [inviteeId], references: [id], onDelete: Cascade)
+  status      String   @default("PENDING") // PENDING | ACCEPTED | DECLINED | EXPIRED
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+
+  @@unique([leagueId, inviteeId, status])
+  @@index([leagueId, status])
+  @@index([inviteeId, status])
+}
+
+model LeagueApplication {
+  id          String   @id @default(uuid())
+  leagueId    String
+  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message     String?
+  status      String   @default("PENDING") // PENDING | ACCEPTED | REJECTED
+  createdAt   DateTime @default(now())
+  respondedAt DateTime?
+
+  @@unique([leagueId, teamId])
+  @@index([leagueId, status])
+  @@index([userId])
+}
+
+model GameSettings {
+  id              String   @id @default("main")
+  gameEpochStart  DateTime @default("2026-01-01T00:00:00Z")
+  updatedAt       DateTime @updatedAt
 }
 
 model TeamLeagueMembership {
@@ -261,6 +361,7 @@ model Team {
   matchesHome   Match[]  @relation("HomeTeam")
   matchesAway   Match[]  @relation("AwayTeam")
   leagueMemberships TeamLeagueMembership[]
+  leagueApplications LeagueApplication[]
   venue Venue?
   transportationAssets TransportationAsset[]
   sponsorships Sponsorship[]

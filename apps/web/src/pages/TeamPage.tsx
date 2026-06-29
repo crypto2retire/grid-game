@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Shield, Plus, X, Coins, AlertCircle, Users, ChevronRight, Award, Home, Handshake, Wrench, Bus, RefreshCw } from 'lucide-react';
+import { Shield, Plus, X, Coins, AlertCircle, Users, ChevronRight, Award, Home, Handshake, Wrench, Bus, RefreshCw, Lock } from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
+import { useLeagueTierConfig } from '../hooks/useGameTime';
 import PlayerCard, { type PlayerCardData } from '../components/player/PlayerCard';
 
 const FOOTBALL_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'];
@@ -49,6 +50,7 @@ export default function TeamPage() {
   const [teamEquipment, setTeamEquipment] = useState<any[]>([]);
   const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
   const [equipLoading, setEquipLoading] = useState(false);
+  const { config: tierConfig } = useLeagueTierConfig();
 
   // Load sponsorships and equipment when tab changes
   useEffect(() => {
@@ -611,6 +613,15 @@ export default function TeamPage() {
                         <div className="w-2 h-2 rounded-full bg-red-400"></div>
                         <span className="text-sm text-white/40">{selectedTeam.losses} Losses</span>
                       </div>
+                      {/* League Tier Restrictions */}
+                      {selectedTeam.tier && tierConfig && tierConfig[selectedTeam.tier] && (
+                        <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20">
+                          <Lock className="w-3 h-3 text-amber-400" />
+                          <span className="text-xs text-amber-100 font-medium">
+                            {selectedTeam.tier.replace(/_/g, ' ')}: OVR {tierConfig[selectedTeam.tier].minOverall}-{tierConfig[selectedTeam.tier].maxOverall}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -688,12 +699,24 @@ export default function TeamPage() {
                             physical: tp.player.physical,
                             isStarter: tp.isStarter,
                           };
+                          // Check if player is outside league tier restrictions
+                          const tierInfo = selectedTeam.tier && tierConfig ? tierConfig[selectedTeam.tier] : null;
+                          const isTooLow = tierInfo ? tp.player.overall < tierInfo.minOverall : false;
+                          const isTooHigh = tierInfo ? tp.player.overall > tierInfo.maxOverall : false;
+                          const isRestricted = isTooLow || isTooHigh;
                           return (
-                            <PlayerCard
-                              key={tp.id}
-                              player={cardData}
-                              className="card-lift"
-                            />
+                            <div key={tp.id} className="relative">
+                              {isRestricted && (
+                                <div className="absolute -top-2 -right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/90 text-white text-xs font-bold shadow-lg">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {isTooHigh ? 'Too high' : 'Too low'}
+                                </div>
+                              )}
+                              <PlayerCard
+                                player={cardData}
+                                className={`card-lift ${isRestricted ? 'opacity-60' : ''}`}
+                              />
+                            </div>
                           );
                         })}
                       </div>

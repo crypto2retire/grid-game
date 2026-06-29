@@ -9,6 +9,7 @@ import { routeParam } from '../../utils/routeParams';
 import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
 import { calculateGameEconomics } from '../economy/gameEconomics';
 import { applyPostGameProgression } from './progression';
+import { canTeamPlayToday } from '../game-time/game-time.routes';
 
 const router = Router();
 
@@ -50,6 +51,16 @@ router.post(
 
     if (homeTeam.sportId !== awayTeam.sportId) {
       throw new AppError(400, `Cannot schedule cross-sport match: ${homeTeam.sportId} vs ${awayTeam.sportId}`);
+    }
+
+    // Enforce 1 match per day per team (1 real day = 1 in-game week)
+    const homeCanPlay = await canTeamPlayToday(homeTeam.id);
+    if (!homeCanPlay) {
+      throw new AppError(400, 'Home team has already played a match today. Each team can play 1 match per day (1 in-game week).');
+    }
+    const awayCanPlay = await canTeamPlayToday(awayTeam.id);
+    if (!awayCanPlay) {
+      throw new AppError(400, 'Away team has already played a match today. Each team can play 1 match per day (1 in-game week).');
     }
 
     const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : new Date(Date.now() + 60000);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -10,6 +10,7 @@ import { MatchDayProvider } from './components/match/MatchDaySystem';
 import { GamePlanProvider } from './components/gameplan/GamePlanSystem';
 import { PlayerProgressionProvider } from './components/player/PlayerProgressionSystem';
 import { WorldProvider } from './components/world/WorldSystem';
+import MatchesPage from './pages/MatchesPage';
 import PlayerProgressionPage from './pages/PlayerProgressionPage';
 import GameShell from './components/world/GameShell';
 import HomePage from './pages/HomePage';
@@ -38,6 +39,7 @@ const ROUTE_CONTENT: Record<string, { id: string; title: string; content: React.
   '/locker': { id: 'locker', title: 'Locker Room', content: <EquipmentPage /> },
   '/world-map': { id: 'world', title: 'World Map', content: <WorldMapPage /> },
   '/progression': { id: 'progression', title: 'Player Progression', content: <PlayerProgressionPage /> },
+  '/matches': { id: 'matches', title: 'Match Office', content: <MatchesPage /> },
   '/gameplan': { id: 'gameplan', title: 'Game Plan', content: <StadiumInteriorPage /> },
   '/stadium/interior': { id: 'stadium', title: 'Stadium', content: <StadiumInteriorPage /> },
   '/garage': { id: 'transport', title: 'Garage', content: <TransportGaragePage /> },
@@ -46,32 +48,33 @@ const ROUTE_CONTENT: Record<string, { id: string; title: string; content: React.
 
 function AutoPanelOpener() {
   const location = useLocation();
-  const { openPanel } = usePanels();
-  const [hasOpened, setHasOpened] = useState(false);
+  const { openPanel, panels } = usePanels();
+  const prevPathname = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!hasOpened && location.pathname !== '/city') {
-      const panelConfig = ROUTE_CONTENT[location.pathname];
-      if (panelConfig) {
-        // Small delay so the shell mounts first
-        setTimeout(() => {
-          openPanel({
-            id: panelConfig.id,
-            title: panelConfig.title,
-            buildingId: panelConfig.id,
-            x: 100 + Math.random() * 100,
-            y: 60 + Math.random() * 50,
-            width: 800,
-            height: 600,
-            minimized: false,
-            maximized: false,
-            content: panelConfig.content,
-          });
-        }, 100);
+    if (prevPathname.current === location.pathname) return;
+
+    const panelConfig = ROUTE_CONTENT[location.pathname];
+    if (panelConfig) {
+      const alreadyOpen = panels.some((p) => p.id === panelConfig.id);
+      if (!alreadyOpen) {
+        openPanel({
+          id: panelConfig.id,
+          title: panelConfig.title,
+          buildingId: panelConfig.id,
+          x: 100 + Math.random() * 100,
+          y: 60 + Math.random() * 50,
+          width: 800,
+          height: 600,
+          minimized: false,
+          maximized: false,
+          content: panelConfig.content,
+        });
       }
-      setHasOpened(true);
     }
-  }, [location.pathname, hasOpened, openPanel]);
+
+    prevPathname.current = location.pathname;
+  }, [location.pathname, openPanel, panels]);
 
   return null;
 }

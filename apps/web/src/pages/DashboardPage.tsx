@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { getSportLabel, useGameStore } from '../store/gameStore';
+import { useGameTime } from '../hooks/useGameTime';
 import {
   ArrowRight,
   BadgeDollarSign,
@@ -163,6 +164,7 @@ const economyExplainers = [
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const { activeSportId } = useGameStore();
+  const { gameTime } = useGameTime();
   const [teams, setTeams] = useState<Team[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,6 +268,11 @@ export default function DashboardPage() {
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100">
               <Sparkles className="h-4 w-4" /> Command center
             </div>
+            {gameTime && (
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 ml-2">
+                <CalendarDays className="h-4 w-4" /> {gameTime.display}
+              </div>
+            )}
             <h1 className="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl">
               Welcome back, {user?.displayName || user?.username || 'Coach'}.
             </h1>

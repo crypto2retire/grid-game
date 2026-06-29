@@ -6,11 +6,12 @@ import { useTraining } from '../../components/training/TrainingSystem';
 import { useAuthStore } from '../../store/authStore';
 import { useWorld } from './WorldSystem';
 import { usePanels, PanelOverlay } from './PanelSystem';
+import IslandWorldMap from './IslandWorldMap';
 import CommunityBuildingSVG from './CommunityBuildingSVG';
 import PlayerStadiumSVG from './PlayerStadiumSVG';
 import PlayerAvatarSVG from './PlayerAvatarSVG';
 import {
-  LayoutDashboard, Dumbbell, ShoppingCart, Trophy, Wallet, Globe, Shirt,
+  LayoutDashboard, Dumbbell, ShoppingCart, Trophy, Wallet, Globe, Shirt, Map
 } from 'lucide-react';
 
 // Import all page components for panels
@@ -116,8 +117,9 @@ export default function GameShell() {
   const { isTraining } = useTraining();
   const { onlinePlayers, myStadium, otherStadiums } = useWorld();
   const [hoveredBuilding, setHoveredBuilding] = useState<string | null>(null);
-  const [avatarPos, setAvatarPos] = useState({ x: 110, y: 77 }); // Start at HQ
+  const [avatarPos, setAvatarPos] = useState({ x: 110, y: 77 });
   const [isMoving, setIsMoving] = useState(false);
+  const [activeView, setActiveView] = useState<'hub' | 'islands'>('islands');
   const avatarColor = useMemo(() => hashToColor(user?.id || 'guest'), [user?.id]);
 
   const handleBuildingClick = useCallback((building: CommunityBuilding) => {
@@ -203,7 +205,6 @@ export default function GameShell() {
     return null;
   }
 
-  // Build positions for roads
   const buildingPositions = useMemo(() => {
     const pos: Record<string, { x: number; y: number; width: number; height: number }> = {};
     COMMUNITY_BUILDINGS.forEach((b) => {
@@ -214,181 +215,189 @@ export default function GameShell() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
-      {/* Full-viewport world map */}
-      <svg viewBox="0 0 1000 700" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <pattern id="grass" width="40" height="40" patternUnits="userSpaceOnUse">
-            <rect width="40" height="40" fill="#0a0f1a" />
-            <circle cx="20" cy="20" r="1" fill="#1a2332" opacity="0.5" />
-            <circle cx="5" cy="5" r="0.5" fill="#1a2332" opacity="0.3" />
-            <circle cx="35" cy="35" r="0.5" fill="#1a2332" opacity="0.3" />
-          </pattern>
-          <pattern id="stars" width="100" height="100" patternUnits="userSpaceOnUse">
-            <circle cx="50" cy="50" r="0.8" fill="#ffffff" opacity="0.15" />
-            <circle cx="20" cy="80" r="0.5" fill="#ffffff" opacity="0.1" />
-            <circle cx="80" cy="20" r="0.5" fill="#ffffff" opacity="0.1" />
-            <circle cx="10" cy="30" r="0.3" fill="#ffffff" opacity="0.2" />
-            <circle cx="70" cy="70" r="0.3" fill="#ffffff" opacity="0.2" />
-            <circle cx="90" cy="10" r="0.6" fill="#ffffff" opacity="0.1" />
-          </pattern>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Background */}
-        <rect width="1000" height="700" fill="url(#grass)" />
-        <rect width="1000" height="700" fill="url(#stars)" />
-
-        {/* Zone labels */}
-        <text x="500" y="22" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
-          COMMUNITY DISTRICT
-        </text>
-        <text x="500" y="200" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
-          MY STADIUM
-        </text>
-        <text x="500" y="500" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
-          OTHER STADIUMS
-        </text>
-
-        {/* Zone dividers */}
-        <line x1="20" y1="150" x2="980" y2="150" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
-        <line x1="20" y1="480" x2="980" y2="480" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
-
-        {/* Community Roads */}
-        <g opacity="0.4">
-          {COMMUNITY_ROADS.map((road, i) => {
-            const from = buildingPositions[road.from];
-            const to = buildingPositions[road.to];
-            if (!from || !to) return null;
-            return (
-              <path
-                key={i}
-                d={getRoadPath(from.x, from.y, to.x, to.y)}
-                fill="none"
-                stroke="#334155"
-                strokeWidth="3"
-                strokeDasharray="6 4"
-              />
-            );
-          })}
-        </g>
-
-        {/* Travel vehicles on roads */}
-        <TravelVehicles buildingPositions={buildingPositions} roadPaths={{}} />
-
-        {/* Community Buildings */}
-        {COMMUNITY_BUILDINGS.map((building) => (
-          <CommunityBuildingSVG
-            key={building.id}
-            {...building}
-            isHovered={hoveredBuilding === building.id}
-            onClick={() => handleBuildingClick(building)}
-            onHover={setHoveredBuilding}
-            isActive={building.id === 'training' && isTraining}
-          />
-        ))}
-
-        {/* My Stadium - Center area */}
-        {myStadium ? (
-          <PlayerStadiumSVG
-            stadium={myStadium}
-            x={380}
-            y={220}
-            isMyStadium={true}
-            isHovered={hoveredBuilding === 'my-stadium'}
-            onClick={handleStadiumClick}
-            onHover={setHoveredBuilding}
-          />
-        ) : (
-          <g
-            onClick={handleStadiumClick}
-            onMouseEnter={() => setHoveredBuilding('my-stadium')}
-            onMouseLeave={() => setHoveredBuilding(null)}
-            style={{ cursor: 'pointer' }}
+      {/* Top Navigation */}
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-2 bg-[#0a0f1a]/80 backdrop-blur-sm border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <div className="text-white font-black text-lg tracking-tight">
+            GRID <span className="text-[#E94560]">SPORTS</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveView('islands')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              activeView === 'islands' ? 'bg-[#E94560] text-white' : 'bg-white/5 text-white/40 hover:text-white/60'
+            }`}
           >
-            <rect x="380" y="220" width="120" height="85" rx="8" fill="#1e293b" stroke="#64748b" strokeWidth="1" opacity="0.5" />
-            <text x="440" y="265" textAnchor="middle" fill="#64748b" fontSize="12">No Stadium Yet</text>
-          </g>
+            <Map className="w-3.5 h-3.5" />
+            World Map
+          </button>
+          <button
+            onClick={() => setActiveView('hub')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              activeView === 'hub' ? 'bg-[#E94560] text-white' : 'bg-white/5 text-white/40 hover:text-white/60'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            Community Hub
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <AnimatePresence mode="wait">
+        {activeView === 'islands' ? (
+          <motion.div
+            key="islands"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 pt-10"
+          >
+            <IslandWorldMap />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="hub"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 pt-10"
+          >
+            <svg viewBox="0 0 1000 700" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <pattern id="grass" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <rect width="40" height="40" fill="#0a0f1a" />
+                  <circle cx="20" cy="20" r="1" fill="#1a2332" opacity="0.5" />
+                  <circle cx="5" cy="5" r="0.5" fill="#1a2332" opacity="0.3" />
+                  <circle cx="35" cy="35" r="0.5" fill="#1a2332" opacity="0.3" />
+                </pattern>
+                <pattern id="stars" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <circle cx="50" cy="50" r="0.8" fill="#ffffff" opacity="0.15" />
+                  <circle cx="20" cy="80" r="0.5" fill="#ffffff" opacity="0.1" />
+                  <circle cx="80" cy="20" r="0.5" fill="#ffffff" opacity="0.1" />
+                  <circle cx="10" cy="30" r="0.3" fill="#ffffff" opacity="0.2" />
+                  <circle cx="70" cy="70" r="0.3" fill="#ffffff" opacity="0.2" />
+                  <circle cx="90" cy="10" r="0.6" fill="#ffffff" opacity="0.1" />
+                </pattern>
+              </defs>
+
+              <rect width="1000" height="700" fill="url(#grass)" />
+              <rect width="1000" height="700" fill="url(#stars)" />
+
+              <text x="500" y="22" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
+                COMMUNITY DISTRICT
+              </text>
+              <text x="500" y="200" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
+                MY STADIUM
+              </text>
+              <text x="500" y="500" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold" letterSpacing="2">
+                OTHER STADIUMS
+              </text>
+
+              <line x1="20" y1="150" x2="980" y2="150" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+              <line x1="20" y1="480" x2="980" y2="480" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+
+              <g opacity="0.4">
+                {COMMUNITY_ROADS.map((road, i) => {
+                  const from = buildingPositions[road.from];
+                  const to = buildingPositions[road.to];
+                  if (!from || !to) return null;
+                  return (
+                    <path
+                      key={i}
+                      d={getRoadPath(from.x, from.y, to.x, to.y)}
+                      fill="none"
+                      stroke="#334155"
+                      strokeWidth="3"
+                      strokeDasharray="6 4"
+                    />
+                  );
+                })}
+              </g>
+
+              <TravelVehicles buildingPositions={buildingPositions} roadPaths={{}} />
+
+              {COMMUNITY_BUILDINGS.map((building) => (
+                <CommunityBuildingSVG
+                  key={building.id}
+                  {...building}
+                  isHovered={hoveredBuilding === building.id}
+                  onClick={() => handleBuildingClick(building)}
+                  onHover={setHoveredBuilding}
+                  isActive={building.id === 'training' && isTraining}
+                />
+              ))}
+
+              {myStadium ? (
+                <PlayerStadiumSVG
+                  stadium={myStadium}
+                  x={380}
+                  y={220}
+                  isMyStadium={true}
+                  isHovered={hoveredBuilding === 'my-stadium'}
+                  onClick={handleStadiumClick}
+                  onHover={setHoveredBuilding}
+                />
+              ) : (
+                <g
+                  onClick={handleStadiumClick}
+                  onMouseEnter={() => setHoveredBuilding('my-stadium')}
+                  onMouseLeave={() => setHoveredBuilding(null)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <rect x="380" y="220" width="120" height="85" rx="8" fill="#1e293b" stroke="#64748b" strokeWidth="1" opacity="0.5" />
+                  <text x="440" y="265" textAnchor="middle" fill="#64748b" fontSize="12">No Stadium Yet</text>
+                </g>
+              )}
+
+              {otherStadiums.map((stadium) => (
+                <PlayerStadiumSVG
+                  key={stadium.venueId}
+                  stadium={stadium}
+                  x={stadium.x}
+                  y={stadium.y}
+                  isMyStadium={false}
+                  isHovered={hoveredBuilding === `stadium-${stadium.venueId}`}
+                  onClick={() => handleOtherStadiumClick(stadium)}
+                  onHover={setHoveredBuilding}
+                />
+              ))}
+
+              {onlinePlayers.map((player) => (
+                <PlayerAvatarSVG
+                  key={player.userId}
+                  player={player}
+                />
+              ))}
+
+              <g transform={`translate(${avatarPos.x}, ${avatarPos.y})`} style={{ cursor: 'pointer' }}>
+                <text x="0" y="-18" textAnchor="middle" fill="#e2e8f0" fontSize="9" fontWeight="bold">You</text>
+                <circle cx="0" cy="-8" r="7" fill={avatarColor} opacity="0.9" />
+                <circle cx="0" cy="-16" r="5" fill={avatarColor} />
+                {isMoving && (
+                  <motion.g animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }}>
+                    <circle cx="0" cy="4" r="2" fill={avatarColor} opacity="0.5" />
+                    <circle cx="-6" cy="6" r="1.5" fill={avatarColor} opacity="0.3" />
+                    <circle cx="6" cy="6" r="1.5" fill={avatarColor} opacity="0.3" />
+                  </motion.g>
+                )}
+              </g>
+
+              <AnimatePresence>
+                {myStadium?.liveMatch?.status === 'PLAYING' && (
+                  <motion.g initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+                    <polygon points="500,220 480,300 520,300" fill="#E94560" opacity="0.15" />
+                    <polygon points="500,220 450,300 480,300" fill="#E94560" opacity="0.1" />
+                    <polygon points="500,220 520,300 550,300" fill="#E94560" opacity="0.1" />
+                  </motion.g>
+                )}
+              </AnimatePresence>
+            </svg>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* Other Stadiums - Bottom area */}
-        {otherStadiums.map((stadium) => (
-          <PlayerStadiumSVG
-            key={stadium.venueId}
-            stadium={stadium}
-            x={stadium.x}
-            y={stadium.y}
-            isMyStadium={false}
-            isHovered={hoveredBuilding === `stadium-${stadium.venueId}`}
-            onClick={() => handleOtherStadiumClick(stadium)}
-            onHover={setHoveredBuilding}
-          />
-        ))}
-
-        {/* Other Player Avatars */}
-        {onlinePlayers.map((player) => (
-          <PlayerAvatarSVG
-            key={player.userId}
-            player={player}
-          />
-        ))}
-
-        {/* My Avatar */}
-        <g
-          transform={`translate(${avatarPos.x}, ${avatarPos.y})`}
-          style={{ cursor: 'pointer' }}
-        >
-          {/* Tooltip name */}
-          <text x="0" y="-18" textAnchor="middle" fill="#e2e8f0" fontSize="9" fontWeight="bold">
-            You
-          </text>
-          {/* Avatar body */}
-          <circle cx="0" cy="-8" r="7" fill={avatarColor} opacity="0.9" />
-          {/* Avatar head */}
-          <circle cx="0" cy="-16" r="5" fill={avatarColor} />
-          {/* Movement indicator */}
-          {isMoving && (
-            <motion.g
-              animate={{ opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-            >
-              <circle cx="0" cy="4" r="2" fill={avatarColor} opacity="0.5" />
-              <circle cx="-6" cy="6" r="1.5" fill={avatarColor} opacity="0.3" />
-              <circle cx="6" cy="6" r="1.5" fill={avatarColor} opacity="0.3" />
-            </motion.g>
-          )}
-        </g>
-
-        {/* Live match indicators on top of stadiums */}
-        <AnimatePresence>
-          {myStadium?.liveMatch?.status === 'PLAYING' && (
-            <motion.g
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-            >
-              {/* Spotlight beams */}
-              <polygon points="500,220 480,300 520,300" fill="#E94560" opacity="0.15" />
-              <polygon points="500,220 450,300 480,300" fill="#E94560" opacity="0.1" />
-              <polygon points="500,220 520,300 550,300" fill="#E94560" opacity="0.1" />
-            </motion.g>
-          )}
-        </AnimatePresence>
-      </svg>
-
-      {/* Bottom bar with info */}
       <div className="fixed bottom-0 left-0 right-0 h-10 bg-[#0a0f1a]/80 border-t border-white/5 flex items-center px-4 gap-6 text-xs text-slate-500 z-10">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -398,12 +407,9 @@ export default function GameShell() {
           <span className="w-2 h-2 rounded-full bg-[#E94560]"></span>
           {myHomeMatches.length} home matches
         </span>
-        <span className="ml-auto text-slate-600">
-          Press ESC to close panels
-        </span>
+        <span className="ml-auto text-slate-600">Press ESC to close panels</span>
       </div>
 
-      {/* Floating Panels */}
       <PanelOverlay />
     </div>
   );

@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { recordCurrencyLedger } from '../economy/ledger';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
+import { calculateTeamSlotPrice } from '../game-time/game-time.routes';
 
 const AI_OWNER_ID = 'ai-system-owner-001';
 
@@ -136,6 +137,7 @@ export async function getTierEligibility(userId: string) {
 
 /**
  * Buy an AI team: transfer ownership to the buyer.
+ * Progressive pricing: each additional team costs 2x the base price.
  */
 export async function buyTeamFromCatalog(userId: string, teamId: string, currency: 'GRID' | 'SOL') {
   const team = await prisma.team.findFirst({
@@ -152,12 +154,16 @@ export async function buyTeamFromCatalog(userId: string, teamId: string, currenc
     throw new Error('Wallet not found');
   }
 
-  const price = team.purchasePrice || 0;
+  // Apply progressive pricing based on current team count
+  const teamCount = await prisma.team.count({ where: { ownerId: userId } });
+  const basePrice = team.purchasePrice || 0;
+  const price = calculateTeamSlotPrice(basePrice, teamCount);
+  
   if (currency === 'GRID' && wallet.gridTokens < price) {
-    throw new Error(`Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+    throw new Error(`Insufficient GRID. Need ${price.toLocaleString()} GRID (slot ${teamCount + 1}, progressive pricing applied)`);
   }
   if (currency === 'SOL' && wallet.solBalance < price) {
-    throw new Error(`Insufficient SOL. Need ${price.toLocaleString()} SOL`);
+    throw new Error(`Insufficient SOL. Need ${price.toLocaleString()} SOL (slot ${teamCount + 1}, progressive pricing applied)`);
   }
 
   // Check eligibility
@@ -184,7 +190,7 @@ export async function buyTeamFromCatalog(userId: string, teamId: string, currenc
       reason: 'TEAM_PURCHASE',
       sourceType: 'TEAM_CATALOG',
       sourceId: teamId,
-      metadata: { tier: team.tier, currency, teamId },
+      metadata: { tier: team.tier, currency, teamId, slotIndex: teamCount, basePrice, progressivePrice: price },
     });
 
     // For GRID purchases: 50% to rewards pool, 50% burned

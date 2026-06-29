@@ -7,7 +7,7 @@ import path from 'path';
 import { exec } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env';
-import { connectDatabase, disconnectDatabase } from './config/database';
+import { connectDatabase, disconnectDatabase, prisma } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
@@ -33,8 +33,12 @@ import { playGameRouter } from './modules/play-game/play-game.routes';
 import { aiTeamsRouter } from './modules/ai-teams/ai-teams.routes';
 import { testingRouter } from './modules/testing/testing.routes';
 import { worldRouter } from './modules/world/world.routes';
+import { gameTimeRouter } from './modules/game-time/game-time.routes';
+import { islandRouter } from './modules/islands/island.routes';
+import { leagueRouter } from './modules/leagues/league.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
+import { prisma } from './config/database';
 
 // ─── Memory Monitor ───
 function logMemory() {
@@ -216,6 +220,57 @@ async function seedMarketplaceListings(prisma: PrismaClient) {
   console.log(`Seeded ${freePlayers.length} marketplace listings`);
 }
 
+// ─── Seed Default Islands & Leagues ───
+async function seedDefaultIslands(prisma: PrismaClient) {
+  const islandCount = await prisma.island.count();
+  if (islandCount > 0) {
+    console.log(`Islands already seeded (${islandCount} found)`);
+    return;
+  }
+
+  const defaultLeagues = [
+    { name: 'Grid City Central', tier: 'HUB', x: 0, y: 0, theme: 'grass', color: '#4ade80', size: 2.5, maxTeams: 999, type: 'HUB' },
+    { name: 'State College Circuit', tier: 'STATE_COLLEGE', x: -200, y: -150, theme: 'grass', color: '#86efac', size: 1.0, maxTeams: 16, type: 'LEAGUE' },
+    { name: 'Mid-College Conference', tier: 'MID_COLLEGE', x: 200, y: -150, theme: 'tropical', color: '#22d3ee', size: 1.1, maxTeams: 16, type: 'LEAGUE' },
+    { name: 'Top College Tournament', tier: 'TOP_COLLEGE', x: -250, y: 100, theme: 'desert', color: '#fbbf24', size: 1.2, maxTeams: 12, type: 'LEAGUE' },
+    { name: 'Regional Pro Circuit', tier: 'REGIONAL_PRO', x: 250, y: 100, theme: 'industrial', color: '#94a3b8', size: 1.3, maxTeams: 12, type: 'LEAGUE' },
+    { name: 'Pro Entry League', tier: 'PRO_ENTRY', x: -150, y: 250, theme: 'snow', color: '#e2e8f0', size: 1.4, maxTeams: 10, type: 'LEAGUE' },
+    { name: 'Pro Elite Championship', tier: 'PRO_ELITE', x: 150, y: 250, theme: 'volcanic', color: '#f87171', size: 1.5, maxTeams: 8, type: 'LEAGUE' },
+  ];
+
+  for (const dl of defaultLeagues) {
+    const island = await prisma.island.create({
+      data: {
+        name: dl.name,
+        type: dl.type as any,
+        x: dl.x,
+        y: dl.y,
+        theme: dl.theme,
+        color: dl.color,
+        size: dl.size,
+        maxTeams: dl.maxTeams,
+      },
+    });
+
+    if (dl.type === 'LEAGUE') {
+      await (prisma as any).league.create({
+        data: {
+          sportId: 'american-football',
+          name: dl.name,
+          tier: dl.tier,
+          islandId: island.id,
+          visibility: 'PUBLIC',
+          maxTeams: dl.maxTeams,
+          isDefault: true,
+          status: 'ACTIVE',
+        },
+      });
+    }
+  }
+
+  console.log(`Seeded ${defaultLeagues.length} default islands`);
+}
+
 const corsOrigins = getCorsOrigins();
 console.log('CORS allowed origins:', corsOrigins);
 
@@ -304,6 +359,9 @@ app.use('/api/play-game', playGameRouter);
 app.use('/api/ai-teams', aiTeamsRouter);
 app.use('/api/testing', testingRouter);
 app.use('/api/world', worldRouter);
+app.use('/api/game-time', gameTimeRouter);
+app.use('/api/islands', islandRouter);
+app.use('/api/leagues', leagueRouter);
 
 // SPA fallback - serve index.html for non-API routes
 app.get('*', (req, res, next) => {
@@ -349,6 +407,13 @@ const startServer = async () => {
     try {
       await connectDatabase();
       console.log('Database connected');
+
+      // Ensure GameSettings singleton exists for time compression
+      await (prisma as any).gameSettings.upsert({
+        where: { id: 'main' },
+        update: {},
+        create: { id: 'main', gameEpochStart: new Date('2026-01-01') },
+      });
 
       exec('npx prisma migrate deploy', { cwd: process.cwd() }, (err, stdout) => {
         if (err) {
@@ -400,6 +465,7 @@ const startServer = async () => {
                   seedEquipmentTypes(prisma).catch((e: any) => console.error('Equipment seed error:', e));
                   seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
                   seedTeamMarketplaceListings(prisma).catch((e: any) => console.error('Team marketplace seed error:', e));
+                  seedDefaultIslands(prisma).catch((e: any) => console.error('Island seed error:', e));
                 }
               }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
             }

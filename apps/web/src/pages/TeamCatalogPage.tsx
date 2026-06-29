@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
+import { useTeamSlotPricing } from '../hooks/useGameTime';
 import {
   Trophy,
   Lock,
@@ -14,6 +15,7 @@ import {
   Building,
   Plus,
   X,
+  TrendingUp,
 } from 'lucide-react';
 
 interface CatalogEntry {
@@ -89,6 +91,7 @@ export default function TeamCatalogPage() {
   const [buying, setBuying] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [viewRoster, setViewRoster] = useState<CatalogEntry | null>(null);
+  const { pricing: slotPricing } = useTeamSlotPricing();
 
   useEffect(() => {
     fetchCatalog();
@@ -202,7 +205,10 @@ export default function TeamCatalogPage() {
 
   const canAfford = (entry: CatalogEntry, currency: 'GRID' | 'SOL') => {
     if (entry.tier === 'STATE_COLLEGE') return true;
-    const price = currency === 'GRID' ? entry.gridPrice : entry.solPrice;
+    const slotEntry = slotPricing?.find((sp) => sp.catalogId === entry.id);
+    const price = currency === 'GRID' 
+      ? (slotEntry?.slotPrice ?? entry.gridPrice) 
+      : (slotEntry?.solPrice ?? entry.solPrice);
     const balance = currency === 'GRID' ? wallet.gridTokens : wallet.solBalance;
     return balance >= price;
   };
@@ -227,11 +233,21 @@ export default function TeamCatalogPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Team Catalog</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Buy teams from the game. Upgrade your program to reach the pro leagues.
-        </p>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white">Team Catalog</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Buy teams from the game. Upgrade your program to reach the pro leagues.
+          </p>
+        </div>
+        {slotPricing && slotPricing[0] && (
+          <div className="glass-card px-4 py-2 flex items-center gap-2 border-amber-400/20 bg-amber-400/5">
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-amber-100">
+              Team {slotPricing[0].teamCount + 1} of 3 — Slot prices are progressive
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Eligibility Banner */}
@@ -391,14 +407,31 @@ export default function TeamCatalogPage() {
                       {!isFree && (
                         <div className="flex items-center justify-between gap-3">
                           <div className="space-y-1">
-                            <div className={`text-sm ${affordGrid ? 'text-white' : 'text-red-400'}`}>
-                              <Coins className="w-3 h-3 inline mr-1" />
-                              {entry.gridPrice.toLocaleString()} GRID
-                            </div>
-                            <div className={`text-sm ${affordSol ? 'text-white' : 'text-red-400'}`}>
-                              <Zap className="w-3 h-3 inline mr-1" />
-                              {entry.solPrice.toLocaleString()} SOL
-                            </div>
+                            {(() => {
+                              const slotEntry = slotPricing?.find((sp) => sp.catalogId === entry.id);
+                              const gridPrice = slotEntry?.slotPrice ?? entry.gridPrice;
+                              const solPrice = slotEntry?.solPrice ?? entry.solPrice;
+                              const slotIndex = slotEntry?.slotIndex ?? 0;
+                              const isProgressive = slotIndex > 0;
+                              return (
+                                <>
+                                  <div className={`text-sm ${affordGrid ? 'text-white' : 'text-red-400'}`}>
+                                    <Coins className="w-3 h-3 inline mr-1" />
+                                    {gridPrice.toLocaleString()} GRID
+                                    {isProgressive && (
+                                      <span className="text-xs text-amber-400 ml-1">({slotIndex + 1}x slot)</span>
+                                    )}
+                                  </div>
+                                  <div className={`text-sm ${affordSol ? 'text-white' : 'text-red-400'}`}>
+                                    <Zap className="w-3 h-3 inline mr-1" />
+                                    {solPrice.toLocaleString()} SOL
+                                    {isProgressive && (
+                                      <span className="text-xs text-amber-400 ml-1">({slotIndex + 1}x slot)</span>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                           <div className="flex gap-2">
                             <button
