@@ -147,4 +147,81 @@ router.post(
   })
 );
 
+// POST /api/equipment/equip — equip an item to a player
+router.post(
+  '/equip',
+  authMiddleware,
+  asyncHandler(async (req: any, res) => {
+    const schema = z.object({
+      playerItemId: z.string().uuid(),
+      playerId: z.string().uuid(),
+    });
+    const input = schema.parse(req.body);
+    const userId = req.user!.id;
+
+    // Verify ownership
+    const playerItem = await prisma.playerItem.findFirst({
+      where: {
+        id: input.playerItemId,
+        playerId: input.playerId,
+        player: { teamPlayers: { some: { team: { ownerId: userId } } } },
+      },
+      include: { item: true },
+    });
+    if (!playerItem) {
+      throw new AppError(403, 'You do not own this item');
+    }
+
+    // Unequip any existing item in the same slot for this player
+    await prisma.playerItem.updateMany({
+      where: {
+        playerId: input.playerId,
+        item: { slot: playerItem.item.slot },
+        equipped: true,
+      },
+      data: { equipped: false },
+    });
+
+    // Equip the new item
+    const updated = await prisma.playerItem.update({
+      where: { id: input.playerItemId },
+      data: { equipped: true },
+      include: { item: true },
+    });
+
+    res.json({ status: 'success', data: updated });
+  })
+);
+
+// POST /api/equipment/unequip — unequip an item
+router.post(
+  '/unequip',
+  authMiddleware,
+  asyncHandler(async (req: any, res) => {
+    const schema = z.object({
+      playerItemId: z.string().uuid(),
+    });
+    const input = schema.parse(req.body);
+    const userId = req.user!.id;
+
+    const playerItem = await prisma.playerItem.findFirst({
+      where: {
+        id: input.playerItemId,
+        player: { teamPlayers: { some: { team: { ownerId: userId } } } },
+      },
+    });
+    if (!playerItem) {
+      throw new AppError(403, 'You do not own this item');
+    }
+
+    const updated = await prisma.playerItem.update({
+      where: { id: input.playerItemId },
+      data: { equipped: false },
+      include: { item: true },
+    });
+
+    res.json({ status: 'success', data: updated });
+  })
+);
+
 export const equipmentRouter = router;

@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { useTraining, type EquipmentItem } from '../components/training/TrainingSystem';
 import { useGameStore } from '../store/gameStore';
-import {
-  Shirt, Shield, Hand, Footprints, Gem, Star, Minus, Plus,
-} from 'lucide-react';
+import { Shirt, Shield, Hand, Footprints, Gem, Star, Minus, Plus, AlertCircle } from 'lucide-react';
 
 const SLOT_ICONS: Record<string, any> = {
   helmet: Shirt,
@@ -27,35 +24,105 @@ const RARITY_BG: Record<string, string> = {
   legendary: 'bg-amber-400/10',
 };
 
+interface PlayerItem {
+  id: string;
+  itemId: string;
+  item: {
+    id: string;
+    name: string;
+    slot: string;
+    rarity: string;
+    statBoosts: Record<string, number>;
+    durability: number;
+  };
+  equipped: boolean;
+  durability: number;
+}
+
+interface Player {
+  id: string;
+  name: string;
+  position: string;
+  overall: number;
+  playerItems: PlayerItem[];
+}
+
 export default function EquipmentPage() {
-  const { equipment, equippedSlots, equipItem, unequipItem, playerFatigue } = useTraining();
   const { teams, selectedTeamId, setSelectedTeamId } = useGameStore();
-  
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<string>('');
-  const [filterSlot, setFilterSlot] = useState<string>('all');
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const token = localStorage.getItem('token');
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const activeTeam = teams.find((t: any) => t.id === selectedTeamId);
+  const players: Player[] = activeTeam?.teamPlayers?.map((tp: any) => tp.player) || [];
+
+  const allItems = players.flatMap((p) => p.playerItems || []);
+  const equippedItems = allItems.filter((pi) => pi.equipped);
+
+  const totalBoosts = equippedItems.reduce((sum, pi) => {
+    return sum + Object.values(pi.item.statBoosts).reduce((a, b) => a + b, 0);
+  }, 0);
+
+  const handleEquip = async (playerItemId: string, playerId: string) => {
+    setLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/equipment/equip', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerItemId, playerId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg('Item equipped!');
+        // Refresh teams to get updated data
+        const { refreshTeams } = useGameStore.getState();
+        await refreshTeams();
+        setTimeout(() => setActionMsg(null), 3000);
+      } else {
+        setActionError(data.message || 'Failed to equip');
+      }
+    } catch (err) {
+      setActionError('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnequip = async (playerItemId: string) => {
+    setLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch('/api/equipment/unequip', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerItemId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg('Item unequipped!');
+        const { refreshTeams } = useGameStore.getState();
+        await refreshTeams();
+        setTimeout(() => setActionMsg(null), 3000);
+      } else {
+        setActionError(data.message || 'Failed to unequip');
+      }
+    } catch (err) {
+      setActionError('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getEquippedItem = (player: Player, slot: string): PlayerItem | null => {
+    return player.playerItems?.find((pi) => pi.equipped && pi.item.slot === slot) || null;
+  };
 
   const slots = ['helmet', 'pads', 'gloves', 'shoes', 'accessory'];
-  
-  const playerEquipped = equippedSlots.filter(s => s.playerId === selectedPlayer);
-  const playerFatigueData = playerFatigue.find(p => p.playerId === selectedPlayer);
-
-  const filteredEquipment = filterSlot === 'all' 
-    ? equipment 
-    : equipment.filter(e => e.slot === filterSlot);
-
-  const isEquipped = (itemId: string) => {
-    return equippedSlots.some(s => s.playerId === selectedPlayer && s.item.id === itemId);
-  };
-
-  const getEquippedItem = (slot: string): EquipmentItem | null => {
-    const equipped = playerEquipped.find(s => s.slot === slot);
-    return equipped?.item || null;
-  };
-
-  const totalBoosts = playerEquipped.reduce((sum, s) => {
-    return sum + Object.values(s.item.statBoosts).reduce((a, b) => a + b, 0);
-  }, 0);
 
   return (
     <div className="space-y-5">
@@ -72,14 +139,25 @@ export default function EquipmentPage() {
         </div>
       </div>
 
+      {actionMsg && (
+        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
+          {actionMsg}
+        </div>
+      )}
+      {actionError && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {actionError}
+        </div>
+      )}
+
       {/* Team Selector */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Team</h3>
         <div className="flex gap-2 flex-wrap">
           {teams.length === 0 && (
-            <p className="text-sm text-white/40">No teams available. Create a team in the Team Office first.</p>
+            <p className="text-sm text-white/40">No teams available.</p>
           )}
-          {teams.map((team) => (
+          {teams.map((team: any) => (
             <button
               key={team.id}
               onClick={() => setSelectedTeamId(team.id)}
@@ -89,7 +167,7 @@ export default function EquipmentPage() {
                   : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
               }`}
             >
-              {team.name} ({team.teamPlayers?.length || 0} players)
+              {team.name}
             </button>
           ))}
         </div>
@@ -98,173 +176,128 @@ export default function EquipmentPage() {
       {/* Player Selector */}
       <div className="glass-card p-4">
         <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Player</h3>
-        <div className="flex gap-2 flex-wrap">
-          {playerFatigue.length === 0 && selectedTeamId && (
-            <p className="text-sm text-white/40">This team has no players. Hire players in the Team Office.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {players.length === 0 && (
+            <p className="text-sm text-white/40 col-span-full">No players on this team.</p>
           )}
-          {!selectedTeamId && (
-            <p className="text-sm text-white/40">Select a team to view players.</p>
-          )}
-          {playerFatigue.map((p) => (
-            <button
-              key={p.playerId}
-              onClick={() => setSelectedPlayer(p.playerId)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                selectedPlayer === p.playerId
-                  ? 'bg-[#E94560] text-white'
-                  : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {p.playerName} ({p.fatigue}% fatigue)
-            </button>
-          ))}
+          {players.map((player) => {
+            const playerBoosts = player.playerItems
+              ?.filter((pi) => pi.equipped)
+              .reduce((sum, pi) => sum + Object.values(pi.item.statBoosts).reduce((a, b) => a + b, 0), 0) || 0;
+            return (
+              <button
+                key={player.id}
+                onClick={() => setSelectedPlayer(player)}
+                className={`p-3 rounded-lg border text-left transition-all ${
+                  selectedPlayer?.id === player.id
+                    ? 'bg-[#E94560]/10 border-[#E94560]/40'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <div className="font-medium text-white text-sm">{player.name}</div>
+                <div className="text-xs text-white/50">{player.position} • OVR {player.overall}</div>
+                {playerBoosts > 0 && (
+                  <div className="text-xs text-amber-400 mt-1">+{playerBoosts} boost</div>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Equipped Gear Display */}
-      <div className="glass-card p-5">
-        <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-4">
-          Equipped on {playerFatigueData?.playerName || '—'}
-        </h3>
-        <div className="grid grid-cols-5 gap-3">
-          {slots.map((slot) => {
-            const equippedItem = getEquippedItem(slot);
-            const SlotIcon = SLOT_ICONS[slot];
-            return (
-              <div
-                key={slot}
-                onClick={() => setSelectedSlot(selectedSlot === slot ? null : slot)}
-                className={`relative p-4 rounded-xl border border-white/10 cursor-pointer transition-all hover:border-white/20 ${
-                  equippedItem ? RARITY_BG[equippedItem.rarity] : 'bg-white/5'
-                } ${selectedSlot === slot ? 'ring-2 ring-[#E94560]' : ''}`}
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <SlotIcon className={`w-6 h-6 ${equippedItem ? RARITY_COLORS[equippedItem.rarity].split(' ')[0] : 'text-white/30'}`} />
-                  <span className="text-xs font-bold text-white/60 uppercase">{slot}</span>
-                  {equippedItem ? (
-                    <div className="text-center">
-                      <div className={`text-xs font-bold ${RARITY_COLORS[equippedItem.rarity].split(' ')[0]}`}>
-                        {equippedItem.name}
-                      </div>
-                      <div className="text-xs text-white/40 mt-1">
-                        {Object.entries(equippedItem.statBoosts).map(([stat, val]) => (
+      {/* Selected Player Equipment */}
+      {selectedPlayer && (
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-white">{selectedPlayer.name}</h3>
+              <p className="text-sm text-muted-foreground">{selectedPlayer.position} • OVR {selectedPlayer.overall}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-5 gap-3 mb-4">
+            {slots.map((slot) => {
+              const equipped = getEquippedItem(selectedPlayer, slot);
+              const SlotIcon = SLOT_ICONS[slot] || Gem;
+
+              return (
+                <div key={slot} className="text-center">
+                  <div className="text-xs text-white/40 uppercase tracking-wider mb-2">{slot}</div>
+                  {equipped ? (
+                    <div className={`p-3 rounded-xl border ${RARITY_COLORS[equipped.item.rarity] || RARITY_COLORS.common} ${RARITY_BG[equipped.item.rarity] || RARITY_BG.common}`}>
+                      <SlotIcon className="w-6 h-6 mx-auto mb-2" />
+                      <div className="text-xs font-bold text-white">{equipped.item.name}</div>
+                      <div className="text-[10px] text-white/60 mt-1">
+                        {Object.entries(equipped.item.statBoosts).map(([stat, val]) => (
                           <span key={stat} className="text-emerald-400">+{val} {stat}</span>
                         ))}
                       </div>
+                      <div className="text-[10px] text-white/40 mt-1">Dur: {equipped.durability}</div>
+                      <button
+                        onClick={() => handleUnequip(equipped.id)}
+                        disabled={loading}
+                        className="mt-2 px-2 py-1 bg-red-400/10 text-red-400 rounded text-xs hover:bg-red-400/20 disabled:opacity-50"
+                      >
+                        <Minus className="w-3 h-3 inline" /> Remove
+                      </button>
                     </div>
                   ) : (
-                    <span className="text-xs text-white/30">Empty</span>
+                    <div className="p-3 rounded-xl border border-dashed border-white/10 bg-white/5">
+                      <SlotIcon className="w-6 h-6 mx-auto mb-2 text-white/20" />
+                      <div className="text-xs text-white/30">Empty</div>
+                    </div>
                   )}
                 </div>
-                {equippedItem && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      unequipItem(selectedPlayer, slot);
-                    }}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500/80 rounded-full flex items-center justify-center text-white text-xs hover:bg-red-500"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Inventory */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider">Inventory</h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterSlot('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                filterSlot === 'all' ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'
-              }`}
-            >
-              All
-            </button>
-            {slots.map((slot) => (
-              <button
-                key={slot}
-                onClick={() => setFilterSlot(slot)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filterSlot === slot ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'
-                }`}
-              >
-                {slot}
-              </button>
-            ))}
+              );
+            })}
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredEquipment.map((item) => {
-            const SlotIcon = SLOT_ICONS[item.slot];
-            const equipped = isEquipped(item.id);
-            return (
-              <div
-                key={item.id}
-                className={`p-4 rounded-xl border transition-all ${
-                  RARITY_COLORS[item.rarity]
-                } ${RARITY_BG[item.rarity]} ${equipped ? 'opacity-50' : 'hover:border-white/30'}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                      <SlotIcon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-white text-sm">{item.name}</div>
-                      <div className="text-xs text-white/40 capitalize">{item.slot} • {item.rarity}</div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-white/40">
-                    {item.durability}%
-                  </div>
-                </div>
-
-                <div className="flex gap-2 flex-wrap mt-3">
-                  {Object.entries(item.statBoosts).map(([stat, val]) => (
-                    <span key={stat} className="text-xs bg-white/10 rounded-lg px-2 py-1 text-emerald-400 font-medium">
-                      +{val} {stat}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-white/10">
-                  <button
-                    onClick={() => {
-                      if (!equipped) equipItem(selectedPlayer, item.id);
-                    }}
-                    disabled={equipped || !selectedPlayer}
-                    className={`w-full py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                      equipped
-                        ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                        : !selectedPlayer
-                        ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                        : 'bg-[#E94560]/20 text-[#E94560] hover:bg-[#E94560]/30'
+          {/* Inventory for this player */}
+          <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Inventory</h4>
+          {selectedPlayer.playerItems?.length === 0 ? (
+            <p className="text-sm text-white/30">No items in inventory. Visit the Market to buy equipment.</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {selectedPlayer.playerItems?.map((pi) => {
+                const SlotIcon = SLOT_ICONS[pi.item.slot] || Gem;
+                return (
+                  <div
+                    key={pi.id}
+                    className={`p-3 rounded-xl border transition-all ${
+                      pi.equipped
+                        ? `${RARITY_COLORS[pi.item.rarity] || RARITY_COLORS.common} ${RARITY_BG[pi.item.rarity] || RARITY_BG.common}`
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
                     }`}
                   >
-                    {equipped ? (
-                      <>Equipped</>
-                    ) : !selectedPlayer ? (
-                      <>Select a Player</>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        Equip
-                      </>
+                    <div className="flex items-center gap-2 mb-2">
+                      <SlotIcon className="w-4 h-4 text-white/60" />
+                      <span className="text-xs font-bold text-white">{pi.item.name}</span>
+                    </div>
+                    <div className="text-[10px] text-white/50 mb-2">
+                      {Object.entries(pi.item.statBoosts).map(([stat, val]) => (
+                        <span key={stat} className="text-emerald-400">+{val} {stat} </span>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-white/40 mb-2">Dur: {pi.durability}/{pi.item.durability}</div>
+                    {!pi.equipped && (
+                      <button
+                        onClick={() => handleEquip(pi.id, selectedPlayer.id)}
+                        disabled={loading}
+                        className="w-full px-2 py-1 bg-[#E94560]/20 text-[#E94560] rounded text-xs hover:bg-[#E94560]/30 disabled:opacity-50 flex items-center justify-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Equip
+                      </button>
                     )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                    {pi.equipped && (
+                      <div className="w-full text-center text-[10px] text-emerald-400 font-bold py-1">Equipped</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

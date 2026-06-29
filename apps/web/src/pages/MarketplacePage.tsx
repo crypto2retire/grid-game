@@ -1,8 +1,37 @@
 import { useState, useEffect } from 'react';
-import { Tag, X, HandCoins, Check, Ban, Coins, AlertCircle, Store, Package } from 'lucide-react';
+import { Tag, X, HandCoins, Coins, AlertCircle, Store, Package, ShoppingBag } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 
-interface Listing {
+// ─── Types ───
+interface Item {
+  id: string;
+  name: string;
+  slot: string;
+  rarity: string;
+  tier: number;
+  statBoosts: Record<string, number>;
+  durability: number;
+  marketPriceCash: number;
+  marketPriceGrid: number;
+  lastMarketplacePrice: number | null;
+  isAvailable: boolean;
+}
+
+interface ItemListing {
+  id: string;
+  price: number;
+  status: string;
+  createdAt: string;
+  seller: { id: string; username: string };
+  playerItem: {
+    id: string;
+    item: Item;
+    player: { id: string; name: string; position: string; overall: number };
+    durability: number;
+  };
+}
+
+interface PlayerListing {
   id: string;
   price: number;
   status: string;
@@ -13,498 +42,411 @@ interface Listing {
     overall: number;
     rarity: string;
   };
-  seller: {
-    id: string;
-    username: string;
-  };
-  offers: Offer[];
-}
-
-interface Offer {
-  id: string;
-  price: number;
-  status: string;
-  buyer: { id: string; username: string };
-  createdAt: string;
+  seller: { id: string; username: string };
 }
 
 export default function MarketplacePage() {
-  const { activeSportId } = useGameStore();
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [buying, setBuying] = useState<string | null>(null);
-  const [showSell, setShowSell] = useState(false);
-  const [sellPrice, setSellPrice] = useState('');
-  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
-  const [myPlayers, setMyPlayers] = useState<any[]>([]);
-  const [myWallet, setMyWallet] = useState({ cash: 0 });
-  const [offerPrice, setOfferPrice] = useState('');
-  const [offeringOn, setOfferingOn] = useState<string | null>(null);
-  const [myOffers, setMyOffers] = useState<any[]>([]);
-  const [myListings, setMyListings] = useState<any[]>([]);
-  const [tab, setTab] = useState<'browse' | 'my-offers' | 'my-listings'>('browse');
+  const { activeSportId, teams } = useGameStore();
+  const [channel, setChannel] = useState<'market' | 'marketplace' | 'players'>('market');
+
+  // ─── Market (Game Store) ───
+  const [marketItems, setMarketItems] = useState<Item[]>([]);
+  const [marketLoading, setMarketLoading] = useState(true);
+  const [buyingItem, setBuyingItem] = useState<string | null>(null);
+  const [selectedPlayerForItem, setSelectedPlayerForItem] = useState<any>(null);
+
+  // ─── Item Marketplace (P2P) ───
+  const [itemListings, setItemListings] = useState<ItemListing[]>([]);
+  const [myItemListings, setMyItemListings] = useState<ItemListing[]>([]);
+  const [myItems, setMyItems] = useState<any[]>([]);
+  const [listingItemId, setListingItemId] = useState('');
+  const [listingPrice, setListingPrice] = useState('');
+  const [buyingItemListing, setBuyingItemListing] = useState<string | null>(null);
+
+  // ─── Player Marketplace (existing) ───
+  const [playerListings, setPlayerListings] = useState<PlayerListing[]>([]);
+  const [playerLoading, setPlayerLoading] = useState(true);
+  const [buyingPlayer, setBuyingPlayer] = useState<string | null>(null);
+
+  // ─── Shared ───
+  const [myWallet, setMyWallet] = useState({ cash: 0, gridTokens: 0 });
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showListItem, setShowListItem] = useState(false);
+
+  const token = localStorage.getItem('token');
+  const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    fetchListings();
-    fetchMyPlayers();
+    fetchMarketItems();
+    fetchItemListings();
+    fetchMyItemListings();
+    fetchMyItems();
+    fetchPlayerListings();
     fetchWallet();
-    fetchMyOffers();
-    fetchMyListings();
   }, [activeSportId]);
-
-  const fetchListings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/marketplace?limit=50&sportId=${activeSportId}`,  {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setListings((data.data || []).filter((listing: any) => (listing.sportId || listing.player?.sportId || 'american-football') === activeSportId));
-      }
-    } catch (err) {
-      console.error('Failed to fetch listings:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMyPlayers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/teams/mine', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const players = data.data?.filter((team: any) => (team.sportId || 'american-football') === activeSportId).flatMap((team: any) => team.teamPlayers?.map((tp: any) => tp.player) || []) || [];
-        setMyPlayers(players);
-      }
-    } catch (err) {
-      console.error('Failed to fetch my players:', err);
-    }
-  };
 
   const fetchWallet = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/wallet', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/economy/wallet', { headers });
       if (res.ok) {
         const data = await res.json();
-        setMyWallet(data.data || { cash: 0 });
+        setMyWallet(data.data || { cash: 0, gridTokens: 0 });
       }
-    } catch (err) {
-      console.error('Failed to fetch wallet:', err);
-    }
+    } catch (err) { console.error('Wallet error:', err); }
   };
 
-  const fetchMyOffers = async () => {
+  // ─── Market API ───
+  const fetchMarketItems = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/marketplace/my-offers', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/market/items', { headers });
       if (res.ok) {
         const data = await res.json();
-        setMyOffers((data.data || []).filter((offer: any) => (offer.listing?.sportId || offer.listing?.player?.sportId || 'american-football') === activeSportId));
+        setMarketItems(data.data || []);
       }
-    } catch (err) {
-      console.error('Failed to fetch my offers:', err);
-    }
+    } catch (err) { console.error('Market items error:', err); }
+    finally { setMarketLoading(false); }
   };
 
-  const fetchMyListings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/marketplace/my-listings', { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setMyListings((data.data || []).filter((listing: any) => (listing.sportId || listing.player?.sportId || 'american-football') === activeSportId));
-      }
-    } catch (err) {
-      console.error('Failed to fetch my listings:', err);
+  const buyFromMarket = async (itemId: string, currency: 'CASH' | 'GRID') => {
+    if (!selectedPlayerForItem) {
+      setActionError('Select a player to receive the item');
+      return;
     }
-  };
-
-  const buyListing = async (listingId: string) => {
-    setBuying(listingId);
+    setBuyingItem(itemId);
     setActionError(null);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/marketplace/${listingId}/buy`, {
+      const res = await fetch('/api/market/buy', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId, playerId: selectedPlayerForItem.id, currency }),
       });
       const data = await res.json();
       if (res.ok) {
-        setActionMsg('Purchase successful!');
-        fetchListings();
+        setActionMsg(`Purchased ${data.data.playerItem.item.name}!`);
+        fetchWallet();
+        fetchMyItems();
+        setTimeout(() => setActionMsg(null), 3000);
+      } else {
+        setActionError(data.message || 'Purchase failed');
+      }
+    } catch (err) { setActionError('Network error'); }
+    finally { setBuyingItem(null); }
+  };
+
+  // ─── Item Marketplace API ───
+  const fetchItemListings = async () => {
+    try {
+      const res = await fetch('/api/marketplace-items', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setItemListings(data.data || []);
+      }
+    } catch (err) { console.error('Item listings error:', err); }
+  };
+
+  const fetchMyItemListings = async () => {
+    try {
+      const res = await fetch('/api/marketplace-items/my-listings', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setMyItemListings(data.data || []);
+      }
+    } catch (err) { console.error('My item listings error:', err); }
+  };
+
+  const fetchMyItems = async () => {
+    try {
+      const res = await fetch('/api/teams/mine', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.data?.flatMap((team: any) =>
+          team.teamPlayers?.flatMap((tp: any) =>
+            tp.player?.playerItems?.map((pi: any) => ({ ...pi, player: tp.player })) || []
+          ) || []
+        ) || [];
+        setMyItems(items);
+      }
+    } catch (err) { console.error('My items error:', err); }
+  };
+
+  const listItemForSale = async () => {
+    if (!listingItemId || !listingPrice) return;
+    setActionError(null);
+    try {
+      const res = await fetch('/api/marketplace-items', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerItemId: listingItemId, price: parseInt(listingPrice) }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg('Item listed for sale!');
+        setShowListItem(false);
+        setListingItemId('');
+        setListingPrice('');
+        fetchMyItemListings();
+        fetchItemListings();
+        setTimeout(() => setActionMsg(null), 3000);
+      } else {
+        setActionError(data.message || 'Failed to list item');
+      }
+    } catch (err) { setActionError('Network error'); }
+  };
+
+  const buyItemFromMarketplace = async (listingId: string) => {
+    setBuyingItemListing(listingId);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/marketplace-items/${listingId}/buy`, {
+        method: 'POST',
+        headers,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg('Item purchased from marketplace!');
+        fetchWallet();
+        fetchItemListings();
+        fetchMyItems();
+        setTimeout(() => setActionMsg(null), 3000);
+      } else {
+        setActionError(data.message || 'Purchase failed');
+      }
+    } catch (err) { setActionError('Network error'); }
+    finally { setBuyingItemListing(null); }
+  };
+
+  const cancelItemListing = async (listingId: string) => {
+    try {
+      const res = await fetch(`/api/marketplace-items/${listingId}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (res.ok) {
+        setActionMsg('Listing cancelled');
+        fetchMyItemListings();
+        fetchItemListings();
+        setTimeout(() => setActionMsg(null), 3000);
+      }
+    } catch (err) { setActionError('Cancel failed'); }
+  };
+
+  // ─── Player Marketplace API ───
+  const fetchPlayerListings = async () => {
+    try {
+      const res = await fetch(`/api/marketplace?limit=50&sportId=${activeSportId}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPlayerListings((data.data || []).filter((l: any) => (l.sportId || l.player?.sportId || 'american-football') === activeSportId));
+      }
+    } catch (err) { console.error('Player listings error:', err); }
+    finally { setPlayerLoading(false); }
+  };
+
+  const buyPlayer = async (listingId: string) => {
+    setBuyingPlayer(listingId);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/marketplace/${listingId}/buy`, { method: 'POST', headers });
+      const data = await res.json();
+      if (res.ok) {
+        setActionMsg('Player purchased!');
+        fetchPlayerListings();
         fetchWallet();
         setTimeout(() => setActionMsg(null), 3000);
       } else {
         setActionError(data.message || 'Purchase failed');
       }
-    } catch (err) {
-      setActionError('Network error');
-    } finally {
-      setBuying(null);
-    }
+    } catch (err) { setActionError('Network error'); }
+    finally { setBuyingPlayer(null); }
   };
 
-  const makeOffer = async (listingId: string) => {
-    if (!offerPrice) return;
-    setOfferingOn(listingId);
-    setActionError(null);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/marketplace/${listingId}/offer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ price: parseInt(offerPrice) }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setActionMsg('Offer sent!');
-        setOfferPrice('');
-        setOfferingOn(null);
-        fetchMyOffers();
-        setTimeout(() => setActionMsg(null), 3000);
-      } else {
-        setActionError(data.message || 'Offer failed');
-      }
-    } catch (err) {
-      setActionError('Network error');
-    } finally {
-      setOfferingOn(null);
-    }
-  };
-
-  const acceptOffer = async (offerId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/marketplace/offers/${offerId}/accept`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setActionMsg('Offer accepted!');
-        fetchMyListings();
-        fetchWallet();
-        setTimeout(() => setActionMsg(null), 3000);
-      }
-    } catch (err) {
-      setActionError('Failed to accept offer');
-    }
-  };
-
-  const rejectOffer = async (offerId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/marketplace/offers/${offerId}/reject`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setActionMsg('Offer rejected');
-        fetchMyListings();
-        setTimeout(() => setActionMsg(null), 3000);
-      }
-    } catch (err) {
-      setActionError('Failed to reject offer');
-    }
-  };
-
-  const cancelOffer = async (offerId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/marketplace/offers/${offerId}/cancel`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setActionMsg('Offer cancelled');
-        fetchMyOffers();
-        setTimeout(() => setActionMsg(null), 3000);
-      }
-    } catch (err) {
-      setActionError('Failed to cancel offer');
-    }
-  };
-
-  const createListing = async () => {
-    if (!selectedPlayer || !sellPrice) return;
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/marketplace', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ playerId: selectedPlayer.id, price: parseInt(sellPrice) }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setActionMsg('Player listed!');
-        setShowSell(false);
-        setSellPrice('');
-        setSelectedPlayer(null);
-        fetchMyListings();
-        fetchMyPlayers();
-        setTimeout(() => setActionMsg(null), 3000);
-      } else {
-        setActionError(data.message || 'Listing failed');
-      }
-    } catch (err) {
-      setActionError('Network error');
-    }
-  };
-
+  // ─── Helpers ───
   const getRarityColor = (rarity: string) => {
     const colors: Record<string, string> = {
-      COMMON: 'text-gray-400',
-      BRONZE: 'text-amber-600',
-      SILVER: 'text-slate-300',
-      GOLD: 'text-yellow-400',
-      ELITE: 'text-purple-400',
-      LEGEND: 'text-red-400',
+      common: 'bg-gray-500/20 text-gray-400',
+      rare: 'bg-blue-500/20 text-blue-400',
+      epic: 'bg-purple-500/20 text-purple-400',
+      legendary: 'bg-amber-500/20 text-amber-400',
+      COMMON: 'bg-gray-500/20 text-gray-400',
+      BRONZE: 'bg-amber-700/20 text-amber-600',
+      SILVER: 'bg-gray-300/20 text-gray-300',
+      GOLD: 'bg-amber-400/20 text-amber-400',
+      ELITE: 'bg-purple-500/20 text-purple-400',
+      LEGEND: 'bg-red-500/20 text-red-400',
     };
-    return colors[rarity] || colors.COMMON;
+    return colors[rarity] || 'bg-gray-500/20 text-gray-400';
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
-      </div>
-    );
-  }
+  const slotIcon = (slot: string) => {
+    const icons: Record<string, string> = {
+      helmet: '🪖', pads: '🛡️', gloves: '🧤', shoes: '👟', accessory: '⭐',
+    };
+    return icons[slot] || '⚙️';
+  };
+
+  const allPlayers = teams
+    .filter((t: any) => (t.sportId || 'american-football') === activeSportId)
+    .flatMap((t: any) => t.teamPlayers?.map((tp: any) => tp.player) || []);
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Marketplace</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Buy, sell, and trade players with other managers
-          </p>
+          <h2 className="text-xl font-bold text-white">Marketplace</h2>
+          <p className="text-sm text-muted-foreground">Buy equipment from the game or trade with other players</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-yellow-400">
-            <Coins className="w-4 h-4 inline mr-1" />
-            {myWallet.cash.toLocaleString()} CASH
-          </div>
-          <button
-            onClick={() => setShowSell(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-colors"
-          >
-            <Tag className="w-4 h-4" />
-            Sell Player
-          </button>
+        <div className="flex items-center gap-2 text-sm">
+          <Coins className="w-4 h-4 text-yellow-400" />
+          <span className="text-yellow-400 font-bold">{myWallet.cash.toLocaleString()}</span>
+          <span className="text-muted-foreground">CASH</span>
         </div>
       </div>
 
-      {/* Alerts */}
-      {actionError && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          {actionError}
-        </div>
-      )}
+      {/* Messages */}
       {actionMsg && (
-        <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
+        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
           {actionMsg}
         </div>
       )}
-
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-border pb-1">
-        {[
-          { id: 'browse' as const, label: 'Browse', icon: Store },
-          { id: 'my-offers' as const, label: 'My Offers', icon: HandCoins },
-          { id: 'my-listings' as const, label: 'My Listings', icon: Package },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
-              tab === t.id
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <t.icon className="w-4 h-4" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Browse Tab */}
-      {tab === 'browse' && (
-        <div className="space-y-4">
-          {listings.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-white font-medium mb-1">No listings yet</p>
-              <p className="text-muted-foreground text-sm">Be the first to list a player for sale</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {listings.map((listing) => (
-                <div key={listing.id} className="glass-card p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-semibold text-white">{listing.player.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {listing.player.position} • OVR {listing.player.overall}
-                      </div>
-                    </div>
-                    <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityColor(listing.player.rarity)}`}>
-                      {listing.player.rarity}
-                    </div>
-                  </div>
-
-                  {/* Player Equipment Preview */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex -space-x-1">
-                      {['helmet', 'pads', 'gloves', 'shoes', 'accessory'].map((slot, i) => (
-                        <div
-                          key={slot}
-                          className={`w-5 h-5 rounded-full border border-white/10 flex items-center justify-center text-[8px] font-bold ${
-                            i < 2 ? 'bg-amber-400/20 text-amber-400' :
-                            i < 4 ? 'bg-blue-400/20 text-blue-400' :
-                            'bg-purple-400/20 text-purple-400'
-                          }`}
-                          title={slot}
-                        >
-                          {slot[0].toUpperCase()}
-                        </div>
-                      ))}
-                    </div>
-                    <span className="text-xs text-white/30">+5 equipped</span>
-                  </div>
-
-                  <div className="text-sm text-muted-foreground mb-3">
-                    Seller: {listing.seller.username}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-border">
-                    <div className="text-lg font-black text-yellow-400">
-                      {listing.price.toLocaleString()} CASH
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => buyListing(listing.id)}
-                        disabled={buying === listing.id}
-                        className="px-3 py-1.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 disabled:opacity-50"
-                      >
-                        {buying === listing.id ? '...' : 'Buy'}
-                      </button>
-                      <button
-                        onClick={() => setOfferingOn(offeringOn === listing.id ? null : listing.id)}
-                        className="px-3 py-1.5 border border-border text-white rounded-lg text-sm hover:bg-secondary"
-                      >
-                        Offer
-                      </button>
-                    </div>
-                  </div>
-
-                  {offeringOn === listing.id && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={offerPrice}
-                        onChange={(e) => setOfferPrice(e.target.value)}
-                        placeholder="Your offer"
-                        className="flex-1 px-3 py-1.5 bg-secondary border border-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                      />
-                      <button
-                        onClick={() => makeOffer(listing.id)}
-                        disabled={!offerPrice}
-                        className="px-3 py-1.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 disabled:opacity-50"
-                      >
-                        Send
-                      </button>
-                    </div>
-                  )}
-
-                  {listing.offers?.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <p className="text-xs text-muted-foreground mb-2">{listing.offers.length} offer(s)</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+      {actionError && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" /> {actionError}
         </div>
       )}
 
-      {/* My Offers Tab */}
-      {tab === 'my-offers' && (
+      {/* Channel Tabs */}
+      <div className="flex gap-2 border-b border-border pb-2">
+        <button
+          onClick={() => setChannel('market')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            channel === 'market' ? 'bg-[#E94560] text-white' : 'text-muted-foreground hover:text-white'
+          }`}
+        >
+          <Store className="w-4 h-4" /> Market
+        </button>
+        <button
+          onClick={() => setChannel('marketplace')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            channel === 'marketplace' ? 'bg-[#E94560] text-white' : 'text-muted-foreground hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" /> Marketplace
+        </button>
+        <button
+          onClick={() => setChannel('players')}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            channel === 'players' ? 'bg-[#E94560] text-white' : 'text-muted-foreground hover:text-white'
+          }`}
+        >
+          <Package className="w-4 h-4" /> Players
+        </button>
+      </div>
+
+      {/* ═══════════════════════════════════════════
+          MARKET (Game Store)
+      ═══════════════════════════════════════════ */}
+      {channel === 'market' && (
         <div className="space-y-4">
-          {myOffers.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <HandCoins className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-white font-medium mb-1">No active offers</p>
-              <p className="text-muted-foreground text-sm">Browse listings to make offers</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Buy items directly from the game. Revenue goes to the treasury.
+              {marketItems.some(i => i.lastMarketplacePrice && i.lastMarketplacePrice > i.marketPriceCash) && (
+                <span className="text-amber-400 ml-2">⚠ Some items are cheaper in the marketplace</span>
+              )}
+            </p>
+          </div>
+
+          {/* Player selector */}
+          <div className="glass-card p-3">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2 block">Select Player to Receive Item</label>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {allPlayers.map((player: any) => (
+                <button
+                  key={player.id}
+                  onClick={() => setSelectedPlayerForItem(player)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                    selectedPlayerForItem?.id === player.id
+                      ? 'bg-[#E94560]/20 border border-[#E94560]/40 text-white'
+                      : 'bg-white/5 border border-white/10 text-white/60 hover:text-white/80'
+                  }`}
+                >
+                  <span>{player.position}</span>
+                  <span className="font-bold">{player.name}</span>
+                  <span className="text-xs text-white/40">OVR {player.overall}</span>
+                </button>
+              ))}
             </div>
+          </div>
+
+          {marketLoading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading market...</div>
+          ) : marketItems.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">No items available in the market</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {myOffers.map((offer: any) => (
-                <div key={offer.id} className="glass-card p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {marketItems.map((item) => (
+                <div key={item.id} className="glass-card p-4 flex flex-col">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-semibold text-white">{offer.listing.player.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {offer.listing.player.position} • OVR {offer.listing.player.overall}
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{slotIcon(item.slot)}</span>
+                      <div>
+                        <div className="font-semibold text-white">{item.name}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{item.slot}</div>
                       </div>
                     </div>
-                    <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityColor(offer.listing.player.rarity)}`}>
-                      {offer.listing.player.rarity}
+                    <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityColor(item.rarity)}`}>
+                      {item.rarity}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex -space-x-1">
-                      {['helmet', 'pads', 'gloves', 'shoes', 'accessory'].map((slot, i) => (
-                        <div
-                          key={slot}
-                          className={`w-5 h-5 rounded-full border border-white/10 flex items-center justify-center text-[8px] font-bold ${
-                            i < 2 ? 'bg-amber-400/20 text-amber-400' :
-                            i < 4 ? 'bg-blue-400/20 text-blue-400' :
-                            'bg-purple-400/20 text-purple-400'
-                          }`}
-                          title={slot}
-                        >
-                          {slot[0].toUpperCase()}
+
+                  {/* Stat boosts */}
+                  <div className="space-y-1 mb-3">
+                    {Object.entries(item.statBoosts).map(([stat, boost]) => (
+                      <div key={stat} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground capitalize">{stat}</span>
+                        <span className="text-emerald-400 font-bold">+{boost}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-xs text-white/40 mb-3">Durability: {item.durability}</div>
+
+                  {/* Price section */}
+                  <div className="mt-auto space-y-2">
+                    {item.lastMarketplacePrice && item.lastMarketplacePrice > item.marketPriceCash && (
+                      <div className="text-xs text-amber-400 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Marketplace selling for {item.lastMarketplacePrice.toLocaleString()} CASH
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div className="text-lg font-black text-yellow-400">
+                        {item.marketPriceCash.toLocaleString()} CASH
+                      </div>
+                      {item.marketPriceGrid > 0 && (
+                        <div className="text-sm font-bold text-purple-400">
+                          {item.marketPriceGrid.toLocaleString()} GRID
                         </div>
-                      ))}
+                      )}
                     </div>
-                    <span className="text-xs text-white/30">+5 equipped</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-border">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Your offer</div>
-                      <div className="text-lg font-black text-yellow-400">{offer.price.toLocaleString()} CASH</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        offer.status === 'PENDING' ? 'bg-yellow-400/10 text-yellow-400' :
-                        offer.status === 'ACCEPTED' ? 'bg-green-400/10 text-green-400' :
-                        'bg-red-400/10 text-red-400'
-                      }`}>
-                        {offer.status}
-                      </span>
-                      {offer.status === 'PENDING' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => buyFromMarket(item.id, 'CASH')}
+                        disabled={buyingItem === item.id || !selectedPlayerForItem}
+                        className="flex-1 px-3 py-2 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 disabled:opacity-50 flex items-center justify-center gap-1"
+                      >
+                        <HandCoins className="w-4 h-4" />
+                        {buyingItem === item.id ? 'Buying...' : 'Buy with CASH'}
+                      </button>
+                      {item.marketPriceGrid > 0 && (
                         <button
-                          onClick={() => cancelOffer(offer.id)}
-                          className="px-3 py-1.5 border border-red-400/30 text-red-400 rounded-lg text-sm hover:bg-red-400/10"
+                          onClick={() => buyFromMarket(item.id, 'GRID')}
+                          disabled={buyingItem === item.id || !selectedPlayerForItem}
+                          className="px-3 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50"
                         >
-                          Cancel
+                          GRID
                         </button>
                       )}
                     </div>
@@ -516,18 +458,129 @@ export default function MarketplacePage() {
         </div>
       )}
 
-      {/* My Listings Tab */}
-      {tab === 'my-listings' && (
+      {/* ═══════════════════════════════════════════
+          MARKETPLACE (P2P Items)
+      ═══════════════════════════════════════════ */}
+      {channel === 'marketplace' && (
         <div className="space-y-4">
-          {myListings.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-white font-medium mb-1">No active listings</p>
-              <p className="text-muted-foreground text-sm">List players from your roster to sell them</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Buy and sell items with other players. Prices are set by demand.
+            </p>
+            <button
+              onClick={() => setShowListItem(true)}
+              className="px-3 py-1.5 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 flex items-center gap-1"
+            >
+              <Tag className="w-4 h-4" /> Sell Item
+            </button>
+          </div>
+
+          {/* My listings */}
+          {myItemListings.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-white/50 uppercase tracking-wider">My Listings</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {myItemListings.filter(l => l.status === 'ACTIVE').map((listing) => (
+                  <div key={listing.id} className="glass-card p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{slotIcon(listing.playerItem.item.slot)}</span>
+                      <div>
+                        <div className="font-medium text-white">{listing.playerItem.item.name}</div>
+                        <div className="text-xs text-muted-foreground">{listing.playerItem.item.slot} • {listing.playerItem.item.rarity}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-400 font-bold">{listing.price.toLocaleString()} CASH</span>
+                      <button
+                        onClick={() => cancelItemListing(listing.id)}
+                        className="p-1.5 text-red-400 hover:bg-red-400/10 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* All listings */}
+          <h3 className="text-sm font-bold text-white/50 uppercase tracking-wider">Browse Listings</h3>
+          {itemListings.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No items listed for sale</p>
+              <p className="text-sm mt-1">Be the first to list an item!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {myListings.map((listing: any) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {itemListings.filter(l => l.status === 'ACTIVE').map((listing) => (
+                <div key={listing.id} className="glass-card p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{slotIcon(listing.playerItem.item.slot)}</span>
+                      <div>
+                        <div className="font-semibold text-white">{listing.playerItem.item.name}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{listing.playerItem.item.slot}</div>
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded text-xs font-bold ${getRarityColor(listing.playerItem.item.rarity)}`}>
+                      {listing.playerItem.item.rarity}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Seller: <span className="text-white">{listing.seller.username}</span>
+                  </div>
+
+                  <div className="space-y-1 mb-3">
+                    {Object.entries(listing.playerItem.item.statBoosts).map(([stat, boost]) => (
+                      <div key={stat} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground capitalize">{stat}</span>
+                        <span className="text-emerald-400 font-bold">+{boost}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-xs text-white/40 mb-3">Durability: {listing.playerItem.durability}/{listing.playerItem.item.durability}</div>
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="text-lg font-black text-yellow-400">
+                      {listing.price.toLocaleString()} CASH
+                    </div>
+                    <button
+                      onClick={() => buyItemFromMarketplace(listing.id)}
+                      disabled={buyingItemListing === listing.id}
+                      className="px-4 py-2 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      <HandCoins className="w-4 h-4" />
+                      {buyingItemListing === listing.id ? 'Buying...' : 'Buy'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════
+          PLAYERS (Existing Player Marketplace)
+      ═══════════════════════════════════════════ */}
+      {channel === 'players' && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Buy players from other teams in the league.</p>
+
+          {playerLoading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading players...</div>
+          ) : playerListings.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No players listed for sale</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {playerListings.filter(l => l.status === 'ACTIVE').map((listing) => (
                 <div key={listing.id} className="glass-card p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
@@ -540,55 +593,20 @@ export default function MarketplacePage() {
                       {listing.player.rarity}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex -space-x-1">
-                      {['helmet', 'pads', 'gloves', 'shoes', 'accessory'].map((slot, i) => (
-                        <div
-                          key={slot}
-                          className={`w-5 h-5 rounded-full border border-white/10 flex items-center justify-center text-[8px] font-bold ${
-                            i < 2 ? 'bg-amber-400/20 text-amber-400' :
-                            i < 4 ? 'bg-blue-400/20 text-blue-400' :
-                            'bg-purple-400/20 text-purple-400'
-                          }`}
-                          title={slot}
-                        >
-                          {slot[0].toUpperCase()}
-                        </div>
-                      ))}
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="text-lg font-black text-yellow-400">
+                      {listing.price.toLocaleString()} CASH
                     </div>
-                    <span className="text-xs text-white/30">+5 equipped</span>
+                    <button
+                      onClick={() => buyPlayer(listing.id)}
+                      disabled={buyingPlayer === listing.id}
+                      className="px-4 py-2 bg-[#E94560] text-white rounded-lg text-sm font-medium hover:bg-[#E94560]/80 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      <HandCoins className="w-4 h-4" />
+                      {buyingPlayer === listing.id ? 'Buying...' : 'Buy'}
+                    </button>
                   </div>
-                  <div className="text-lg font-black text-yellow-400 mb-3">
-                    {listing.price.toLocaleString()} CASH
-                  </div>
-                  {listing.offers?.length > 0 && (
-                    <div className="space-y-2 pt-3 border-t border-border">
-                      <p className="text-xs text-muted-foreground">Offers received:</p>
-                      {listing.offers.map((offer: any) => (
-                        <div key={offer.id} className="flex items-center justify-between bg-secondary p-2 rounded-lg">
-                          <div className="text-sm">
-                            <span className="text-white font-medium">{offer.buyer.username}</span>
-                            <span className="text-muted-foreground"> offered </span>
-                            <span className="text-yellow-400 font-bold">{offer.price.toLocaleString()} CASH</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => acceptOffer(offer.id)}
-                              className="p-1.5 bg-green-400/10 text-green-400 rounded hover:bg-green-400/20"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => rejectOffer(offer.id)}
-                              className="p-1.5 bg-red-400/10 text-red-400 rounded hover:bg-red-400/20"
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -596,91 +614,70 @@ export default function MarketplacePage() {
         </div>
       )}
 
-      {/* Sell Modal */}
-      {showSell && (
+      {/* Sell Item Modal */}
+      {showListItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="glass-card w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Sell Player</h3>
-              <button onClick={() => setShowSell(false)} className="p-2 hover:bg-secondary rounded-lg">
+              <h3 className="text-lg font-semibold text-white">Sell Item</h3>
+              <button onClick={() => setShowListItem(false)} className="p-2 hover:bg-secondary rounded-lg">
                 <X className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
 
-            {myPlayers.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">You don't have any players to sell.</p>
-                <p className="text-sm text-muted-foreground mt-1">Hire players first, then list them here.</p>
+            {myItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>You don't have any items to sell.</p>
+                <p className="text-sm mt-1">Buy items from the market first.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">Select Player</label>
+                  <label className="text-sm text-muted-foreground mb-1 block">Select Item</label>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-auto">
-                    {myPlayers.map((player) => (
+                    {myItems.filter((pi: any) => !pi.equipped).map((pi: any) => (
                       <button
-                        key={player.id}
-                        onClick={() => setSelectedPlayer(player)}
+                        key={pi.id}
+                        onClick={() => setListingItemId(pi.id)}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                          selectedPlayer?.id === player.id
-                            ? 'bg-accent/10 border-accent/30'
+                          listingItemId === pi.id
+                            ? 'bg-[#E94560]/10 border-[#E94560]/30'
                             : 'bg-secondary border-border hover:bg-secondary/80'
                         }`}
                       >
-                        <div className="text-left">
-                          <div className="font-medium text-white">{player.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {player.position} • OVR {player.overall}
-                          </div>
-                          <div className="flex items-center gap-1 mt-1">
-                            <div className="flex -space-x-1">
-                              {['helmet','pads','gloves','shoes','accessory'].map((slot,i) => (
-                                <div key={slot} className={`w-4 h-4 rounded-full border border-white/10 flex items-center justify-center text-[6px] font-bold ${i<2?'bg-amber-400/20 text-amber-400':i<4?'bg-blue-400/20 text-blue-400':'bg-purple-400/20 text-purple-400'}`}>{slot[0].toUpperCase()}</div>
-                              ))}
+                        <div className="text-left flex items-center gap-2">
+                          <span className="text-xl">{slotIcon(pi.item.slot)}</span>
+                          <div>
+                            <div className="font-medium text-white">{pi.item.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {pi.item.slot} • {pi.item.rarity} • Durability {pi.durability}/{pi.item.durability}
                             </div>
-                            <span className="text-[10px] text-white/30">+5 equipped</span>
                           </div>
-                        </div>
-                        <div className={`text-xs font-bold ${getRarityColor(player.rarity)}`}>
-                          {player.rarity}
                         </div>
                       </button>
                     ))}
                   </div>
+                  {myItems.filter((pi: any) => !pi.equipped).length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">All your items are equipped. Unequip an item to sell it.</p>
+                  )}
                 </div>
 
-                {selectedPlayer && (
-                  <div className="space-y-3">
-                    <div className="p-3 bg-white/5 rounded-xl">
-                      <div className="text-xs text-white/40 mb-1">Estimated Player Value</div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-xl font-black text-yellow-400">
-                          {(selectedPlayer.overall * 150 + 2500).toLocaleString()} CASH
-                        </div>
-                        <span className="text-xs text-emerald-400">+{(5 * 500).toLocaleString()} gear bonus</span>
-                      </div>
-                      <div className="text-xs text-white/30 mt-1">
-                        Base: {(selectedPlayer.overall * 150).toLocaleString()} • Equipment: +{(5 * 500).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground mb-1 block">Listing Price (CASH)</label>
-                      <input
-                        type="number"
-                        value={sellPrice}
-                        onChange={(e) => setSellPrice(e.target.value)}
-                        placeholder="Min 100"
-                        min="100"
-                        className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-accent"
-                      />
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Listing Price (CASH)</label>
+                  <input
+                    type="number"
+                    value={listingPrice}
+                    onChange={(e) => setListingPrice(e.target.value)}
+                    placeholder="Min 100"
+                    min="100"
+                    className="w-full px-4 py-2 bg-secondary border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#E94560]"
+                  />
+                </div>
 
                 <button
-                  onClick={createListing}
-                  disabled={!selectedPlayer || !sellPrice || parseInt(sellPrice) < 100}
-                  className="w-full px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 disabled:opacity-50"
+                  onClick={listItemForSale}
+                  disabled={!listingItemId || !listingPrice || parseInt(listingPrice) < 100}
+                  className="w-full px-4 py-2 bg-[#E94560] text-white rounded-lg font-medium hover:bg-[#E94560]/90 disabled:opacity-50"
                 >
                   List for Sale
                 </button>

@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database';
 import { generatePlayerData } from '../players/player.generator';
+import { giveStarterEquipment } from '../market/seed';
 
 const AI_OWNER_ID = 'ai-system-owner-001';
 const footballPositions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'OL', 'OL', 'OL', 'DL', 'DL', 'LB', 'LB', 'CB', 'CB', 'S', 'K'];
@@ -87,6 +88,7 @@ export async function generateAllAITeams() {
         });
       }
       await generateAIPlayers(team.id);
+      await giveStarterEquipment(prisma, team.id);
     }
   }
 }

@@ -38,6 +38,9 @@ import { islandRouter } from './modules/islands/island.routes';
 import { leagueRouter } from './modules/leagues/league.routes';
 import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
+import { marketRouter } from './modules/market/market.routes';
+import { marketplaceItemsRouter } from './modules/marketplace-items/marketplace-items.routes';
+import { seedItems } from './modules/market/seed';
 
 // ─── Memory Monitor ───
 function logMemory() {
@@ -361,6 +364,8 @@ app.use('/api/world', worldRouter);
 app.use('/api/game-time', gameTimeRouter);
 app.use('/api/islands', islandRouter);
 app.use('/api/leagues', leagueRouter);
+app.use('/api/market', marketRouter);
+app.use('/api/marketplace-items', marketplaceItemsRouter);
 
 // Health check — Render expects this for the healthCheckPath
 app.get('/api/health', (_req, res) => {
@@ -487,6 +492,7 @@ const startServer = async () => {
                   seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
                   seedTeamMarketplaceListings(prisma).catch((e: any) => console.error('Team marketplace seed error:', e));
                   seedDefaultIslands(prisma).catch((e: any) => console.error('Island seed error:', e));
+                  seedItems(prisma).catch((e: any) => console.error('Item seed error:', e));
                 }
               }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
             }

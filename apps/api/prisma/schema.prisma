@@ -28,6 +28,7 @@ model User {
   userStakes      UserStake[]
   hasPaidPurchase Boolean @default(false)
   teamMarketplaceListings TeamMarketplaceListing[]
+  marketplaceItemListings MarketplaceItemListing[]
   
   // ─── League Management ───
   createdLeagues  League[] @relation("CreatedLeagues")
@@ -427,6 +428,7 @@ model Player {
   seasonStats   PlayerSeasonStats[]
   marketplaceListings MarketplaceListing[]
   playerTrainings PlayerTraining[]
+  playerItems   PlayerItem[]
 
   createdAt     DateTime @default(now())
 
@@ -769,6 +771,90 @@ model TeamEquipment {
 
   @@index([teamId])
   @@index([equipmentTypeId])
+}
+
+// ─── Wearable Item System ───
+
+model Item {
+  id            String   @id @default(uuid())
+  name          String
+  slot          String   // helmet | pads | gloves | shoes | accessory
+  rarity        String   // common | rare | epic | legendary
+  tier          Int      @default(1)
+  statBoosts    Json     @default("{}")
+  durability    Int      @default(100)
+  baseCostCash  Int      @default(0)
+  baseCostGrid  Int      @default(0)
+  isStarter     Boolean  @default(false)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  playerItems   PlayerItem[]
+  marketItem    MarketItem?
+  saleHistory   ItemSaleHistory[]
+
+  @@index([slot])
+  @@index([rarity])
+  @@index([tier])
+  @@index([active])
+}
+
+model PlayerItem {
+  id            String   @id @default(uuid())
+  playerId      String
+  player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  equipped      Boolean  @default(false)
+  durability    Int      @default(100)
+  acquiredAt    DateTime @default(now())
+  acquiredFrom  String   @default("STARTER") // STARTER | MARKET | MARKETPLACE
+  listings      MarketplaceItemListing[]
+
+  @@index([playerId])
+  @@index([itemId])
+  @@index([equipped])
+}
+
+model MarketItem {
+  id                String   @id @default(uuid())
+  itemId            String   @unique
+  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  marketPriceCash   Int
+  marketPriceGrid   Int      @default(0)
+  isAvailable       Boolean  @default(true)
+  lastMarketplacePrice Int?
+  updatedAt         DateTime @updatedAt
+}
+
+model ItemSaleHistory {
+  id          String   @id @default(uuid())
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  price       Int
+  currency    String   @default("CASH") // CASH | GRID
+  sellerId    String?
+  buyerId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+model MarketplaceItemListing {
+  id          String        @id @default(uuid())
+  sellerId    String
+  seller      User          @relation(fields: [sellerId], references: [id])
+  playerItemId String
+  playerItem  PlayerItem    @relation(fields: [playerItemId], references: [id], onDelete: Cascade)
+  price       Int
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  soldAt      DateTime?
+
+  @@index([status])
+  @@index([sellerId])
+  @@index([playerItemId])
 }
 
 // ─── Treasury & Burn System ───

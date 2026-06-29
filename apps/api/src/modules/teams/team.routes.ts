@@ -128,7 +128,7 @@ router.get(
     const teams = await prisma.team.findMany({
       where: { ownerId: req.user!.id },
       include: {
-        teamPlayers: { include: { player: true } },
+        teamPlayers: { include: { player: { include: { playerItems: { include: { item: true } } } } } },
         venue: true,
         transportationAssets: true,
       },

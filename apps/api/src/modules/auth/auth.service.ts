@@ -5,6 +5,7 @@ import { env } from '../../config/env';
 import { AppError } from '../../middleware/errorHandler';
 import { RegisterInput, LoginInput } from './auth.schema';
 import { generatePlayerData } from '../players/player.generator';
+import { giveStarterEquipment } from '../market/seed';
 
 export const SALT_ROUNDS = 12;
 
@@ -173,6 +174,9 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
 
     return { user, team };
   });
+
+  // Give starter equipment to all players on the new team
+  await giveStarterEquipment(prisma, result.team.id);
 
   const token = generateToken(result.user);
 
