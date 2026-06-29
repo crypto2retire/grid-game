@@ -64,6 +64,18 @@ const TIER_LABELS: Record<string, string> = {
   PRO_ELITE: 'Pro Elite',
 };
 
+// ─── Frontend fallback: mirrors backend DEFAULT_ISLANDS exactly ───
+// Used when API returns empty data (DB table exists but has no rows)
+const DEFAULT_ISLANDS: Island[] = [
+  { id: 'island-hub', name: 'Grid City Central', type: 'HUB', x: 0, y: 0, size: 2.5, theme: 'grass', color: '#4ade80', teamCount: 0, maxTeams: 999, league: { id: 'league-hub', name: 'Grid City Central', tier: 'HUB', visibility: 'PUBLIC', minOverall: 0, maxOverall: 99 } },
+  { id: 'island-state-001', name: 'State College Circuit', type: 'LEAGUE', x: -200, y: -150, size: 1.0, theme: 'grass', color: '#86efac', teamCount: 0, maxTeams: 16, league: { id: 'league-state-001', name: 'State College Circuit', tier: 'STATE_COLLEGE', visibility: 'PUBLIC', minOverall: 50, maxOverall: 69 } },
+  { id: 'island-mid-001', name: 'Mid-College Conference', type: 'LEAGUE', x: 200, y: -150, size: 1.1, theme: 'tropical', color: '#22d3ee', teamCount: 0, maxTeams: 16, league: { id: 'league-mid-001', name: 'Mid-College Conference', tier: 'MID_COLLEGE', visibility: 'PUBLIC', minOverall: 60, maxOverall: 74 } },
+  { id: 'island-top-001', name: 'Top College Tournament', type: 'LEAGUE', x: -250, y: 100, size: 1.2, theme: 'desert', color: '#fbbf24', teamCount: 0, maxTeams: 12, league: { id: 'league-top-001', name: 'Top College Tournament', tier: 'TOP_COLLEGE', visibility: 'PUBLIC', minOverall: 70, maxOverall: 79 } },
+  { id: 'island-regional-001', name: 'Regional Pro Circuit', type: 'LEAGUE', x: 250, y: 100, size: 1.3, theme: 'industrial', color: '#94a3b8', teamCount: 0, maxTeams: 12, league: { id: 'league-regional-001', name: 'Regional Pro Circuit', tier: 'REGIONAL_PRO', visibility: 'PUBLIC', minOverall: 75, maxOverall: 84 } },
+  { id: 'island-pro-001', name: 'Pro Entry League', type: 'LEAGUE', x: -150, y: 250, size: 1.4, theme: 'snow', color: '#e2e8f0', teamCount: 0, maxTeams: 10, league: { id: 'league-pro-001', name: 'Pro Entry League', tier: 'PRO_ENTRY', visibility: 'PUBLIC', minOverall: 80, maxOverall: 89 } },
+  { id: 'island-elite-001', name: 'Pro Elite Championship', type: 'LEAGUE', x: 150, y: 250, size: 1.5, theme: 'volcanic', color: '#f87171', teamCount: 0, maxTeams: 8, league: { id: 'league-elite-001', name: 'Pro Elite Championship', tier: 'PRO_ELITE', visibility: 'PUBLIC', minOverall: 85, maxOverall: 99 } },
+];
+
 // Animated wave layer for water
 function WaveLayer({ amplitude, frequency, speed, opacity, yOffset }: {
   amplitude: number; frequency: number; speed: number; opacity: number; yOffset: number;
@@ -80,7 +92,7 @@ function WaveLayer({ amplitude, frequency, speed, opacity, yOffset }: {
   return (
     <motion.path
       d={d}
-      fill="#1e3a5f"
+      fill="#38bdf8"
       opacity={opacity}
       animate={{
         d: [
@@ -141,6 +153,7 @@ export default function IslandWorldMap() {
   const [islands, setIslands] = useState<Island[]>([]);
   const [loading, setLoading] = useState(true);
   const [hoveredIsland, setHoveredIsland] = useState<string | null>(null);
+  const [apiFailed, setApiFailed] = useState(false);
 
   const fetchIslands = useCallback(async () => {
     try {
@@ -150,10 +163,24 @@ export default function IslandWorldMap() {
       });
       if (res.ok) {
         const data = await res.json();
-        setIslands(data.data || []);
+        const fetched = data.data || [];
+        if (fetched.length === 0) {
+          // API returned empty array — use frontend fallback
+          setIslands(DEFAULT_ISLANDS);
+          setApiFailed(true);
+        } else {
+          setIslands(fetched);
+          setApiFailed(false);
+        }
+      } else {
+        // API failed — use frontend fallback
+        setIslands(DEFAULT_ISLANDS);
+        setApiFailed(true);
       }
     } catch (err) {
       console.error('Failed to fetch islands:', err);
+      setIslands(DEFAULT_ISLANDS);
+      setApiFailed(true);
     } finally {
       setLoading(false);
     }
@@ -197,9 +224,6 @@ export default function IslandWorldMap() {
     });
   };
 
-  // Generate static wave seed — MUST be before any conditional return
-  const waveSeed = useMemo(() => Math.random(), []);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -210,6 +234,9 @@ export default function IslandWorldMap() {
 
   const hubIsland = islands.find((i) => i.type === 'HUB');
   const leagueIslands = islands.filter((i) => i.type === 'LEAGUE');
+
+  // Generate static wave seed (must be before conditional return for hooks, but we're past loading now)
+  const waveSeed = useMemo(() => Math.random(), []);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#0a1628]">
@@ -227,21 +254,21 @@ export default function IslandWorldMap() {
         </svg>
       </div>
 
-      {/* Animated water waves */}
-      <div className="absolute inset-0 opacity-40">
+      {/* Animated water waves — MORE VISIBLE */}
+      <div className="absolute inset-0">
         <svg width="100%" height="100%" viewBox="-400 -300 800 600" preserveAspectRatio="xMidYMid meet">
-          <WaveLayer amplitude={15} frequency={0.008} speed={4} opacity={0.15} yOffset={-200} />
-          <WaveLayer amplitude={12} frequency={0.012} speed={3.5} opacity={0.12} yOffset={-100} />
-          <WaveLayer amplitude={18} frequency={0.006} speed={5} opacity={0.1} yOffset={0} />
-          <WaveLayer amplitude={10} frequency={0.015} speed={3} opacity={0.08} yOffset={100} />
-          <WaveLayer amplitude={14} frequency={0.009} speed={4.5} opacity={0.1} yOffset={200} />
+          <WaveLayer amplitude={20} frequency={0.007} speed={5} opacity={0.25} yOffset={-220} />
+          <WaveLayer amplitude={16} frequency={0.011} speed={4} opacity={0.20} yOffset={-110} />
+          <WaveLayer amplitude={22} frequency={0.005} speed={6} opacity={0.18} yOffset={0} />
+          <WaveLayer amplitude={14} frequency={0.013} speed={3.5} opacity={0.15} yOffset={110} />
+          <WaveLayer amplitude={18} frequency={0.008} speed={5.5} opacity={0.18} yOffset={220} />
         </svg>
       </div>
 
-      {/* Sparkles on water */}
+      {/* Sparkles on water — MORE VISIBLE */}
       <div className="absolute inset-0">
         <svg width="100%" height="100%" viewBox="-400 -300 800 600" preserveAspectRatio="xMidYMid meet">
-          {Array.from({ length: 20 }).map((_, idx) => {
+          {Array.from({ length: 30 }).map((_, idx) => {
             const sx = ((idx * 137.5 + waveSeed * 100) % 800) - 400;
             const sy = ((idx * 73.3 + waveSeed * 200) % 600) - 300;
             return (
@@ -249,17 +276,17 @@ export default function IslandWorldMap() {
                 key={`sparkle-${idx}`}
                 cx={sx}
                 cy={sy}
-                r={1 + (idx % 2)}
-                fill="#38bdf8"
-                opacity={0.2}
+                r={1.5 + (idx % 2) * 1.5}
+                fill="#7dd3fc"
+                opacity={0.5}
                 animate={{
-                  opacity: [0.1, 0.4, 0.1],
-                  r: [1, 2, 1],
+                  opacity: [0.2, 0.7, 0.2],
+                  r: [1.5, 3, 1.5],
                 }}
                 transition={{
                   duration: 2 + (idx % 3),
                   repeat: Infinity,
-                  delay: idx * 0.3,
+                  delay: idx * 0.25,
                   ease: 'easeInOut',
                 }}
               />
@@ -288,7 +315,7 @@ export default function IslandWorldMap() {
           <motion.path
             key={`route-${island.id}`}
             d={`M ${hubIsland.x} ${hubIsland.y} Q ${(hubIsland.x + island.x) / 2} ${(hubIsland.y + island.y) / 2 + 30} ${island.x} ${island.y}`}
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(255,255,255,0.12)"
             strokeWidth="2"
             strokeDasharray="8 8"
             fill="none"
@@ -327,7 +354,7 @@ export default function IslandWorldMap() {
               rx={hubIsland.size * 62}
               ry={hubIsland.size * 42}
               fill="none"
-              stroke="rgba(56, 189, 248, 0.2)"
+              stroke="rgba(56, 189, 248, 0.35)"
               strokeWidth={2}
               animate={{ rx: [hubIsland.size * 62, hubIsland.size * 65, hubIsland.size * 62] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
@@ -335,7 +362,7 @@ export default function IslandWorldMap() {
             
             {/* Island body with gentle bob */}
             <motion.g
-              animate={{ y: [0, -2, 0] }}
+              animate={{ y: [0, -3, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             >
               <ellipse
@@ -344,8 +371,8 @@ export default function IslandWorldMap() {
                 rx={hubIsland.size * 60}
                 ry={hubIsland.size * 40}
                 fill={hubIsland.color}
-                stroke={hoveredIsland === hubIsland.id ? '#fff' : 'rgba(255,255,255,0.2)'}
-                strokeWidth={hoveredIsland === hubIsland.id ? 3 : 1}
+                stroke={hoveredIsland === hubIsland.id ? '#fff' : 'rgba(255,255,255,0.25)'}
+                strokeWidth={hoveredIsland === hubIsland.id ? 3 : 1.5}
                 filter="url(#islandGlow)"
               />
               
@@ -355,11 +382,11 @@ export default function IslandWorldMap() {
                 cy={hubIsland.y + 10}
                 rx={hubIsland.size * 55}
                 ry={hubIsland.size * 32}
-                fill="rgba(255,255,255,0.08)"
+                fill="rgba(255,255,255,0.12)"
               />
               
               {/* Trees / vegetation dots */}
-              {Array.from({ length: 12 }).map((_, i) => {
+              {Array.from({ length: 16 }).map((_, i) => {
                 const tx = hubIsland.x + Math.sin(i * 2.1 + waveSeed * 10) * hubIsland.size * 35;
                 const ty = hubIsland.y + Math.cos(i * 1.7 + waveSeed * 10) * hubIsland.size * 20;
                 return (
@@ -368,18 +395,18 @@ export default function IslandWorldMap() {
                     cx={tx}
                     cy={ty}
                     r={2 + (i % 3)}
-                    fill="#4ade80"
-                    opacity={0.3}
+                    fill="#22c55e"
+                    opacity={0.4}
                   />
                 );
               })}
             </motion.g>
 
             {/* Hub label */}
-            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 50} textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 52} textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" style={{ pointerEvents: 'none', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
               {hubIsland.name}
             </text>
-            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 35} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="10" style={{ pointerEvents: 'none' }}>
+            <text x={hubIsland.x} y={hubIsland.y - hubIsland.size * 37} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="10" style={{ pointerEvents: 'none' }}>
               Community Hub
             </text>
 
@@ -444,7 +471,7 @@ export default function IslandWorldMap() {
                 rx={island.size * 52}
                 ry={island.size * 36}
                 fill="none"
-                stroke="rgba(56, 189, 248, 0.15)"
+                stroke="rgba(56, 189, 248, 0.25)"
                 strokeWidth={1.5}
                 animate={{ rx: [island.size * 52, island.size * 55, island.size * 52] }}
                 transition={{ duration: 3 + islandIndex * 0.3, repeat: Infinity, ease: 'easeInOut', delay: bobDelay }}
@@ -461,8 +488,8 @@ export default function IslandWorldMap() {
                   rx={island.size * 50}
                   ry={island.size * 35}
                   fill={island.color}
-                  stroke={isHovered ? '#fff' : 'rgba(255,255,255,0.15)'}
-                  strokeWidth={isHovered ? 2.5 : 1}
+                  stroke={isHovered ? '#fff' : 'rgba(255,255,255,0.2)'}
+                  strokeWidth={isHovered ? 2.5 : 1.5}
                   filter="url(#islandGlow)"
                 />
                 
@@ -472,11 +499,11 @@ export default function IslandWorldMap() {
                   cy={island.y + 8}
                   rx={island.size * 42}
                   ry={island.size * 25}
-                  fill="rgba(255,255,255,0.08)"
+                  fill="rgba(255,255,255,0.1)"
                 />
                 
                 {/* Vegetation */}
-                {Array.from({ length: 8 }).map((_, i) => {
+                {Array.from({ length: 10 }).map((_, i) => {
                   const tx = island.x + Math.sin(i * 2.4 + islandIndex) * island.size * 25;
                   const ty = island.y + Math.cos(i * 1.9 + islandIndex) * island.size * 15;
                   return (
@@ -485,8 +512,8 @@ export default function IslandWorldMap() {
                       cx={tx}
                       cy={ty}
                       r={1.5 + (i % 2)}
-                      fill="#4ade80"
-                      opacity={0.25}
+                      fill="#22c55e"
+                      opacity={0.35}
                     />
                   );
                 })}
@@ -501,7 +528,7 @@ export default function IslandWorldMap() {
                     cy={-2}
                     r={2}
                     fill="#fbbf24"
-                    animate={{ opacity: [0.4, 0.8, 0.4] }}
+                    animate={{ opacity: [0.4, 0.9, 0.4] }}
                     transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                   />
                 </g>
@@ -563,6 +590,13 @@ export default function IslandWorldMap() {
         })}
       </svg>
 
+      {/* API fallback notice */}
+      {apiFailed && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-lg text-xs text-amber-300">
+          Showing default world map — database islands will appear once seeded
+        </div>
+      )}
+
       {/* Legend / Info panel */}
       <div className="absolute bottom-4 left-4 glass-card px-4 py-3 rounded-xl">
         <div className="text-xs text-white/50 mb-2 font-semibold uppercase tracking-wider">World Map</div>
@@ -590,7 +624,7 @@ export default function IslandWorldMap() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-4 right-4 glass-card p-4 rounded-xl max-w-xs"
+              className="absolute top-14 right-4 glass-card p-4 rounded-xl max-w-xs"
             >
               <h3 className="font-bold text-white text-sm">{island.name}</h3>
               {league && (
