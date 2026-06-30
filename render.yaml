@@ -11,7 +11,7 @@ services:
       - key: PORT
         value: 3000
       - key: FRONTEND_URL
-        value: https://grid-game.onrender.com
+        value: https://grid-game-pom3.onrender.com
       - key: VITE_API_URL
         value: /api
       - key: JWT_SECRET

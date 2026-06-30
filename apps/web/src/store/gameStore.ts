@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { fetchApi } from '../lib/api';
 
 interface Team {
   id: string;
@@ -109,9 +110,6 @@ interface GameState {
   refreshAll: () => Promise<void>;
 }
 
-const API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-const API_BASE = API_ORIGIN.endsWith('/api') ? API_ORIGIN : `${API_ORIGIN}/api`;
-
 export const SPORT_OPTIONS = [
   { id: 'american-football', label: 'American Football', shortLabel: 'Football', rosterName: 'Roster', matchupName: 'Game' },
   { id: 'soccer', label: 'Soccer', shortLabel: 'Soccer', rosterName: 'Squad', matchupName: 'Match' },
@@ -171,23 +169,18 @@ export const useGameStore = create<GameState>()(
         
         set({ teamsLoading: true, teamsError: null });
         try {
-          const res = await fetch(`${API_BASE}/teams/mine`, {
+          const data = await fetchApi('/teams/mine', {
             headers: { Authorization: `Bearer ${token}` },
           });
-          if (res.ok) {
-            const data = await res.json();
-            const teams = (data.data || []).filter((team: any) => (team.sportId || 'american-football') === get().activeSportId);
-            set({ teams, teamsLoading: false, lastSync: Date.now() });
-            // If no selected team, select first one
-            const { selectedTeamId } = get();
-            if (!selectedTeamId && teams.length > 0) {
-              set({ selectedTeamId: teams[0].id });
-            }
-          } else {
-            set({ teamsError: 'Failed to fetch teams', teamsLoading: false });
+          const teams = (data.data || []).filter((team: any) => (team.sportId || 'american-football') === get().activeSportId);
+          set({ teams, teamsLoading: false, lastSync: Date.now() });
+          // If no selected team, select first one
+          const { selectedTeamId } = get();
+          if (!selectedTeamId && teams.length > 0) {
+            set({ selectedTeamId: teams[0].id });
           }
         } catch (err) {
-          set({ teamsError: 'Network error', teamsLoading: false });
+          set({ teamsError: err instanceof Error ? err.message : 'Network error', teamsLoading: false });
         }
       },
       
@@ -197,17 +190,12 @@ export const useGameStore = create<GameState>()(
         
         set({ playersLoading: true, playersError: null });
         try {
-          const res = await fetch(`${API_BASE}/players?limit=50&sportId=${get().activeSportId}`, {
+          const data = await fetchApi(`/players?limit=50&sportId=${get().activeSportId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          if (res.ok) {
-            const data = await res.json();
-            set({ players: data.data?.players || [], playersLoading: false, lastSync: Date.now() });
-          } else {
-            set({ playersError: 'Failed to fetch players', playersLoading: false });
-          }
+          set({ players: data.data?.players || [], playersLoading: false, lastSync: Date.now() });
         } catch (err) {
-          set({ playersError: 'Network error', playersLoading: false });
+          set({ playersError: err instanceof Error ? err.message : 'Network error', playersLoading: false });
         }
       },
       
@@ -217,15 +205,10 @@ export const useGameStore = create<GameState>()(
         
         set({ walletLoading: true });
         try {
-          const res = await fetch(`${API_BASE}/economy/wallet`, {
+          const data = await fetchApi('/economy/wallet', {
             headers: { Authorization: `Bearer ${token}` },
           });
-          if (res.ok) {
-            const data = await res.json();
-            set({ wallet: data.data || { cash: 0, dynTokens: 0 }, walletLoading: false, lastSync: Date.now() });
-          } else {
-            set({ walletLoading: false });
-          }
+          set({ wallet: data.data || { cash: 0, dynTokens: 0 }, walletLoading: false, lastSync: Date.now() });
         } catch (err) {
           set({ walletLoading: false });
         }

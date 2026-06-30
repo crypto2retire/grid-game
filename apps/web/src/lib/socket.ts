@@ -1,8 +1,14 @@
 import { io } from 'socket.io-client';
 
-const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
+function normalizeSocketOrigin(rawBase?: string): string {
+  const trimmed = (rawBase || '').trim();
+  if (!trimmed || trimmed.startsWith('/')) return window.location.origin;
+  return trimmed.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+}
 
-export const socket = io(API_URL, {
+const SOCKET_ORIGIN = normalizeSocketOrigin(import.meta.env.VITE_API_URL);
+
+export const socket = io(SOCKET_ORIGIN, {
   autoConnect: false,
   transports: ['websocket', 'polling'],
 });
