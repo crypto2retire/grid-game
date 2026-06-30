@@ -37,7 +37,7 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
 
   const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
 
-  const STARTING_CASH = 1000;
+  const STARTING_CASH = 5000;
 
   const result = await prisma.$transaction(async (tx: any) => {
     const user = await tx.user.create({

@@ -1,6 +1,8 @@
 import { useAuthStore } from '../../store/authStore';
 import { PanelOverlay } from './PanelSystem';
 import IslandWorldMap from './IslandWorldMap';
+import WelcomeModal from './WelcomeModal';
+import { DailyQuestPanel } from './DailyQuestSystem';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -22,6 +24,8 @@ export default function GameShell() {
     <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
       <IslandWorldMap />
       <PanelOverlay />
+      <WelcomeModal />
+      <DailyQuestPanel />
     </div>
   );
 }
