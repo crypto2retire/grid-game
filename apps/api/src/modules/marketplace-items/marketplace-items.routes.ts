@@ -3,8 +3,13 @@ import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { recordCurrencyLedger } from '../economy/ledger';
 
 const router = Router();
+
+// 5% marketplace fee: 90% treasury / 10% burn
+const MARKETPLACE_FEE_PCT = 0.05;
+const TREASURY_SHARE = 0.9;
 
 // ─── GET /api/marketplace-items ───
 // List all active P2P item listings
@@ -136,41 +141,76 @@ router.post(
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
-      // Deduct buyer CASH
+      // 5% marketplace fee: 90% treasury / 10% burn
+      const fee = Math.ceil(listing.price * MARKETPLACE_FEE_PCT);
+      const sellerReceives = listing.price - fee;
+
+      // Deduct full price from buyer
       const buyerWallet = await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: listing.price } },
       });
-      await tx.currencyLedger.create({
-        data: {
-          userId,
-          currency: 'CASH',
-          amount: -listing.price,
-          balanceAfter: buyerWallet.cash,
-          reason: 'MARKETPLACE_ITEM_PURCHASE',
-          sourceType: 'MARKETPLACE_ITEM',
-          sourceId: listingId,
-          metadata: { itemName: listing.playerItem.item.name, sellerId: listing.sellerId },
-        },
+      await recordCurrencyLedger(tx, {
+        userId,
+        currency: 'CASH',
+        amount: -listing.price,
+        balanceAfter: buyerWallet.cash,
+        reason: 'MARKETPLACE_ITEM_PURCHASE',
+        sourceType: 'MARKETPLACE_ITEM',
+        sourceId: listingId,
+        metadata: { itemName: listing.playerItem.item.name, sellerId: listing.sellerId, fee },
       });
 
-      // Credit seller CASH
+      // Credit seller (price minus fee)
       const sellerWallet = await tx.wallet.update({
         where: { userId: listing.sellerId },
-        data: { cash: { increment: listing.price } },
+        data: { cash: { increment: sellerReceives } },
       });
-      await tx.currencyLedger.create({
+      await recordCurrencyLedger(tx, {
+        userId: listing.sellerId,
+        currency: 'CASH',
+        amount: sellerReceives,
+        balanceAfter: sellerWallet.cash,
+        reason: 'MARKETPLACE_ITEM_SALE',
+        sourceType: 'MARKETPLACE_ITEM',
+        sourceId: listingId,
+        metadata: { itemName: listing.playerItem.item.name, buyerId: userId, fee },
+      });
+
+      // Record fee to treasury (90%) and burn (10%)
+      const treasuryAmount = Math.floor(fee * TREASURY_SHARE);
+      const burnAmount = fee - treasuryAmount;
+
+      await tx.gameTreasury.upsert({
+        where: { currency: 'CASH' },
+        update: { balance: { increment: treasuryAmount }, totalInflows: { increment: treasuryAmount } },
+        create: { currency: 'CASH', balance: treasuryAmount, totalInflows: treasuryAmount },
+      });
+      await tx.treasuryTransaction.create({
         data: {
-          userId: listing.sellerId,
+          treasury: { connect: { currency: 'CASH' } },
+          type: 'INFLOW',
+          amount: treasuryAmount,
           currency: 'CASH',
-          amount: listing.price,
-          balanceAfter: sellerWallet.cash,
-          reason: 'MARKETPLACE_ITEM_SALE',
+          reason: 'MARKETPLACE_ITEM_FEE',
           sourceType: 'MARKETPLACE_ITEM',
           sourceId: listingId,
-          metadata: { itemName: listing.playerItem.item.name, buyerId: userId },
+          metadata: { itemName: listing.playerItem.item.name, buyerId: userId, sellerId: listing.sellerId },
         },
       });
+      if (burnAmount > 0) {
+        await tx.treasuryTransaction.create({
+          data: {
+            treasury: { connect: { currency: 'CASH' } },
+            type: 'BURN',
+            amount: burnAmount,
+            currency: 'CASH',
+            reason: 'MARKETPLACE_ITEM_FEE_BURN',
+            sourceType: 'MARKETPLACE_ITEM',
+            sourceId: listingId,
+          },
+        });
+      }
 
       // Mark listing as sold
       const soldListing = await tx.marketplaceItemListing.update({

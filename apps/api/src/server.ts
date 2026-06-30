@@ -41,6 +41,7 @@ import { PrismaClient } from '@prisma/client';
 import { marketRouter } from './modules/market/market.routes';
 import { marketplaceItemsRouter } from './modules/marketplace-items/marketplace-items.routes';
 import { seedItems } from './modules/market/seed';
+import { logger } from './config/logger';
 
 // ─── Memory Monitor ───
 function logMemory() {
@@ -48,7 +49,7 @@ function logMemory() {
   const heapUsedMB = Math.round(mem.heapUsed / 1024 / 1024);
   const heapTotalMB = Math.round(mem.heapTotal / 1024 / 1024);
   const rssMB = Math.round(mem.rss / 1024 / 1024);
-  console.log(`[MEMORY] RSS: ${rssMB}MB | Heap: ${heapUsedMB}MB / ${heapTotalMB}MB | External: ${Math.round(mem.external / 1024 / 1024)}MB`);
+  logger.info(`[MEMORY] RSS: ${rssMB}MB | Heap: ${heapUsedMB}MB / ${heapTotalMB}MB | External: ${Math.round(mem.external / 1024 / 1024)}MB`);
 }
 
 setInterval(logMemory, 30000); // Log every 30s
@@ -89,7 +90,7 @@ async function seedTeamMarketplaceListings(prisma: PrismaClient) {
   });
 
   if (!seller) {
-    console.log('No AI owner found, skipping team marketplace seed');
+    logger.info('No AI owner found, skipping team marketplace seed');
     return;
   }
 
@@ -102,7 +103,7 @@ async function seedTeamMarketplaceListings(prisma: PrismaClient) {
   });
 
   if (aiTeams.length === 0) {
-    console.log('No AI teams available for marketplace seed');
+    logger.info('No AI teams available for marketplace seed');
     return;
   }
 
@@ -147,7 +148,7 @@ async function seedTeamMarketplaceListings(prisma: PrismaClient) {
     });
   }
 
-  console.log(`Seeded ${aiTeams.length} team marketplace listings`);
+  logger.info(`Seeded ${aiTeams.length} team marketplace listings`);
 }
 
 async function seedEquipmentTypes(prisma: PrismaClient) {
@@ -172,7 +173,7 @@ async function seedEquipmentTypes(prisma: PrismaClient) {
       create: type,
     });
   }
-  console.log(`Seeded ${equipmentTypes.length} equipment types`);
+  logger.info(`Seeded ${equipmentTypes.length} equipment types`);
 }
 
 async function seedMarketplaceListings(prisma: PrismaClient) {
@@ -185,7 +186,7 @@ async function seedMarketplaceListings(prisma: PrismaClient) {
   });
 
   if (!seller) {
-    console.log('No users found yet, skipping marketplace seed');
+    logger.info('No users found yet, skipping marketplace seed');
     return;
   }
 
@@ -196,7 +197,7 @@ async function seedMarketplaceListings(prisma: PrismaClient) {
   });
 
   if (freePlayers.length === 0) {
-    console.log('No free players for marketplace seed');
+    logger.info('No free players for marketplace seed');
     return;
   }
 
@@ -219,14 +220,14 @@ async function seedMarketplaceListings(prisma: PrismaClient) {
       },
     });
   }
-  console.log(`Seeded ${freePlayers.length} marketplace listings`);
+  logger.info(`Seeded ${freePlayers.length} marketplace listings`);
 }
 
 // ─── Seed Default Islands & Leagues ───
 async function seedDefaultIslands(prisma: PrismaClient) {
   const islandCount = await prisma.island.count();
   if (islandCount > 0) {
-    console.log(`Islands already seeded (${islandCount} found)`);
+    logger.info(`Islands already seeded (${islandCount} found)`);
     return;
   }
 
@@ -270,11 +271,11 @@ async function seedDefaultIslands(prisma: PrismaClient) {
     }
   }
 
-  console.log(`Seeded ${defaultLeagues.length} default islands`);
+  logger.info(`Seeded ${defaultLeagues.length} default islands`);
 }
 
 const corsOrigins = getCorsOrigins();
-console.log('CORS allowed origins:', corsOrigins);
+logger.info('CORS allowed origins:', corsOrigins);
 
 const app = express();
 app.set('trust proxy', 1);
@@ -398,9 +399,9 @@ app.use(errorHandler);
 initializeSocketHandlers(io);
 
 const gracefulShutdown = async (signal: string) => {
-  console.log(`Received ${signal}. Shutting down...`);
+  logger.info(`Received ${signal}. Shutting down...`);
   server.close(() => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
   });
   await disconnectDatabase();
   try { await disconnectRedis(); } catch { /* Redis optional */ }
@@ -414,16 +415,16 @@ const startServer = async () => {
   const port = env.PORT;
 
   server.listen(port, '0.0.0.0', () => {
-    console.log(`DYN server running on port ${port}`);
-    console.log(`Environment: ${env.NODE_ENV}`);
-    console.log(`Database: ${env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
-    console.log(`JWT: ${env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
+    logger.info(`DYN server running on port ${port}`);
+    logger.info(`Environment: ${env.NODE_ENV}`);
+    logger.info(`Database: ${env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
+    logger.info(`JWT: ${env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
   });
 
   if (env.DATABASE_URL) {
     try {
       await connectDatabase();
-      console.log('Database connected');
+      logger.info('Database connected');
 
       // Ensure GameSettings singleton exists for time compression (ignore if table doesn't exist yet)
       try {
@@ -434,32 +435,32 @@ const startServer = async () => {
         });
       } catch (gsErr: any) {
         if (gsErr.code === 'P2021') {
-          console.log('GameSettings table not ready yet, skipping upsert');
+          logger.info('GameSettings table not ready yet, skipping upsert');
         } else {
-          console.error('GameSettings upsert error:', gsErr.message);
+          logger.error('GameSettings upsert error:', gsErr.message);
         }
       }
 
       exec('npx prisma migrate deploy', { cwd: process.cwd() }, (err, stdout, stderr) => {
         if (err) {
-          console.log('Migration status:', err.message);
-          if (stderr) console.log('Migration stderr:', stderr);
+          logger.info('Migration status:', err.message);
+          if (stderr) logger.info('Migration stderr:', stderr);
         } else {
-          console.log('Migrations:', stdout?.trim() || 'OK');
+          logger.info('Migrations:', stdout?.trim() || 'OK');
         }
 
         // Only seed if no players exist (first deploy or after reset)
         import('./config/database').then(({ prisma }) => {
           prisma.player.count().then((count: number) => {
             if (count === 0) {
-              console.log('Database empty, seeding players...');
+              logger.info('Database empty, seeding players...');
               exec('node prisma/seed.js', { cwd: process.cwd() }, (seedErr: any, seedOut: any) => {
-                if (seedErr) console.error('Seed error:', seedErr.message);
+                if (seedErr) logger.error('Seed error:', seedErr.message);
                 else {
-                  console.log('Seeded:', seedOut?.trim() || 'OK');
+                  logger.info('Seeded:', seedOut?.trim() || 'OK');
                   // Generate AI teams after seed
                   import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
-                    generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                    generateAllAITeams().catch((e: any) => logger.error('AI team generation error:', e));
                   });
                 }
               });
@@ -468,7 +469,7 @@ const startServer = async () => {
               const oldSoccerPositions = ['GK', 'DEF', 'MID', 'FWD'];
               prisma.player.count({ where: { position: { in: oldSoccerPositions } } }).then(async (legacyCount: number) => {
                 if (legacyCount > 0) {
-                  console.log(`Converting ${legacyCount} legacy soccer-position players to American football positions...`);
+                  logger.info(`Converting ${legacyCount} legacy soccer-position players to American football positions...`);
                   const players = await prisma.player.findMany({ orderBy: { id: 'asc' }, select: { id: true } });
                   await Promise.all(players.map((player: { id: string }, index: number) =>
                     prisma.player.update({
@@ -476,41 +477,41 @@ const startServer = async () => {
                       data: { position: footballPositions[index % footballPositions.length] },
                     })
                   ));
-                  console.log('American football position conversion complete');
+                  logger.info('American football position conversion complete');
                   // Generate AI teams after conversion
                   import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
-                    generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                    generateAllAITeams().catch((e: any) => logger.error('AI team generation error:', e));
                   });
                 } else {
-                  console.log(`Database ready (${count} players)`);
+                  logger.info(`Database ready (${count} players)`);
                   // Generate AI teams
                   import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
-                    generateAllAITeams().catch((e: any) => console.error('AI team generation error:', e));
+                    generateAllAITeams().catch((e: any) => logger.error('AI team generation error:', e));
                   });
                   // Seed equipment types and marketplace listings
-                  seedEquipmentTypes(prisma).catch((e: any) => console.error('Equipment seed error:', e));
-                  seedMarketplaceListings(prisma).catch((e: any) => console.error('Marketplace seed error:', e));
-                  seedTeamMarketplaceListings(prisma).catch((e: any) => console.error('Team marketplace seed error:', e));
-                  seedDefaultIslands(prisma).catch((e: any) => console.error('Island seed error:', e));
-                  seedItems(prisma).catch((e: any) => console.error('Item seed error:', e));
+                  seedEquipmentTypes(prisma).catch((e: any) => logger.error('Equipment seed error:', e));
+                  seedMarketplaceListings(prisma).catch((e: any) => logger.error('Marketplace seed error:', e));
+                  seedTeamMarketplaceListings(prisma).catch((e: any) => logger.error('Team marketplace seed error:', e));
+                  seedDefaultIslands(prisma).catch((e: any) => logger.error('Island seed error:', e));
+                  seedItems(prisma).catch((e: any) => logger.error('Item seed error:', e));
                 }
-              }).catch((convertErr: any) => console.error('Football conversion error:', convertErr));
+              }).catch((convertErr: any) => logger.error('Football conversion error:', convertErr));
             }
-          }).catch((countErr: any) => console.error('Count error:', countErr));
+          }).catch((countErr: any) => logger.error('Count error:', countErr));
         });
       });
     } catch (dbErr) {
-      console.error('Database failed:', dbErr);
+      logger.error('Database failed:', dbErr);
     }
   } else {
-    console.warn('No DATABASE_URL - database unavailable');
+    logger.warn('No DATABASE_URL - database unavailable');
   }
 
   try {
     const redisConnected = await connectRedis();
-    console.log(redisConnected ? 'Redis connected' : 'Redis not configured - optional cache disabled');
+    logger.info(redisConnected ? 'Redis connected' : 'Redis not configured - optional cache disabled');
   } catch {
-    console.warn('Redis unavailable');
+    logger.warn('Redis unavailable');
   }
 
   // Keep-alive: lightweight DB ping every 5 min to prevent free-tier sleep

@@ -13,6 +13,47 @@ import { canTeamPlayToday } from '../game-time/game-time.routes';
 
 const router = Router();
 
+// ─── GET /api/matches — list matches with pagination and filters ───
+router.get(
+  '/',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const { teamId, sportId, status, limit = '20', offset = '0' } = req.query as Record<string, string>;
+
+    const where: any = {
+      OR: [
+        { homeTeam: { ownerId: userId } },
+        { awayTeam: { ownerId: userId } },
+      ],
+    };
+    if (teamId) {
+      where.OR = [{ homeTeamId: teamId, awayTeamId: teamId }];
+    }
+    if (sportId) where.sportId = sportId as string;
+    if (status) where.status = status as string;
+
+    const [matches, total] = await Promise.all([
+      prisma.match.findMany({
+        where,
+        include: {
+          homeTeam: { select: { id: true, name: true } },
+          awayTeam: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(Number(limit), 100),
+        skip: Number(offset),
+      }),
+      prisma.match.count({ where }),
+    ]);
+
+    res.json({
+      status: 'success',
+      data: { matches, total, limit: Number(limit), offset: Number(offset) },
+    });
+  })
+);
+
 const scheduleMatchSchema = z.object({
   homeTeamId: z.string().uuid(),
   awayTeamId: z.string().uuid(),

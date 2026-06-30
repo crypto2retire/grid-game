@@ -1,9 +1,10 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '../config/database';
+import { logger } from '../config/logger';
 
 export const initializeSocketHandlers = (io: SocketIOServer): void => {
   io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    logger.info('Client connected:', socket.id);
 
     socket.on('match:subscribe', async ({ matchId }: { matchId: string }) => {
       const match = await prisma.match.findUnique({
@@ -34,7 +35,7 @@ export const initializeSocketHandlers = (io: SocketIOServer): void => {
     });
 
     socket.on('disconnect', () => {
-      console.log('Client disconnected:', socket.id);
+      logger.info('Client disconnected:', socket.id);
     });
   });
 };

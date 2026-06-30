@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../../config/logger';
 
 // Starter and upgradeable wearable items
 const ITEMS = [
@@ -41,11 +42,11 @@ const ITEMS = [
 export async function seedItems(prisma: PrismaClient) {
   const count = await prisma.item.count();
   if (count > 0) {
-    console.log(`Items already seeded (${count}), skipping`);
+    logger.info(`Items already seeded (${count}), skipping`);
     return;
   }
 
-  console.log('Seeding items and market prices...');
+  logger.info('Seeding items and market prices...');
 
   for (const item of ITEMS) {
     await prisma.item.create({ data: item });
@@ -63,7 +64,7 @@ export async function seedItems(prisma: PrismaClient) {
     }
   }
 
-  console.log(`Seeded ${ITEMS.length} items`);
+  logger.info(`Seeded ${ITEMS.length} items`);
 }
 
 /**
@@ -76,7 +77,7 @@ export async function giveStarterEquipment(prisma: PrismaClient, teamId: string)
   });
 
   if (starterItems.length === 0) {
-    console.log('No starter items found, skipping starter equipment');
+    logger.info('No starter items found, skipping starter equipment');
     return;
   }
 
@@ -105,5 +106,5 @@ export async function giveStarterEquipment(prisma: PrismaClient, teamId: string)
     }
   }
 
-  console.log(`Gave starter equipment to ${teamPlayers.length} players on team ${teamId}`);
+  logger.info(`Gave starter equipment to ${teamPlayers.length} players on team ${teamId}`);
 }
