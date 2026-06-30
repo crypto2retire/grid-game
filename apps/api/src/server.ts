@@ -300,9 +300,12 @@ app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 300,
     standardHeaders: true,
     legacyHeaders: false,
+    // Render health checks run frequently enough to exhaust the old global
+    // 100/15min limit and force a restart about every 9 minutes.
+    skip: (req) => req.path === '/api/health' || req.path === '/health' || req.method === 'OPTIONS',
   })
 );
 
