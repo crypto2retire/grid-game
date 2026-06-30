@@ -947,7 +947,7 @@ export default function KintaraSportsWorld() {
       </div>
 
       {/* Right action buttons */}
-      <div className="absolute right-5 top-[31rem] z-[6] grid grid-cols-2 gap-3">
+      <div className="absolute right-5 top-[31rem] z-[6] hidden 2xl:grid grid-cols-2 gap-3">
         {[
           { icon: <Users className="w-5 h-5" />, badge: '' },
           { icon: <Shirt className="w-5 h-5" />, badge: '3' },
