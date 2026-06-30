@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { env } from '../../config/env';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
+import { tokenGate } from '../../middleware/tokenGate';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
@@ -30,6 +31,7 @@ const updateTeamSchema = z.object({
 router.post(
   '/',
   authMiddleware,
+  tokenGate,
   asyncHandler(async (req: AuthRequest, res) => {
     const input = createTeamSchema.parse(req.body);
     const userId = req.user!.id;

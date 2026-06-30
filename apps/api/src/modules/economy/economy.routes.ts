@@ -194,4 +194,23 @@ router.post(
   })
 );
 
+// GET /api/economy/token-gate-status — public: check if token gating is active
+router.get(
+  '/token-gate-status',
+  asyncHandler(async (_req, res) => {
+    const required = env.REQUIRED_DYN_BALANCE;
+    res.json({
+      status: 'success',
+      data: {
+        active: required > 0,
+        requiredBalance: required,
+        tokenSymbol: env.PUMPFUN_TOKEN_SYMBOL || 'DYN',
+        message: required > 0
+          ? `${required.toLocaleString()} ${env.PUMPFUN_TOKEN_SYMBOL || 'DYN'} required to play`
+          : 'No token gate — free to play',
+      },
+    });
+  })
+);
+
 export const economyRouter = router;

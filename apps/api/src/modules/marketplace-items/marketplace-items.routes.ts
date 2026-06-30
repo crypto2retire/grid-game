@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
+import { tokenGate } from '../../middleware/tokenGate';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { recordCurrencyLedger } from '../economy/ledger';
 
@@ -120,6 +121,7 @@ router.post(
 router.post(
   '/:id/buy',
   authMiddleware,
+  tokenGate,
   asyncHandler(async (req: any, res) => {
     const listingId = req.params.id;
     const userId = req.user!.id;

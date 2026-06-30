@@ -15,6 +15,8 @@ export const envSchema = z.object({
   PUMPFUN_TOKEN_SYMBOL: z.string().default('DYN'),
   PUMPFUN_TRADING_FEE_PCT: z.string().default('0.01').transform(Number), // 1% default
   PUMPFUN_CREATOR_SHARE_PCT: z.string().default('0.50').transform(Number), // 50% of fees to creator
+  // Token gate — set to >0 at launch to require DYN token balance
+  REQUIRED_DYN_BALANCE: z.string().default('0').transform(Number),
 });
 
 export const env = envSchema.parse(process.env);

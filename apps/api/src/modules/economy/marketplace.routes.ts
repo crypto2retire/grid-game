@@ -2,11 +2,16 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
+import { tokenGate } from '../../middleware/tokenGate';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
 import { recordCurrencyLedger } from './ledger';
 
 const router = Router();
+
+// 5% marketplace fee: 90% treasury / 10% burn
+const MARKETPLACE_FEE_PCT = 0.05;
+const TREASURY_SHARE = 0.9;
 
 const RARITY_MULTIPLIERS: Record<string, number> = {
   COMMON: 1.0,
@@ -113,6 +118,7 @@ router.post(
 router.post(
   '/:id/buy',
   authMiddleware,
+  tokenGate,
   asyncHandler(async (req: AuthRequest, res) => {
     const listingId = routeParam(req.params.id, 'id');
     const userId = req.user!.id;
@@ -136,6 +142,11 @@ router.post(
     }
 
     await prisma.$transaction(async (tx: any) => {
+      // 5% marketplace fee: 90% treasury / 10% burn
+      const fee = Math.ceil(listing.price * MARKETPLACE_FEE_PCT);
+      const sellerReceives = listing.price - fee;
+
+      // Deduct full price from buyer
       const buyerWalletAfter = await tx.wallet.update({
         where: { userId },
         data: { cash: { decrement: listing.price } },
@@ -148,22 +159,57 @@ router.post(
         reason: 'MARKETPLACE_PURCHASE',
         sourceType: 'MARKETPLACE_LISTING',
         sourceId: listingId,
-        metadata: { playerId: listing.playerId, sportId: listing.sportId },
+        metadata: { playerId: listing.playerId, sportId: listing.sportId, fee },
       });
+      // Credit seller (price minus fee)
       const sellerWalletAfter = await tx.wallet.update({
         where: { userId: listing.sellerId },
-        data: { cash: { increment: listing.price } },
+        data: { cash: { increment: sellerReceives } },
       });
       await recordCurrencyLedger(tx, {
         userId: listing.sellerId,
         currency: 'CASH',
-        amount: listing.price,
+        amount: sellerReceives,
         balanceAfter: sellerWalletAfter.cash,
         reason: 'MARKETPLACE_SALE',
         sourceType: 'MARKETPLACE_LISTING',
         sourceId: listingId,
-        metadata: { buyerId: userId, playerId: listing.playerId, sportId: listing.sportId },
+        metadata: { buyerId: userId, playerId: listing.playerId, sportId: listing.sportId, fee },
       });
+
+      // Record fee to treasury (90%) and burn (10%)
+      const treasuryAmount = Math.floor(fee * TREASURY_SHARE);
+      const burnAmount = fee - treasuryAmount;
+      await tx.gameTreasury.upsert({
+        where: { currency: 'CASH' },
+        update: { balance: { increment: treasuryAmount }, totalInflows: { increment: treasuryAmount } },
+        create: { currency: 'CASH', balance: treasuryAmount, totalInflows: treasuryAmount },
+      });
+      await tx.treasuryTransaction.create({
+        data: {
+          treasury: { connect: { currency: 'CASH' } },
+          type: 'INFLOW',
+          amount: treasuryAmount,
+          currency: 'CASH',
+          reason: 'MARKETPLACE_PLAYER_FEE',
+          sourceType: 'MARKETPLACE_LISTING',
+          sourceId: listingId,
+          metadata: { playerId: listing.playerId, buyerId: userId, sellerId: listing.sellerId },
+        },
+      });
+      if (burnAmount > 0) {
+        await tx.treasuryTransaction.create({
+          data: {
+            treasury: { connect: { currency: 'CASH' } },
+            type: 'BURN',
+            amount: burnAmount,
+            currency: 'CASH',
+            reason: 'MARKETPLACE_PLAYER_FEE_BURN',
+            sourceType: 'MARKETPLACE_LISTING',
+            sourceId: listingId,
+          },
+        });
+      }
       await tx.marketplaceListing.update({
         where: { id: listingId },
         data: { status: 'SOLD', soldAt: new Date() },
@@ -311,6 +357,10 @@ router.post(
     }
 
     await prisma.$transaction(async (tx: any) => {
+      // 5% marketplace fee: 90% treasury / 10% burn
+      const fee = Math.ceil(offer.price * MARKETPLACE_FEE_PCT);
+      const sellerReceives = offer.price - fee;
+
       const buyerWalletAfter = await tx.wallet.update({
         where: { userId: offer.buyerId },
         data: { cash: { decrement: offer.price } },
@@ -323,22 +373,56 @@ router.post(
         reason: 'MARKETPLACE_OFFER_ACCEPTED_PURCHASE',
         sourceType: 'MARKETPLACE_OFFER',
         sourceId: offerId,
-        metadata: { listingId: offer.listingId, playerId: offer.listing.playerId, sportId: offer.listing.sportId },
+        metadata: { listingId: offer.listingId, playerId: offer.listing.playerId, sportId: offer.listing.sportId, fee },
       });
       const sellerWalletAfter = await tx.wallet.update({
         where: { userId },
-        data: { cash: { increment: offer.price } },
+        data: { cash: { increment: sellerReceives } },
       });
       await recordCurrencyLedger(tx, {
         userId,
         currency: 'CASH',
-        amount: offer.price,
+        amount: sellerReceives,
         balanceAfter: sellerWalletAfter.cash,
         reason: 'MARKETPLACE_OFFER_ACCEPTED_SALE',
         sourceType: 'MARKETPLACE_OFFER',
         sourceId: offerId,
-        metadata: { listingId: offer.listingId, buyerId: offer.buyerId, playerId: offer.listing.playerId, sportId: offer.listing.sportId },
+        metadata: { listingId: offer.listingId, buyerId: offer.buyerId, playerId: offer.listing.playerId, sportId: offer.listing.sportId, fee },
       });
+
+      // Record fee to treasury (90%) and burn (10%)
+      const treasuryAmount = Math.floor(fee * TREASURY_SHARE);
+      const burnAmount = fee - treasuryAmount;
+      await tx.gameTreasury.upsert({
+        where: { currency: 'CASH' },
+        update: { balance: { increment: treasuryAmount }, totalInflows: { increment: treasuryAmount } },
+        create: { currency: 'CASH', balance: treasuryAmount, totalInflows: treasuryAmount },
+      });
+      await tx.treasuryTransaction.create({
+        data: {
+          treasury: { connect: { currency: 'CASH' } },
+          type: 'INFLOW',
+          amount: treasuryAmount,
+          currency: 'CASH',
+          reason: 'MARKETPLACE_OFFER_FEE',
+          sourceType: 'MARKETPLACE_OFFER',
+          sourceId: offerId,
+          metadata: { listingId: offer.listingId, playerId: offer.listing.playerId, buyerId: offer.buyerId, sellerId: userId },
+        },
+      });
+      if (burnAmount > 0) {
+        await tx.treasuryTransaction.create({
+          data: {
+            treasury: { connect: { currency: 'CASH' } },
+            type: 'BURN',
+            amount: burnAmount,
+            currency: 'CASH',
+            reason: 'MARKETPLACE_OFFER_FEE_BURN',
+            sourceType: 'MARKETPLACE_OFFER',
+            sourceId: offerId,
+          },
+        });
+      }
       await tx.marketplaceOffer.update({
         where: { id: offerId },
         data: { status: 'ACCEPTED' },

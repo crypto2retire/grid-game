@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
+import { tokenGate } from '../../middleware/tokenGate';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
 import { runMatchSimulation, TeamState } from './simulator';
@@ -23,6 +24,7 @@ const scheduleMatchSchema = z.object({
 router.post(
   '/',
   authMiddleware,
+  tokenGate,
   asyncHandler(async (req: AuthRequest, res) => {
     const input = scheduleMatchSchema.parse(req.body);
     const userId = req.user!.id;
