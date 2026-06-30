@@ -26,7 +26,7 @@ export const errorHandler = (
     return;
   }
 
-  logger.error('Unexpected error:', err);
+  logger.error(err, 'Unexpected error');
   res.status(500).json({
     status: 'error',
     message: 'Internal server error',
