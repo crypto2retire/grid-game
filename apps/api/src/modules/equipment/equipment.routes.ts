@@ -76,8 +76,8 @@ router.post(
       throw new AppError(404, 'Wallet not found');
     }
 
-    if (wallet.gridTokens < equipmentType.baseCostGrid) {
-      throw new AppError(400, `Insufficient GRID. Need ${equipmentType.baseCostGrid.toLocaleString()} GRID`);
+    if (wallet.dynTokens < equipmentType.baseCostGrid) {
+      throw new AppError(400, `Insufficient DYN. Need ${equipmentType.baseCostGrid.toLocaleString()} DYN`);
     }
     if (wallet.cash < equipmentType.baseCostCash) {
       throw new AppError(400, `Insufficient CASH. Need ${equipmentType.baseCostCash.toLocaleString()} CASH`);
@@ -96,7 +96,7 @@ router.post(
       const updatedWallet = await tx.wallet.update({
         where: { userId },
         data: {
-          gridTokens: { decrement: equipmentType.baseCostGrid },
+          dynTokens: { decrement: equipmentType.baseCostGrid },
           cash: { decrement: equipmentType.baseCostCash },
         },
       });
@@ -104,9 +104,9 @@ router.post(
       await tx.currencyLedger.create({
         data: {
           userId,
-          currency: 'GRID',
+          currency: 'DYN',
           amount: -equipmentType.baseCostGrid,
-          balanceAfter: updatedWallet.gridTokens,
+          balanceAfter: updatedWallet.dynTokens,
           reason: 'EQUIPMENT_PURCHASE',
           sourceType: 'EQUIPMENT',
           sourceId: input.equipmentTypeId,

@@ -115,8 +115,8 @@ export default function StakingPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setWalletGrid(data.data?.gridTokens || 0);
-        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
+        setWalletGrid(data.data?.dynTokens || 0);
+        useGameStore.getState().setWallet(data.data || { cash: 0, dynTokens: 0 });
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
@@ -135,7 +135,7 @@ export default function StakingPage() {
       return;
     }
     if (amount > walletGrid) {
-      showMessage('error', 'Insufficient GRID balance');
+      showMessage('error', 'Insufficient DYN balance');
       return;
     }
 
@@ -257,9 +257,9 @@ export default function StakingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">GRID Rewards Pool</h1>
+          <h1 className="text-3xl font-bold text-white">DYN Rewards Pool</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Stake GRID tokens to earn rewards from game revenue
+            Stake DYN tokens to earn rewards from game revenue
           </p>
         </div>
       </div>
@@ -287,7 +287,7 @@ export default function StakingPage() {
             <div className="text-sm text-muted-foreground">Total Staked</div>
           </div>
           <div className="text-2xl font-bold text-white">
-            {stats?.pool.totalStaked.toLocaleString() || 0} GRID
+            {stats?.pool.totalStaked.toLocaleString() || 0} DYN
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export default function StakingPage() {
             <div className="text-sm text-muted-foreground">Rewards Funded</div>
           </div>
           <div className="text-2xl font-bold text-white">
-            {stats?.pool.totalRewardsFunded.toLocaleString() || 0} GRID
+            {stats?.pool.totalRewardsFunded.toLocaleString() || 0} DYN
           </div>
         </div>
 
@@ -334,7 +334,7 @@ export default function StakingPage() {
         {/* Stake / Manage */}
         <div className="glass-card p-6">
           <h2 className="text-lg font-semibold text-white mb-4">
-            {hasActiveStake ? 'Your Stake' : 'Stake GRID'}
+            {hasActiveStake ? 'Your Stake' : 'Stake DYN'}
           </h2>
 
           {hasActiveStake ? (
@@ -343,7 +343,7 @@ export default function StakingPage() {
                 <div className="bg-secondary/50 p-4 rounded-lg">
                   <div className="text-sm text-muted-foreground">Staked Amount</div>
                   <div className="text-xl font-bold text-white">
-                    {stats!.stake!.amount.toLocaleString()} GRID
+                    {stats!.stake!.amount.toLocaleString()} DYN
                   </div>
                 </div>
                 <div className="bg-secondary/50 p-4 rounded-lg">
@@ -356,19 +356,19 @@ export default function StakingPage() {
                 <div className="bg-secondary/50 p-4 rounded-lg">
                   <div className="text-sm text-muted-foreground">Claimable</div>
                   <div className="text-xl font-bold text-green-400">
-                    {stats!.claimable.toLocaleString()} GRID
+                    {stats!.claimable.toLocaleString()} DYN
                   </div>
                 </div>
                 <div className="bg-secondary/50 p-4 rounded-lg">
                   <div className="text-sm text-muted-foreground">Est. Daily</div>
                   <div className="text-xl font-bold text-white">
-                    +{Math.floor(stats!.estimatedDailyReward).toLocaleString()} GRID
+                    +{Math.floor(stats!.estimatedDailyReward).toLocaleString()} DYN
                   </div>
                 </div>
               </div>
 
               <div className="text-sm text-muted-foreground">
-                Total claimed: {stats!.stake!.totalClaimed.toLocaleString()} GRID
+                Total claimed: {stats!.stake!.totalClaimed.toLocaleString()} DYN
               </div>
 
               <div className="flex gap-3">
@@ -410,7 +410,7 @@ export default function StakingPage() {
                   <span className="font-semibold">Unstaking in Progress</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {stats!.unstaking!.amount.toLocaleString()} GRID is being unstaked.
+                  {stats!.unstaking!.amount.toLocaleString()} DYN is being unstaked.
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {stats!.unstaking!.remainingHours > 0
@@ -435,8 +435,8 @@ export default function StakingPage() {
           ) : (
             <div className="space-y-4">
               <div className="bg-secondary/50 p-4 rounded-lg">
-                <div className="text-sm text-muted-foreground">Available GRID</div>
-                <div className="text-xl font-bold text-white">{walletGrid.toLocaleString()} GRID</div>
+                <div className="text-sm text-muted-foreground">Available DYN</div>
+                <div className="text-xl font-bold text-white">{walletGrid.toLocaleString()} DYN</div>
               </div>
 
               <div>
@@ -445,7 +445,7 @@ export default function StakingPage() {
                   type="number"
                   value={stakeAmount}
                   onChange={(e) => setStakeAmount(e.target.value)}
-                  placeholder="Enter GRID amount..."
+                  placeholder="Enter DYN amount..."
                   min="1"
                   className="w-full bg-secondary border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-muted-foreground focus:outline-none focus:border-accent"
                 />
@@ -485,7 +485,7 @@ export default function StakingPage() {
                 {actionLoading === 'stake' ? (
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                 ) : (
-                  'Stake GRID'
+                  'Stake DYN'
                 )}
               </button>
 
@@ -535,7 +535,7 @@ export default function StakingPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-white text-sm">
-                      {staker.amount.toLocaleString()} GRID
+                      {staker.amount.toLocaleString()} DYN
                     </div>
                     <div className="text-xs text-green-400">
                       +{staker.totalClaimed.toLocaleString()} claimed
@@ -549,7 +549,7 @@ export default function StakingPage() {
               <PiggyBank className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-white font-medium mb-1">No stakers yet</p>
               <p className="text-muted-foreground text-sm">
-                Be the first to stake GRID and earn rewards
+                Be the first to stake DYN and earn rewards
               </p>
             </div>
           )}
@@ -564,9 +564,9 @@ export default function StakingPage() {
             <div className="w-8 h-8 bg-purple-400/10 rounded-lg flex items-center justify-center mb-3">
               <PiggyBank className="w-4 h-4 text-purple-400" />
             </div>
-            <h3 className="font-medium text-white mb-1">Stake GRID</h3>
+            <h3 className="font-medium text-white mb-1">Stake DYN</h3>
             <p className="text-sm text-muted-foreground">
-              Deposit your GRID tokens into the rewards pool. No minimum required.
+              Deposit your DYN tokens into the rewards pool. No minimum required.
             </p>
           </div>
           <div className="p-4 bg-secondary/30 rounded-lg">

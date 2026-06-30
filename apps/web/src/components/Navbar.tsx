@@ -18,8 +18,8 @@ export default function Navbar() {
           <Zap className="w-5 h-5 text-white" />
         </div>
         <div>
-          <span className="text-xl font-black text-white tracking-tight">GRID</span>
-          <span className="text-xs text-[#E94560] font-bold ml-1">BETA</span>
+          <span className="text-xl font-black text-white tracking-tight">GRIDIRON</span>
+          <span className="text-xs text-[#E94560] font-bold ml-1">DYNASTY</span>
         </div>
       </Link>
 

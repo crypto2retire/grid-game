@@ -49,7 +49,7 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
         wallet: {
           create: {
             cash: STARTING_CASH,
-            gridTokens: 0,
+            dynTokens: 0,
           },
         },
         currencyLedger: {
@@ -225,7 +225,7 @@ export const getMe = async (userId: string): Promise<object> => {
       wallet: {
         select: {
           cash: true,
-          gridTokens: true,
+          dynTokens: true,
         },
       },
       teams: {

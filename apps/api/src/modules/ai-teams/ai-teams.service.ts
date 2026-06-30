@@ -31,7 +31,7 @@ export async function ensureAIOwner(): Promise<string> {
     owner = await prisma.user.create({
       data: { id: AI_OWNER_ID, email: 'ai@grid-game.system', username: 'ai-system', password: 'AI_SYSTEM_PASSWORD_HASH_NOT_USED_FOR_LOGIN', displayName: 'AI System', role: 'ADMIN' },
     });
-    await prisma.wallet.create({ data: { userId: AI_OWNER_ID, cash: 0, gridTokens: 0, solBalance: 0 } });
+    await prisma.wallet.create({ data: { userId: AI_OWNER_ID, cash: 0, dynTokens: 0, solBalance: 0 } });
   }
   return owner.id;
 }
@@ -77,7 +77,7 @@ export async function generateAllAITeams() {
       if (!team) {
         const gridPrice = getTierPrice(tier, difficulty);
         team = await prisma.team.create({
-          data: { name, sportId: 'american-football', ownerId, tier, isFree: tier === 'STATE_COLLEGE', isAI: true, aiDifficulty: difficulty, aiStrategy: getRandomStrategy(), purchasePrice: tier === 'STATE_COLLEGE' ? 0 : gridPrice, solPrice: getTeamSolPrice(tier), purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'GRID', formation: '4-3-3', tactics: { formation: '4-3-3', sportId: 'american-football' } },
+          data: { name, sportId: 'american-football', ownerId, tier, isFree: tier === 'STATE_COLLEGE', isAI: true, aiDifficulty: difficulty, aiStrategy: getRandomStrategy(), purchasePrice: tier === 'STATE_COLLEGE' ? 0 : gridPrice, solPrice: getTeamSolPrice(tier), purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'DYN', formation: '4-3-3', tactics: { formation: '4-3-3', sportId: 'american-football' } },
         });
         await prisma.venue.create({ data: { teamId: team.id, ownerId: AI_OWNER_ID, sportId: 'american-football', name: `${name} Stadium`, tier: getStadiumTier(tier), capacity: getStadiumCapacity(tier), ticketPrice: 15, condition: 80, prestige: getStadiumPrestige(tier), leaseRate: 0.10, purchasePrice: getVenuePurchasePrice(tier), solPrice: getVenueSolPrice(tier) } });
         await prisma.transportationAsset.create({ data: { teamId: team.id, ownerId: AI_OWNER_ID, tier: getTransportTier(tier), name: getTransportName(tier), operatingCost: getTransportCost(tier), fatigueReduction: getTransportFatigue(tier), prestige: getTransportPrestige(tier), purchasePrice: getTransportPurchasePrice(tier), solPrice: getTransportSolPrice(tier) } });

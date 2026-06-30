@@ -63,7 +63,7 @@ router.post(
     const schema = z.object({
       itemId: z.string().uuid(),
       playerId: z.string().uuid(),
-      currency: z.enum(['CASH', 'GRID']).default('CASH'),
+      currency: z.enum(['CASH', 'DYN']).default('CASH'),
     });
     const input = schema.parse(req.body);
     const userId = req.user!.id;
@@ -89,11 +89,11 @@ router.post(
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new AppError(404, 'Wallet not found');
 
-    const price = input.currency === 'GRID' ? marketItem.marketPriceGrid : marketItem.marketPriceCash;
+    const price = input.currency === 'DYN' ? marketItem.marketPriceGrid : marketItem.marketPriceCash;
     if (price <= 0) throw new AppError(400, 'This item is not for sale in the selected currency');
 
-    if (input.currency === 'GRID' && wallet.gridTokens < price) {
-      throw new AppError(400, `Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+    if (input.currency === 'DYN' && wallet.dynTokens < price) {
+      throw new AppError(400, `Insufficient DYN. Need ${price.toLocaleString()} DYN`);
     }
     if (input.currency === 'CASH' && wallet.cash < price) {
       throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
@@ -103,8 +103,8 @@ router.post(
       // Deduct from wallet
       const updatedWallet = await tx.wallet.update({
         where: { userId },
-        data: input.currency === 'GRID'
-          ? { gridTokens: { decrement: price } }
+        data: input.currency === 'DYN'
+          ? { dynTokens: { decrement: price } }
           : { cash: { decrement: price } },
       });
 
@@ -114,7 +114,7 @@ router.post(
           userId,
           currency: input.currency,
           amount: -price,
-          balanceAfter: input.currency === 'GRID' ? updatedWallet.gridTokens : updatedWallet.cash,
+          balanceAfter: input.currency === 'DYN' ? updatedWallet.dynTokens : updatedWallet.cash,
           reason: 'MARKET_PURCHASE',
           sourceType: 'ITEM',
           sourceId: input.itemId,

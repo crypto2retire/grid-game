@@ -991,7 +991,7 @@ router.post(
     const venueId = routeParam(req.params.venueId, 'venueId');
     const schema = z.object({
       price: z.number().int().positive(),
-      currency: z.enum(['CASH', 'GRID', 'SOL']).default('CASH'),
+      currency: z.enum(['CASH', 'DYN', 'SOL']).default('CASH'),
     });
     const input = schema.parse(req.body);
 
@@ -1073,9 +1073,9 @@ router.post(
       if (wallet.cash < price) {
         throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
       }
-    } else if (currency === 'GRID') {
-      if (wallet.gridTokens < price) {
-        throw new AppError(400, `Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+    } else if (currency === 'DYN') {
+      if (wallet.dynTokens < price) {
+        throw new AppError(400, `Insufficient DYN. Need ${price.toLocaleString()} DYN`);
       }
     } else {
       if ((wallet.solBalance || 0) < price) {
@@ -1097,10 +1097,10 @@ router.post(
         if (sellerId) {
           await tx.wallet.update({ where: { userId: sellerId }, data: { cash: { increment: price } } });
         }
-      } else if (currency === 'GRID') {
-        await tx.wallet.update({ where: { userId }, data: { gridTokens: { decrement: price } } });
+      } else if (currency === 'DYN') {
+        await tx.wallet.update({ where: { userId }, data: { dynTokens: { decrement: price } } });
         if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { gridTokens: { increment: price } } });
+          await tx.wallet.update({ where: { userId: sellerId }, data: { dynTokens: { increment: price } } });
         }
       } else {
         await tx.wallet.update({ where: { userId }, data: { solBalance: { decrement: price } } });
@@ -1152,7 +1152,7 @@ router.post(
     const transportId = routeParam(req.params.transportId, 'transportId');
     const schema = z.object({
       price: z.number().int().positive(),
-      currency: z.enum(['CASH', 'GRID', 'SOL']).default('CASH'),
+      currency: z.enum(['CASH', 'DYN', 'SOL']).default('CASH'),
     });
     const input = schema.parse(req.body);
 
@@ -1234,9 +1234,9 @@ router.post(
       if (wallet.cash < price) {
         throw new AppError(400, `Insufficient CASH. Need ${price.toLocaleString()} CASH`);
       }
-    } else if (currency === 'GRID') {
-      if (wallet.gridTokens < price) {
-        throw new AppError(400, `Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+    } else if (currency === 'DYN') {
+      if (wallet.dynTokens < price) {
+        throw new AppError(400, `Insufficient DYN. Need ${price.toLocaleString()} DYN`);
       }
     } else {
       if ((wallet.solBalance || 0) < price) {
@@ -1257,10 +1257,10 @@ router.post(
         if (sellerId) {
           await tx.wallet.update({ where: { userId: sellerId }, data: { cash: { increment: price } } });
         }
-      } else if (currency === 'GRID') {
-        await tx.wallet.update({ where: { userId }, data: { gridTokens: { decrement: price } } });
+      } else if (currency === 'DYN') {
+        await tx.wallet.update({ where: { userId }, data: { dynTokens: { decrement: price } } });
         if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { gridTokens: { increment: price } } });
+          await tx.wallet.update({ where: { userId: sellerId }, data: { dynTokens: { increment: price } } });
         }
       } else {
         await tx.wallet.update({ where: { userId }, data: { solBalance: { decrement: price } } });

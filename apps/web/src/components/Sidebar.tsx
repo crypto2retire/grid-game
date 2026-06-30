@@ -65,7 +65,7 @@ export default function Sidebar() {
       {/* Bottom Info */}
       <div className="mt-auto p-4">
         <div className="glass-card p-4 rounded-xl">
-          <div className="text-xs text-white/30 font-medium mb-2">GRID TOKEN</div>
+          <div className="text-xs text-white/30 font-medium mb-2">DYN TOKEN</div>
           <div className="text-lg font-black text-[#FFD700]">Coming Soon</div>
           <div className="text-xs text-white/30 mt-1">One coin across games</div>
         </div>

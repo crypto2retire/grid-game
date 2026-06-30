@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import GameMap, { type CityNode, type TravelRoute, type BusTravelState } from '../components/map/GameMap';
 
-// The GRID League world — 6 cities in a fictional sports universe
+// The Gridiron Dynasty world — 6 cities in a fictional sports universe
 const LEAGUE_CITIES: CityNode[] = [
   { id: 'grid-city', name: 'Grid City', x: 400, y: 240, region: 'Central', stadium: { name: 'The Gridiron', tier: 'PRO_STADIUM', capacity: 65000, prestige: 65, isLeased: false } },
   { id: 'iron-harbor', name: 'Iron Harbor', x: 200, y: 140, region: 'North', stadium: { name: 'Steel Yard', tier: 'REGIONAL_STADIUM', capacity: 35000, prestige: 50, isLeased: true } },
@@ -206,7 +206,7 @@ export default function WorldMapPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
           <Loader2 className="h-10 w-10 animate-spin text-[#E94560] mx-auto" />
-          <p className="text-sm text-slate-400">Loading the GRID world...</p>
+          <p className="text-sm text-slate-400">Loading the Gridiron world...</p>
         </div>
       </div>
     );
@@ -218,11 +218,11 @@ export default function WorldMapPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 mb-3">
-            <MapIcon className="h-3.5 w-3.5" /> GRID World
+            <MapIcon className="h-3.5 w-3.5" /> Gridiron World
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">League Map</h1>
           <p className="mt-2 text-sm text-slate-400 max-w-xl">
-            Explore the GRID League. Your stadium is your home base. Travel to away games, scout opponent venues, and upgrade your facilities to dominate the league.
+            Explore the Gridiron Dynasty. Your stadium is your home base. Travel to away games, scout opponent venues, and upgrade your facilities to dominate the league.
           </p>
         </div>
         {activeTeam && (

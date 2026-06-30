@@ -72,7 +72,7 @@ const tierLabels: Record<string, string> = {
 
 const currencyColors: Record<string, string> = {
   CASH: 'text-[#FFD700]',
-  GRID: 'text-purple-400',
+  DYN: 'text-purple-400',
   SOL: 'text-cyan-400',
 };
 
@@ -89,7 +89,7 @@ export default function AssetsPage() {
   const [leasingVenue, setLeasingVenue] = useState<string | null>(null);
   const [listingVenue, setListingVenue] = useState<string | null>(null);
   const [listPrice, setListPrice] = useState('');
-  const [listCurrency, setListCurrency] = useState<'CASH' | 'GRID' | 'SOL'>('CASH');
+  const [listCurrency, setListCurrency] = useState<'CASH' | 'DYN' | 'SOL'>('CASH');
   const [buyingId, setBuyingId] = useState<string | null>(null);
 
   const token = localStorage.getItem('token');
@@ -421,7 +421,7 @@ export default function AssetsPage() {
             <div>
               <label className="text-sm text-slate-400 mb-2 block">Currency</label>
               <div className="flex gap-2">
-                {(['CASH', 'GRID', 'SOL'] as const).map((c) => (
+                {(['CASH', 'DYN', 'SOL'] as const).map((c) => (
                   <button
                     key={c}
                     onClick={() => setListCurrency(c)}

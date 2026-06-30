@@ -153,7 +153,7 @@ export default function TrainingPage() {
           </div>
           <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl text-sm">
             <Zap className="w-4 h-4 text-purple-400" />
-            <span className="text-white font-medium">{wallet.gridTokens.toLocaleString()} GRID</span>
+            <span className="text-white font-medium">{wallet.dynTokens.toLocaleString()} DYN</span>
           </div>
         </div>
       </div>
@@ -294,7 +294,7 @@ export default function TrainingPage() {
       <div className="grid grid-cols-1 gap-4">
         {packages.map((pkg) => {
           const FocusIcon = FOCUS_ICONS[pkg.focusType] || Users;
-          const canAfford = wallet.gridTokens >= pkg.costGrid && wallet.cash >= pkg.costCash;
+          const canAfford = wallet.dynTokens >= pkg.costGrid && wallet.cash >= pkg.costCash;
           const check = canTrain(pkg.focusType === 'INDIVIDUAL' ? selectedPlayer : undefined);
           
           return (
@@ -331,7 +331,7 @@ export default function TrainingPage() {
               <div className="flex items-center justify-between pt-4 border-t border-white/10">
                 <div className="space-y-1">
                   {pkg.costGrid > 0 && (
-                    <div className="text-sm text-purple-400 font-bold">{pkg.costGrid.toLocaleString()} GRID</div>
+                    <div className="text-sm text-purple-400 font-bold">{pkg.costGrid.toLocaleString()} DYN</div>
                   )}
                   {pkg.costCash > 0 && (
                     <div className="text-sm text-[#FFD700] font-bold">{pkg.costCash.toLocaleString()} CASH</div>

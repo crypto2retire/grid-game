@@ -162,7 +162,7 @@ router.get(
         testMatches: testMatchCount,
         treasuryBalance: treasury?.balance || 0,
         gameOwnerCash: gameOwnerWallet?.cash || 0,
-        gameOwnerGrid: gameOwnerWallet?.gridTokens || 0,
+        gameOwnerGrid: gameOwnerWallet?.dynTokens || 0,
       },
     });
   })

@@ -8,7 +8,7 @@ interface User {
   role: string;
   wallet?: {
     cash: number;
-    gridTokens: number;
+    dynTokens: number;
   };
 }
 

@@ -72,7 +72,7 @@ export default function TransportGaragePage() {
   const [marketplaceTransport, setMarketplaceTransport] = useState<any[]>([]);
   const [listingTransport, setListingTransport] = useState<string | null>(null);
   const [listPrice, setListPrice] = useState('');
-  const [listCurrency, setListCurrency] = useState<'CASH' | 'GRID' | 'SOL'>('CASH');
+  const [listCurrency, setListCurrency] = useState<'CASH' | 'DYN' | 'SOL'>('CASH');
   const [buyingId, setBuyingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -426,7 +426,7 @@ export default function TransportGaragePage() {
                 <div>
                   <label className="text-sm text-slate-400 mb-2 block">Currency</label>
                   <div className="flex gap-2">
-                    {(['CASH', 'GRID', 'SOL'] as const).map((c) => (
+                    {(['CASH', 'DYN', 'SOL'] as const).map((c) => (
                       <button
                         key={c}
                         onClick={() => setListCurrency(c)}
@@ -475,7 +475,7 @@ export default function TransportGaragePage() {
                     <div className="text-xs text-slate-400 mt-1">{TIER_LABELS[t.tier] || t.tier}</div>
                     <div className="text-xs text-slate-500 mt-1">{t.operatingCost} CASH/trip • Fatigue -{t.fatigueReduction}</div>
                     <div className="mt-3 flex items-center justify-between">
-                      <span className={`font-bold ${t.saleCurrency === 'GRID' ? 'text-purple-400' : t.saleCurrency === 'SOL' ? 'text-cyan-400' : 'text-[#FFD700]'}`}>
+                      <span className={`font-bold ${t.saleCurrency === 'DYN' ? 'text-purple-400' : t.saleCurrency === 'SOL' ? 'text-cyan-400' : 'text-[#FFD700]'}`}>
                         {t.salePrice?.toLocaleString()} {t.saleCurrency}
                       </span>
                       <button

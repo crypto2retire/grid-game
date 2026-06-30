@@ -75,7 +75,7 @@ router.post(
   })
 );
 
-// Admin/debug: top up GRID tokens for testing
+// Admin/debug: top up DYN tokens for testing
 router.post(
   '/wallet/topup-grid',
   authMiddleware,
@@ -94,13 +94,13 @@ router.post(
     const updated = await prisma.$transaction(async (tx: any) => {
       const walletAfter = await tx.wallet.update({
         where: { userId },
-        data: { gridTokens: { increment: input.amount } },
+        data: { dynTokens: { increment: input.amount } },
       });
       await recordCurrencyLedger(tx, {
         userId,
-        currency: 'GRID',
+        currency: 'DYN',
         amount: input.amount,
-        balanceAfter: walletAfter.gridTokens,
+        balanceAfter: walletAfter.dynTokens,
         reason: 'TEST_TOPUP',
         sourceType: 'WALLET_TOPUP',
         sourceId: walletAfter.id,
@@ -109,11 +109,11 @@ router.post(
       return walletAfter;
     });
 
-    res.json({ status: 'success', data: updated, message: `Added ${input.amount.toLocaleString()} GRID` });
+    res.json({ status: 'success', data: updated, message: `Added ${input.amount.toLocaleString()} DYN` });
   })
 );
 
-// POST /api/economy/exchange — exchange Gold for GRID (paid users only)
+// POST /api/economy/exchange — exchange Gold for DYN (paid users only)
 router.post(
   '/exchange',
   authMiddleware,
@@ -133,7 +133,7 @@ router.post(
     if (!user?.hasPaidPurchase) {
       throw new AppError(
         403,
-        'Gold-to-GRID exchange requires a paid team purchase. Buy a college or pro team to unlock.'
+        'Gold-to-DYN exchange requires a paid team purchase. Buy a college or pro team to unlock.'
       );
     }
 
@@ -146,10 +146,10 @@ router.post(
       throw new AppError(400, `Insufficient CASH. Need ${input.amount.toLocaleString()} CASH`);
     }
 
-    // Exchange rate: 1000 CASH = 1 GRID (adjustable)
+    // Exchange rate: 1000 CASH = 1 DYN (adjustable)
     const gridReceived = Math.floor(input.amount / 1000);
     if (gridReceived <= 0) {
-      throw new AppError(400, 'Minimum exchange: 1,000 CASH for 1 GRID');
+      throw new AppError(400, 'Minimum exchange: 1,000 CASH for 1 DYN');
     }
 
     const updated = await prisma.$transaction(async (tx: any) => {
@@ -157,7 +157,7 @@ router.post(
         where: { userId },
         data: {
           cash: { decrement: input.amount },
-          gridTokens: { increment: gridReceived },
+          dynTokens: { increment: gridReceived },
         },
       });
 
@@ -166,17 +166,17 @@ router.post(
         currency: 'CASH',
         amount: -input.amount,
         balanceAfter: walletAfter.cash,
-        reason: 'GOLD_TO_GRID_EXCHANGE',
+        reason: 'GOLD_TO_DYN_EXCHANGE',
         sourceType: 'EXCHANGE',
         metadata: { exchangedAmount: input.amount, gridReceived },
       });
 
       await recordCurrencyLedger(tx, {
         userId,
-        currency: 'GRID',
+        currency: 'DYN',
         amount: gridReceived,
-        balanceAfter: walletAfter.gridTokens,
-        reason: 'GOLD_TO_GRID_EXCHANGE',
+        balanceAfter: walletAfter.dynTokens,
+        reason: 'GOLD_TO_DYN_EXCHANGE',
         sourceType: 'EXCHANGE',
         metadata: { exchangedAmount: input.amount, gridReceived },
       });
@@ -187,7 +187,7 @@ router.post(
     res.json({
       status: 'success',
       data: updated,
-      message: `Exchanged ${input.amount.toLocaleString()} CASH for ${gridReceived.toLocaleString()} GRID`,
+      message: `Exchanged ${input.amount.toLocaleString()} CASH for ${gridReceived.toLocaleString()} DYN`,
     });
   })
 );

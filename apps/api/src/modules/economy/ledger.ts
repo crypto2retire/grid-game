@@ -7,7 +7,7 @@ type TransactionClient = Omit<
 
 export const CURRENCIES = {
   CASH: 'CASH',
-  GRID: 'GRID',
+  DYN: 'DYN',
 } as const;
 
 export type CurrencyCode = typeof CURRENCIES[keyof typeof CURRENCIES];

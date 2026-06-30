@@ -183,7 +183,7 @@ interface EconomicAudit {
   aiOwnerGrid: number;
   solTreasuryBalance: number;
   totalSolInflows: number;
-  topWallets: Array<{ username: string; cash: number; gridTokens: number }>;
+  topWallets: Array<{ username: string; cash: number; dynTokens: number }>;
   tokenData: {
     tokenSymbol: string;
     tokenAddress: string | null;
@@ -537,7 +537,7 @@ export default function TestDashboardPage() {
                 <div className="text-white font-bold text-lg">{(megaSimResult.duration / 1000).toFixed(1)}s</div>
               </div>
               <div className="rounded-xl bg-white/5 p-3">
-                <div className="text-muted-foreground">GRID Spent</div>
+                <div className="text-muted-foreground">DYN Spent</div>
                 <div className="text-accent font-bold text-lg">{Math.round(megaSimResult.marketplaceSummary.totalGridSpent).toLocaleString()}</div>
               </div>
               <div className="rounded-xl bg-white/5 p-3">
@@ -561,7 +561,7 @@ export default function TestDashboardPage() {
                     <th className="pb-2 text-right">Equip</th>
                     <th className="pb-2 text-right">Player Vol</th>
                     <th className="pb-2 text-right">Team Vol</th>
-                    <th className="pb-2 text-right">GRID</th>
+                    <th className="pb-2 text-right">DYN</th>
                     <th className="pb-2 text-right">CASH</th>
                     <th className="pb-2 text-right">SOL</th>
                     <th className="pb-2 text-right">Inj</th>
@@ -1048,7 +1048,7 @@ export default function TestDashboardPage() {
                 <tr className="text-left text-muted-foreground border-b border-white/10">
                   <th className="pb-2">User</th>
                   <th className="pb-2 text-right">CASH</th>
-                  <th className="pb-2 text-right">GRID</th>
+                  <th className="pb-2 text-right">DYN</th>
                 </tr>
               </thead>
               <tbody>
@@ -1056,7 +1056,7 @@ export default function TestDashboardPage() {
                   <tr key={i} className="border-b border-white/5">
                     <td className="py-2 text-white">{w.username}</td>
                     <td className="py-2 text-right text-white">{w.cash.toLocaleString()}</td>
-                    <td className="py-2 text-right text-accent">{w.gridTokens.toLocaleString()}</td>
+                    <td className="py-2 text-right text-accent">{w.dynTokens.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1077,7 +1077,7 @@ export default function TestDashboardPage() {
               </div>
             </div>
             <div className="mt-3 text-xs text-purple-300">
-              SOL purchases go to treasury for payroll, marketing, dev, and infrastructure. Never sell $GRID.
+              SOL purchases go to treasury for payroll, marketing, dev, and infrastructure. Never sell $DYN.
             </div>
           </div>
 

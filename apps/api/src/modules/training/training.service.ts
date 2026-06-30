@@ -124,8 +124,8 @@ export async function startTraining(input: TrainingInput) {
     throw new Error('Wallet not found');
   }
 
-  if (wallet.gridTokens < package_.costGrid) {
-    throw new Error(`Insufficient GRID tokens. Need ${package_.costGrid.toLocaleString()} GRID`);
+  if (wallet.dynTokens < package_.costGrid) {
+    throw new Error(`Insufficient DYN tokens. Need ${package_.costGrid.toLocaleString()} DYN`);
   }
   if (wallet.cash < package_.costCash) {
     throw new Error(`Insufficient CASH. Need ${package_.costCash.toLocaleString()} CASH`);
@@ -206,7 +206,7 @@ export async function startTraining(input: TrainingInput) {
     const updatedWallet = await tx.wallet.update({
       where: { userId },
       data: {
-        gridTokens: { decrement: package_.costGrid },
+        dynTokens: { decrement: package_.costGrid },
         cash: { decrement: package_.costCash },
       },
     });
@@ -215,17 +215,17 @@ export async function startTraining(input: TrainingInput) {
     if (package_.costGrid > 0) {
       await recordCurrencyLedger(tx, {
         userId,
-        currency: 'GRID',
+        currency: 'DYN',
         amount: -package_.costGrid,
-        balanceAfter: updatedWallet.gridTokens,
+        balanceAfter: updatedWallet.dynTokens,
         reason: 'TRAINING_PACKAGE',
         sourceType: 'TRAINING',
         sourceId: packageId,
         metadata: { teamId, focusType: package_.focusType },
       });
       // 90% to treasury, 10% burned
-      await processTreasuryInflow(tx, 'GRID', Math.round(package_.costGrid * 0.9), 'TRAINING_PURCHASE', packageId);
-      await processBurn(tx, 'GRID', Math.round(package_.costGrid * 0.1), 'TRAINING_PURCHASE', packageId);
+      await processTreasuryInflow(tx, 'DYN', Math.round(package_.costGrid * 0.9), 'TRAINING_PURCHASE', packageId);
+      await processBurn(tx, 'DYN', Math.round(package_.costGrid * 0.1), 'TRAINING_PURCHASE', packageId);
     }
 
     if (package_.costCash > 0) {

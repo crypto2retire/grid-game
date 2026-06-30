@@ -16,7 +16,7 @@ export default function WelcomeModal() {
 
   const steps: WelcomeStep[] = [
     {
-      title: 'Welcome to Grid Sports',
+      title: 'Welcome to Gridiron Dynasty',
       icon: Trophy,
       body: (
         <div className="space-y-3">

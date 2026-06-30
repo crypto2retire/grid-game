@@ -12,7 +12,7 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   GAME_OWNER_USER_ID: z.string().default('ai-system-owner-001'),
   PUMPFUN_TOKEN_ADDRESS: z.string().optional(),
-  PUMPFUN_TOKEN_SYMBOL: z.string().default('GRID'),
+  PUMPFUN_TOKEN_SYMBOL: z.string().default('DYN'),
   PUMPFUN_TRADING_FEE_PCT: z.string().default('0.01').transform(Number), // 1% default
   PUMPFUN_CREATOR_SHARE_PCT: z.string().default('0.50').transform(Number), // 50% of fees to creator
 });

@@ -139,7 +139,7 @@ export async function getTierEligibility(userId: string) {
  * Buy an AI team: transfer ownership to the buyer.
  * Progressive pricing: each additional team costs 2x the base price.
  */
-export async function buyTeamFromCatalog(userId: string, teamId: string, currency: 'GRID' | 'SOL') {
+export async function buyTeamFromCatalog(userId: string, teamId: string, currency: 'DYN' | 'SOL') {
   const team = await prisma.team.findFirst({
     where: { id: teamId, isAI: true, ownerId: AI_OWNER_ID },
     include: { venue: true },
@@ -159,8 +159,8 @@ export async function buyTeamFromCatalog(userId: string, teamId: string, currenc
   const basePrice = team.purchasePrice || 0;
   const price = calculateTeamSlotPrice(basePrice, teamCount);
   
-  if (currency === 'GRID' && wallet.gridTokens < price) {
-    throw new Error(`Insufficient GRID. Need ${price.toLocaleString()} GRID (slot ${teamCount + 1}, progressive pricing applied)`);
+  if (currency === 'DYN' && wallet.dynTokens < price) {
+    throw new Error(`Insufficient DYN. Need ${price.toLocaleString()} DYN (slot ${teamCount + 1}, progressive pricing applied)`);
   }
   if (currency === 'SOL' && wallet.solBalance < price) {
     throw new Error(`Insufficient SOL. Need ${price.toLocaleString()} SOL (slot ${teamCount + 1}, progressive pricing applied)`);
@@ -176,8 +176,8 @@ export async function buyTeamFromCatalog(userId: string, teamId: string, currenc
     // Deduct payment
     const updatedWallet = await tx.wallet.update({
       where: { userId },
-      data: currency === 'GRID'
-        ? { gridTokens: { decrement: price } }
+      data: currency === 'DYN'
+        ? { dynTokens: { decrement: price } }
         : { solBalance: { decrement: price } },
     });
 
@@ -186,17 +186,17 @@ export async function buyTeamFromCatalog(userId: string, teamId: string, currenc
       userId,
       currency,
       amount: -price,
-      balanceAfter: currency === 'GRID' ? updatedWallet.gridTokens : Math.round(updatedWallet.solBalance),
+      balanceAfter: currency === 'DYN' ? updatedWallet.dynTokens : Math.round(updatedWallet.solBalance),
       reason: 'TEAM_PURCHASE',
       sourceType: 'TEAM_CATALOG',
       sourceId: teamId,
       metadata: { tier: team.tier, currency, teamId, slotIndex: teamCount, basePrice, progressivePrice: price },
     });
 
-    // For GRID purchases: 50% to rewards pool, 50% burned
-    if (currency === 'GRID') {
-      await processTreasuryInflow(tx, 'GRID', Math.round(price * 0.5), 'TEAM_PURCHASE_GRID', teamId);
-      await processBurn(tx, 'GRID', Math.round(price * 0.5), 'TEAM_PURCHASE_GRID', teamId);
+    // For DYN purchases: 50% to rewards pool, 50% burned
+    if (currency === 'DYN') {
+      await processTreasuryInflow(tx, 'DYN', Math.round(price * 0.5), 'TEAM_PURCHASE_DYN', teamId);
+      await processBurn(tx, 'DYN', Math.round(price * 0.5), 'TEAM_PURCHASE_DYN', teamId);
     }
 
     // Transfer ownership

@@ -64,7 +64,7 @@ export function calculateClaimableRewards(
 }
 
 /**
- * Stake GRID tokens into the rewards pool.
+ * Stake DYN tokens into the rewards pool.
  */
 export async function stakeGrid(userId: string, amount: number) {
   if (amount <= 0) {
@@ -75,8 +75,8 @@ export async function stakeGrid(userId: string, amount: number) {
   if (!wallet) {
     throw new Error('Wallet not found');
   }
-  if (wallet.gridTokens < amount) {
-    throw new Error(`Insufficient GRID. Need ${amount.toLocaleString()} GRID`);
+  if (wallet.dynTokens < amount) {
+    throw new Error(`Insufficient DYN. Need ${amount.toLocaleString()} DYN`);
   }
 
   const existingStake = await getUserStake(userId);
@@ -85,14 +85,14 @@ export async function stakeGrid(userId: string, amount: number) {
     // Deduct from wallet
     const updatedWallet = await tx.wallet.update({
       where: { userId },
-      data: { gridTokens: { decrement: amount } },
+      data: { dynTokens: { decrement: amount } },
     });
 
     await recordCurrencyLedger(tx, {
       userId,
-      currency: 'GRID',
+      currency: 'DYN',
       amount: -amount,
-      balanceAfter: updatedWallet.gridTokens,
+      balanceAfter: updatedWallet.dynTokens,
       reason: 'STAKE_DEPOSIT',
       sourceType: 'STAKING',
       sourceId: 'main',
@@ -124,14 +124,14 @@ export async function stakeGrid(userId: string, amount: number) {
       if (claimable > 0) {
         await tx.wallet.update({
           where: { userId },
-          data: { gridTokens: { increment: claimable } },
+          data: { dynTokens: { increment: claimable } },
         });
 
         await recordCurrencyLedger(tx, {
           userId,
-          currency: 'GRID',
+          currency: 'DYN',
           amount: claimable,
-          balanceAfter: updatedWallet.gridTokens + claimable,
+          balanceAfter: updatedWallet.dynTokens + claimable,
           reason: 'STAKE_REWARD',
           sourceType: 'STAKING',
           sourceId: 'main',
@@ -192,14 +192,14 @@ export async function claimRewards(userId: string) {
     // Add to wallet
     const wallet = await tx.wallet.update({
       where: { userId },
-      data: { gridTokens: { increment: claimable } },
+      data: { dynTokens: { increment: claimable } },
     });
 
     await recordCurrencyLedger(tx, {
       userId,
-      currency: 'GRID',
+      currency: 'DYN',
       amount: claimable,
-      balanceAfter: wallet.gridTokens,
+      balanceAfter: wallet.dynTokens,
       reason: 'STAKE_REWARD',
       sourceType: 'STAKING',
       sourceId: 'main',
@@ -238,7 +238,7 @@ export async function requestUnstake(userId: string) {
 }
 
 /**
- * Complete unstake after cooldown. Returns GRID to wallet.
+ * Complete unstake after cooldown. Returns DYN to wallet.
  */
 export async function completeUnstake(userId: string) {
   const stake = await prisma.userStake.findFirst({
@@ -277,14 +277,14 @@ export async function completeUnstake(userId: string) {
     const totalReturn = stake.amount + claimable;
     const wallet = await tx.wallet.update({
       where: { userId },
-      data: { gridTokens: { increment: totalReturn } },
+      data: { dynTokens: { increment: totalReturn } },
     });
 
     await recordCurrencyLedger(tx, {
       userId,
-      currency: 'GRID',
+      currency: 'DYN',
       amount: totalReturn,
-      balanceAfter: wallet.gridTokens,
+      balanceAfter: wallet.dynTokens,
       reason: 'STAKE_WITHDRAWAL',
       sourceType: 'STAKING',
       sourceId: 'main',

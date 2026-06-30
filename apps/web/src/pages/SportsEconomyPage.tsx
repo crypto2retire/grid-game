@@ -6,7 +6,7 @@ type SportConfig = {
   id: string;
   label: string;
   launchPhase: number;
-  primaryToken: 'GRID';
+  primaryToken: 'DYN';
   marketPosition: string;
   roster: { starters: number; bench: number; maxRoster: number };
   positions: string[];
@@ -36,7 +36,7 @@ const fallbackPayload: SportsPayload = {
       id: 'american-football',
       label: 'Gridiron Franchises',
       launchPhase: 1,
-      primaryToken: 'GRID',
+      primaryToken: 'DYN',
       marketPosition: 'Launch sport for testers familiar with American football: franchises, combines, weekly matchups, and player development.',
       roster: { starters: 22, bench: 21, maxRoster: 43 },
       positions: ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'],
@@ -50,8 +50,8 @@ const fallbackPayload: SportsPayload = {
     },
   ],
   roadmap: {
-    positioning: 'Solana-powered multi-sport management economy with one shared GRID token.',
-    tokenThesis: 'Every sport adds utility sinks, asset demand, and marketplace volume for the same primary GRID token instead of fragmenting liquidity.',
+    positioning: 'Solana-powered multi-sport management economy with one shared DYN token.',
+    tokenThesis: 'Every sport adds utility sinks, asset demand, and marketplace volume for the same primary DYN token instead of fragmenting liquidity.',
     buildPrinciples: ['sport-agnostic core engine', 'ledger-first economy accounting', 'regular users earn through effort and skill', 'whales fund infrastructure and contracts'],
     commercialReadinessGates: ['append-only currency ledger before real-money rewards', 'admin economy dashboard sourced from live ledger rows', 'anti-bot and abuse monitoring before cash-out'],
   },
@@ -108,7 +108,7 @@ export default function SportsEconomyPage() {
   const economyCards = [
     { label: 'Regular path', value: 'Effort → assets → earnings', icon: Users, copy: 'Scouting, training, amateur cups, service contracts, and prospect sales. All earnings come from game-day revenue, sponsors, and league standings.' },
     { label: 'Whale path', value: 'Capital → infrastructure', icon: Crown, copy: 'Facilities, franchises, sponsor cups, scholarships, and premium widgets. Infrastructure creates revenue streams that all players use.' },
-    { label: 'Shared token', value: '$GRID across sports', icon: BadgeDollarSign, copy: payload.roadmap.tokenThesis },
+    { label: 'Shared token', value: '$DYN across sports', icon: BadgeDollarSign, copy: payload.roadmap.tokenThesis },
     { label: 'AI layer', value: 'AI scouts + leagues', icon: BrainCircuit, copy: 'AI keeps fixtures, scouting boards, and market activity moving when users are offline.' },
   ];
 
@@ -190,7 +190,7 @@ export default function SportsEconomyPage() {
                   <span className="block font-bold">{sport.label}</span>
                   <span className="text-xs text-muted-foreground">{formatSportId(sport.id)} • Phase {sport.launchPhase}</span>
                 </span>
-                <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold">GRID</span>
+                <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold">DYN</span>
               </button>
             ))}
           </div>

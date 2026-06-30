@@ -56,7 +56,7 @@ router.post(
     const schema = z.object({
       teamId: z.string(),
       price: z.number().int().min(1),
-      currency: z.enum(['GRID', 'SOL']),
+      currency: z.enum(['DYN', 'SOL']),
     });
     const input = schema.parse(req.body);
 

@@ -66,7 +66,7 @@ interface Player {
 
 interface WalletData {
   cash: number;
-  gridTokens: number;
+  dynTokens: number;
 }
 
 interface GameState {
@@ -145,7 +145,7 @@ export const useGameStore = create<GameState>()(
       setPlayersError: (playersError) => set({ playersError }),
       
       // Wallet
-      wallet: { cash: 0, gridTokens: 0 },
+      wallet: { cash: 0, dynTokens: 0 },
       walletLoading: false,
       setWallet: (wallet) => set({ wallet }),
       setWalletLoading: (walletLoading) => set({ walletLoading }),
@@ -222,7 +222,7 @@ export const useGameStore = create<GameState>()(
           });
           if (res.ok) {
             const data = await res.json();
-            set({ wallet: data.data || { cash: 0, gridTokens: 0 }, walletLoading: false, lastSync: Date.now() });
+            set({ wallet: data.data || { cash: 0, dynTokens: 0 }, walletLoading: false, lastSync: Date.now() });
           } else {
             set({ walletLoading: false });
           }

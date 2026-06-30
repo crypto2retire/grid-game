@@ -118,7 +118,7 @@ const dashboardOptions: DashboardOption[] = [
   {
     title: 'Sports Economy',
     eyebrow: 'Growth roadmap',
-    description: 'Each sport launches as its own game, while one shared GRID coin powers utility across football, soccer, basketball, baseball, and future branches.',
+    description: 'Each sport launches as its own game, while one shared DYN coin powers utility across football, soccer, basketball, baseball, and future branches.',
     why: 'This explains separate game launches, shared coin utility, regular-user paths, whale/capital paths, token sinks, and expansion plans.',
     start: 'Use when you want the big-picture strategy.',
     path: '/sports-economy',
@@ -131,7 +131,7 @@ const dashboardOptions: DashboardOption[] = [
   {
     title: 'Wallet',
     eyebrow: 'Track balances',
-    description: 'Review in-game currency, future GRID token actions, and transaction readiness.',
+    description: 'Review in-game currency, future DYN token actions, and transaction readiness.',
     why: 'Wallet visibility makes costs, claims, deposits, and future Solana settlement easier to trust.',
     start: 'Use before any marketplace or token action.',
     path: '/wallet',
@@ -235,7 +235,7 @@ export default function DashboardPage() {
         <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="mb-6 flex items-center gap-3 text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin text-accent" />
-            Loading your GRID command center...
+            Loading your DYN command center...
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[1, 2, 3, 4].map((item) => (
@@ -519,7 +519,7 @@ export default function DashboardPage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100">
               <BrainCircuit className="h-3.5 w-3.5" /> Economy explained
             </div>
-            <h2 className="mt-3 text-2xl font-black text-white">How the GRID economy should make sense</h2>
+            <h2 className="mt-3 text-2xl font-black text-white">How the DYN economy should make sense</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
               AI and crypto are the engine under the hood, not the confusing theme. Players should always understand what an action costs, what it can improve, and where rewards or marketplace demand come from.
             </p>

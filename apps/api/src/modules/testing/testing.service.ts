@@ -270,7 +270,7 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
   for (const team of teamSellers) {
     if (team.purchasePrice && team.purchasePrice > 0) {
       const salePrice = Math.round(team.purchasePrice * 1.2); // 20% markup
-      const currency = Math.random() > 0.5 ? 'GRID' : 'CASH';
+      const currency = Math.random() > 0.5 ? 'DYN' : 'CASH';
       try {
         await prisma.teamMarketplaceListing.create({
           data: {
@@ -287,7 +287,7 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
         });
         marketplaceActivity.teamMarketplaceSales++;
         totalMarketplaceVolume += salePrice;
-        if (currency === 'GRID') totalGridSpent += salePrice;
+        if (currency === 'DYN') totalGridSpent += salePrice;
         else totalCashSpent += salePrice;
       } catch (err: any) {
         // Ignore
@@ -667,7 +667,7 @@ export async function getEconomicAudit() {
     orderBy: { cash: 'desc' }, take: 20,
   });
   const totalPlayerCash = await prisma.wallet.aggregate({ _sum: { cash: true } });
-  const totalPlayerGrid = await prisma.wallet.aggregate({ _sum: { gridTokens: true } });
+  const totalPlayerGrid = await prisma.wallet.aggregate({ _sum: { dynTokens: true } });
   const gameOwnerWallet = await prisma.wallet.findUnique({ where: { userId: env.GAME_OWNER_USER_ID } });
   const aiOwnerWallet = await prisma.wallet.findUnique({ where: { userId: 'ai-system-owner-001' } });
   const recentTransactions = await prisma.treasuryTransaction.findMany({
@@ -701,14 +701,14 @@ export async function getEconomicAudit() {
   return {
     treasuryBalance: treasury?.balance || 0,
     totalPlayerCash: totalPlayerCash._sum.cash || 0,
-    totalPlayerGrid: totalPlayerGrid._sum.gridTokens || 0,
+    totalPlayerGrid: totalPlayerGrid._sum.dynTokens || 0,
     gameOwnerCash: gameOwnerWallet?.cash || 0,
-    gameOwnerGrid: gameOwnerWallet?.gridTokens || 0,
+    gameOwnerGrid: gameOwnerWallet?.dynTokens || 0,
     aiOwnerCash: aiOwnerWallet?.cash || 0,
-    aiOwnerGrid: aiOwnerWallet?.gridTokens || 0,
+    aiOwnerGrid: aiOwnerWallet?.dynTokens || 0,
     solTreasuryBalance: solTreasury?.balance || 0,
     totalSolInflows: solTreasury?.totalInflows || 0,
-    topWallets: allWallets.map((w) => ({ username: w.user?.username || w.userId, cash: w.cash, gridTokens: w.gridTokens })),
+    topWallets: allWallets.map((w) => ({ username: w.user?.username || w.userId, cash: w.cash, dynTokens: w.dynTokens })),
     recentTreasuryTransactions: recentTransactions,
     recentFinanceSnapshots: recentFinance,
     solTransactions,
@@ -777,11 +777,11 @@ export async function resetEconomy() {
   const aiOwnerId = 'ai-system-owner-001';
   await prisma.wallet.updateMany({
     where: { userId: aiOwnerId },
-    data: { cash: 0, gridTokens: 0, solBalance: 0 },
+    data: { cash: 0, dynTokens: 0, solBalance: 0 },
   });
   await prisma.wallet.updateMany({
     where: { userId: { not: aiOwnerId } },
-    data: { cash: 1000, gridTokens: 0 },
+    data: { cash: 1000, dynTokens: 0 },
   });
   await prisma.gameTreasury.updateMany({
     where: { currency: 'CASH' },
@@ -975,7 +975,7 @@ async function createSimUser(activityLevel: 'whale' | 'active' | 'casual' | 'ina
   });
 
   const wallet = await prisma.wallet.create({
-    data: { userId, cash: cfg.walletCash, gridTokens: cfg.walletGrid, solBalance: cfg.walletSol },
+    data: { userId, cash: cfg.walletCash, dynTokens: cfg.walletGrid, solBalance: cfg.walletSol },
   });
 
   return { id: userId, username, email, displayName, activityLevel, walletId: wallet.id };
@@ -993,7 +993,7 @@ async function assignTeamToUser(user: SimUser, season: number): Promise<any> {
       tier, isFree: tier === 'STATE_COLLEGE', isAI: false,
       formation: '4-3-3', tactics: { formation: '4-3-3', sportId: 'american-football' },
       purchasePrice: tier === 'STATE_COLLEGE' ? 0 : randomInt(5000, 500000),
-      purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'GRID',
+      purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'DYN',
     },
   });
 
@@ -1042,7 +1042,7 @@ interface PumpFunSimState {
 function createPumpFunSimState(): PumpFunSimState {
   return {
     tokenAddress: env.PUMPFUN_TOKEN_ADDRESS || null,
-    tokenSymbol: env.PUMPFUN_TOKEN_SYMBOL || 'GRID',
+    tokenSymbol: env.PUMPFUN_TOKEN_SYMBOL || 'DYN',
     currentPrice: 0.0001, // Starting price $0.0001
     marketCap: 100000,
     volume24h: 0,
@@ -1357,7 +1357,7 @@ async function simulateSingleSeason(
               sellerId: user.id,
               teamId: teamToSell.id,
               price: Math.round(teamToSell.purchasePrice * 1.2),
-              currency: Math.random() > 0.5 ? 'GRID' : 'CASH',
+              currency: Math.random() > 0.5 ? 'DYN' : 'CASH',
               foundationTaxPaid: Math.round(teamToSell.purchasePrice * 0.15),
               burnAmount: Math.round(teamToSell.purchasePrice * 0.05),
               sellerReceives: Math.round(teamToSell.purchasePrice * 0.8),

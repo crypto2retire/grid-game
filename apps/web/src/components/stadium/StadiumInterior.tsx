@@ -202,7 +202,7 @@ export default function StadiumInterior({ data, onSectionClick, selectedSectionI
           {/* End zones */}
           <rect x={cx - fw / 2} y={cy - fh / 2} width="30" height={fh} fill="#E94560" opacity="0.3" rx="2" />
           <rect x={cx + fw / 2 - 30} y={cy - fh / 2} width="30" height={fh} fill="#E94560" opacity="0.3" rx="2" />
-          <text x={cx - fw / 2 + 15} y={cy + 3} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="800" style={{ pointerEvents: 'none' }}>GRID</text>
+          <text x={cx - fw / 2 + 15} y={cy + 3} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="800" style={{ pointerEvents: 'none' }}>DYN</text>
           <text x={cx + fw / 2 - 15} y={cy + 3} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="8" fontWeight="800" style={{ pointerEvents: 'none' }}>CITY</text>
         </g>
 
@@ -421,7 +421,7 @@ export default function StadiumInterior({ data, onSectionClick, selectedSectionI
               00 - 00
             </text>
             <text x={cx} y={cy + fh / 2 + 42} textAnchor="middle" fill="#fbbf24" fontSize="6" fontWeight="700" style={{ pointerEvents: 'none' }}>
-              GRID LEAGUE
+              DYN LEAGUE
             </text>
           </g>
         )}

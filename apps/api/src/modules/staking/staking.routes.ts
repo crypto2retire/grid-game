@@ -34,7 +34,7 @@ router.get(
   })
 );
 
-// POST /api/staking/stake — stake GRID tokens
+// POST /api/staking/stake — stake DYN tokens
 router.post(
   '/stake',
   authMiddleware,
@@ -49,7 +49,7 @@ router.post(
     res.status(201).json({
       status: 'success',
       data: result,
-      message: `Staked ${input.amount.toLocaleString()} GRID successfully`,
+      message: `Staked ${input.amount.toLocaleString()} DYN successfully`,
     });
   })
 );
@@ -71,7 +71,7 @@ router.post(
       res.json({
         status: 'success',
         data: result,
-        message: `Claimed ${result.claimed.toLocaleString()} GRID rewards`,
+        message: `Claimed ${result.claimed.toLocaleString()} DYN rewards`,
       });
     }
   })
@@ -102,7 +102,7 @@ router.post(
     res.json({
       status: 'success',
       data: result,
-      message: `Unstake complete. ${result.returned.toLocaleString()} GRID returned to wallet.`,
+      message: `Unstake complete. ${result.returned.toLocaleString()} DYN returned to wallet.`,
     });
   })
 );
@@ -128,7 +128,7 @@ router.post(
     res.json({
       status: 'success',
       data: result,
-      message: `Funded pool with ${input.amount.toLocaleString()} GRID`,
+      message: `Funded pool with ${input.amount.toLocaleString()} DYN`,
     });
   })
 );

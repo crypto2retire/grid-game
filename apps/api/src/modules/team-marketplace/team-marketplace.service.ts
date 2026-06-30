@@ -35,7 +35,7 @@ export async function listTeamForSale(
   sellerId: string,
   teamId: string,
   price: number,
-  currency: 'GRID' | 'SOL'
+  currency: 'DYN' | 'SOL'
 ) {
   if (price <= 0) {
     throw new Error('Price must be greater than 0');
@@ -136,10 +136,10 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
   }
 
   const price = listing.price;
-  const currency = listing.currency as 'GRID' | 'SOL';
+  const currency = listing.currency as 'DYN' | 'SOL';
 
-  if (currency === 'GRID' && buyerWallet.gridTokens < price) {
-    throw new Error(`Insufficient GRID. Need ${price.toLocaleString()} GRID`);
+  if (currency === 'DYN' && buyerWallet.dynTokens < price) {
+    throw new Error(`Insufficient DYN. Need ${price.toLocaleString()} DYN`);
   }
   if (currency === 'SOL' && buyerWallet.solBalance < price) {
     throw new Error(`Insufficient SOL. Need ${price.toLocaleString()} SOL`);
@@ -149,8 +149,8 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
     // Deduct from buyer
     const updatedBuyerWallet = await tx.wallet.update({
       where: { userId: buyerId },
-      data: currency === 'GRID'
-        ? { gridTokens: { decrement: price } }
+      data: currency === 'DYN'
+        ? { dynTokens: { decrement: price } }
         : { solBalance: { decrement: price } },
     });
 
@@ -158,7 +158,7 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
       userId: buyerId,
       currency,
       amount: -price,
-      balanceAfter: currency === 'GRID' ? updatedBuyerWallet.gridTokens : Math.round(updatedBuyerWallet.solBalance),
+      balanceAfter: currency === 'DYN' ? updatedBuyerWallet.dynTokens : Math.round(updatedBuyerWallet.solBalance),
       reason: 'MARKETPLACE_TEAM_PURCHASE',
       sourceType: 'TEAM_MARKETPLACE',
       sourceId: listingId,
@@ -169,8 +169,8 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
     if (listing.sellerReceives > 0) {
       const sellerWallet = await tx.wallet.update({
         where: { userId: listing.sellerId },
-        data: currency === 'GRID'
-          ? { gridTokens: { increment: listing.sellerReceives } }
+        data: currency === 'DYN'
+          ? { dynTokens: { increment: listing.sellerReceives } }
           : { solBalance: { increment: listing.sellerReceives } },
       });
 
@@ -178,7 +178,7 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
         userId: listing.sellerId,
         currency,
         amount: listing.sellerReceives,
-        balanceAfter: currency === 'GRID' ? sellerWallet.gridTokens : Math.round(sellerWallet.solBalance),
+        balanceAfter: currency === 'DYN' ? sellerWallet.dynTokens : Math.round(sellerWallet.solBalance),
         reason: listing.team.isAI ? 'AI_TEAM_PRIMARY_SALE' : 'MARKETPLACE_TEAM_SALE',
         sourceType: 'TEAM_MARKETPLACE',
         sourceId: listingId,
@@ -186,18 +186,18 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
       });
     }
 
-    // Foundation tax (15%) → rewards pool if GRID, operations if SOL
+    // Foundation tax (15%) → rewards pool if DYN, operations if SOL
     if (listing.foundationTaxPaid > 0) {
-      if (currency === 'GRID') {
-        await processTreasuryInflow(tx, 'GRID', Math.round(listing.foundationTaxPaid * 0.5), 'TEAM_MARKETPLACE_TAX', listingId);
-        await processBurn(tx, 'GRID', Math.round(listing.foundationTaxPaid * 0.5), 'TEAM_MARKETPLACE_TAX', listingId);
+      if (currency === 'DYN') {
+        await processTreasuryInflow(tx, 'DYN', Math.round(listing.foundationTaxPaid * 0.5), 'TEAM_MARKETPLACE_TAX', listingId);
+        await processBurn(tx, 'DYN', Math.round(listing.foundationTaxPaid * 0.5), 'TEAM_MARKETPLACE_TAX', listingId);
       }
       // SOL tax goes to game operations
     }
 
     // Burn (5%)
-    if (listing.burnAmount > 0 && currency === 'GRID') {
-      await processBurn(tx, 'GRID', listing.burnAmount, 'TEAM_MARKETPLACE_BURN', listingId);
+    if (listing.burnAmount > 0 && currency === 'DYN') {
+      await processBurn(tx, 'DYN', listing.burnAmount, 'TEAM_MARKETPLACE_BURN', listingId);
     }
 
     // Transfer team ownership

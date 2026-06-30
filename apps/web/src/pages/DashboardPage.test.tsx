@@ -75,6 +75,6 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'Marketplace' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Sports Economy' })).toBeInTheDocument();
     expect(screen.getAllByText(/Why it matters/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/How the GRID economy should make sense/i)).toBeInTheDocument();
+    expect(screen.getByText(/How the DYN economy should make sense/i)).toBeInTheDocument();
   });
 });

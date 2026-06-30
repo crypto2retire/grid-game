@@ -4,7 +4,7 @@ export interface SportConfig {
   id: SportId;
   label: string;
   launchPhase: number;
-  primaryToken: 'GRID';
+  primaryToken: 'DYN';
   marketPosition: string;
   roster: {
     starters: number;
@@ -30,7 +30,7 @@ export const SPORT_CONFIGS: SportConfig[] = [
     id: 'soccer',
     label: 'Global Football Clubs',
     launchPhase: 2,
-    primaryToken: 'GRID',
+    primaryToken: 'DYN',
     marketPosition: 'Worldwide expansion sport after the American football pilot with academies, transfers, loans, cups, and promotion/relegation.',
     roster: { starters: 11, bench: 7, maxRoster: 28 },
     positions: ['GK', 'DEF', 'MID', 'FWD'],
@@ -46,7 +46,7 @@ export const SPORT_CONFIGS: SportConfig[] = [
     id: 'american-football',
     label: 'Gridiron Franchises',
     launchPhase: 1,
-    primaryToken: 'GRID',
+    primaryToken: 'DYN',
     marketPosition: 'Launch sport for testers familiar with American football: US fantasy-football aligned management with franchises, combines, playbooks, and weekly high-stakes seasons.',
     roster: { starters: 22, bench: 18, maxRoster: 52 },
     positions: ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'],
@@ -62,7 +62,7 @@ export const SPORT_CONFIGS: SportConfig[] = [
     id: 'basketball',
     label: 'Arena Basketball',
     launchPhase: 3,
-    primaryToken: 'GRID',
+    primaryToken: 'DYN',
     marketPosition: 'Star-driven player-card economy where small rosters make rare talent and facility access highly legible.',
     roster: { starters: 5, bench: 7, maxRoster: 15 },
     positions: ['PG', 'SG', 'SF', 'PF', 'C'],
@@ -78,7 +78,7 @@ export const SPORT_CONFIGS: SportConfig[] = [
     id: 'baseball',
     label: 'Diamond Baseball Systems',
     launchPhase: 4,
-    primaryToken: 'GRID',
+    primaryToken: 'DYN',
     marketPosition: 'Deep-stat prospect and farm-system expansion with long seasons, scouting depth, and collectible ballpark assets.',
     roster: { starters: 9, bench: 16, maxRoster: 40 },
     positions: ['P', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH'],

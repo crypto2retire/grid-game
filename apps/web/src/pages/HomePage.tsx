@@ -23,7 +23,7 @@ export default function HomePage() {
               <span className="text-accent"> Dream Team</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-              GRID is the ultimate sports management game. Build your roster, compete in games,
+              Gridiron Dynasty is the ultimate sports management game. Build your roster, compete in games,
               trade players, and climb the global leaderboard.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -91,9 +91,9 @@ export default function HomePage() {
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">G</span>
             </div>
-            <span className="font-bold text-white">GRID</span>
+            <span className="font-bold text-white">DYN</span>
           </div>
-          <p className="text-muted-foreground text-sm"> 2026 GRID Game. All rights reserved.</p>
+          <p className="text-muted-foreground text-sm"> 2026 Gridiron Dynasty. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -4,9 +4,9 @@ import { listSports, summarizeSportEconomy, type SportId } from './sports.config
 export const sportsRouter = Router();
 
 const commercialRoadmap = {
-  positioning: 'Solana-powered multi-sport management economy with one shared GRID token.',
+  positioning: 'Solana-powered multi-sport management economy with one shared DYN token.',
   launchOrder: ['american-football', 'soccer', 'basketball', 'baseball'] as SportId[],
-  tokenThesis: 'Every sport adds utility sinks, asset demand, and marketplace volume for the same primary GRID token instead of fragmenting liquidity.',
+  tokenThesis: 'Every sport adds utility sinks, asset demand, and marketplace volume for the same primary DYN token instead of fragmenting liquidity.',
   buildPrinciples: [
     'sport-agnostic core engine',
     'ledger-first economy accounting',

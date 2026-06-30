@@ -53,7 +53,7 @@ router.post(
   asyncHandler(async (req: any, res) => {
     const schema = z.object({
       catalogId: z.string(),
-      currency: z.enum(['GRID', 'SOL']),
+      currency: z.enum(['DYN', 'SOL']),
     });
     const input = schema.parse(req.body);
 

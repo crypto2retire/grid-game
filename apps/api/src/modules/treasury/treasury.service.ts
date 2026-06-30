@@ -195,7 +195,7 @@ export async function distributeTreasuryRewards(
     const updatedWallet = await tx.wallet.update({
       where: { userId: team.ownerId },
       data: {
-        [currency === 'CASH' ? 'cash' : 'gridTokens']: { increment: amount },
+        [currency === 'CASH' ? 'cash' : 'dynTokens']: { increment: amount },
       },
     });
 
@@ -204,7 +204,7 @@ export async function distributeTreasuryRewards(
         userId: team.ownerId,
         currency,
         amount,
-        balanceAfter: currency === 'CASH' ? updatedWallet.cash : updatedWallet.gridTokens,
+        balanceAfter: currency === 'CASH' ? updatedWallet.cash : updatedWallet.dynTokens,
         reason: 'LEAGUE_REWARD',
         sourceType: 'TREASURY',
         sourceId: teamId,

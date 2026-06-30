@@ -4,7 +4,7 @@ import { useGameStore } from '../store/gameStore';
 
 interface WalletData {
   cash: number;
-  gridTokens: number;
+  dynTokens: number;
 }
 
 interface Transaction {
@@ -115,7 +115,7 @@ export default function WalletPage() {
         useGameStore.getState().setWallet(data.data); // sync to gameStore
       }
     } catch (err) {
-      console.error('Failed to topup GRID:', err);
+      console.error('Failed to topup DYN:', err);
     }
   };
 
@@ -174,9 +174,9 @@ export default function WalletPage() {
               <Zap className="w-6 h-6 text-purple-400" />
             </div>
             <div>
-              <div className="text-sm text-muted-foreground">GRID Balance</div>
+              <div className="text-sm text-muted-foreground">DYN Balance</div>
               <div className="text-3xl font-bold text-white">
-                {wallet?.gridTokens?.toLocaleString() || 0}
+                {wallet?.dynTokens?.toLocaleString() || 0}
               </div>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function WalletPage() {
             onClick={topupGrid}
             className="w-full py-2 bg-purple-400/10 hover:bg-purple-400/20 text-purple-400 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Add 100,000 Test GRID
+            <Plus className="w-4 h-4" /> Add 100,000 Test DYN
           </button>
         </div>
 

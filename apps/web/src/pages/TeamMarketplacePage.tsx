@@ -50,7 +50,7 @@ const TIER_COLORS: Record<string, string> = {
 export default function TeamMarketplacePage() {
   const [activeTab, setActiveTab] = useState<'used' | 'new'>('used');
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
-  const [wallet, setWallet] = useState({ gridTokens: 0, solBalance: 0 });
+  const [wallet, setWallet] = useState({ dynTokens: 0, solBalance: 0 });
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   const [filterTier, setFilterTier] = useState('');
@@ -92,7 +92,7 @@ export default function TeamMarketplacePage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
-        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
+        useGameStore.getState().setWallet(data.data || { cash: 0, dynTokens: 0 });
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
@@ -110,11 +110,11 @@ export default function TeamMarketplacePage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
-        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
-        showMessage('success', `Added 100,000 GRID`);
+        useGameStore.getState().setWallet(data.data || { cash: 0, dynTokens: 0 });
+        showMessage('success', `Added 100,000 DYN`);
       }
     } catch (err) {
-      console.error('Failed to topup GRID:', err);
+      console.error('Failed to topup DYN:', err);
     }
   };
 
@@ -151,7 +151,7 @@ export default function TeamMarketplacePage() {
   };
 
   const canAfford = (listing: MarketplaceListing) => {
-    const balance = listing.currency === 'GRID' ? wallet.gridTokens : wallet.solBalance;
+    const balance = listing.currency === 'DYN' ? wallet.dynTokens : wallet.solBalance;
     return balance >= listing.price;
   };
 
@@ -178,15 +178,15 @@ export default function TeamMarketplacePage() {
         <div className="flex gap-4 items-center">
           <div className="glass-card px-4 py-2 flex items-center gap-2">
             <Coins className="w-4 h-4 text-yellow-400" />
-            <span className="text-sm text-white">{wallet.gridTokens.toLocaleString()} GRID</span>
+            <span className="text-sm text-white">{wallet.dynTokens.toLocaleString()} DYN</span>
           </div>
           <button
             onClick={topupGrid}
             className="glass-card px-3 py-2 flex items-center gap-2 text-sm text-purple-400 hover:bg-purple-400/10 transition-colors"
-            title="Add 100,000 Test GRID"
+            title="Add 100,000 Test DYN"
           >
             <Plus className="w-4 h-4" />
-            Get GRID
+            Get DYN
           </button>
           <div className="glass-card px-4 py-2 flex items-center gap-2">
             <Zap className="w-4 h-4 text-blue-400" />
@@ -410,7 +410,7 @@ export default function TeamMarketplacePage() {
                   {t.grid === 0 ? (
                     <span className="text-xs text-emerald-400 font-medium">Free</span>
                   ) : (
-                    <span className="text-xs text-[#FFD700] font-medium">{t.grid.toLocaleString()} GRID</span>
+                    <span className="text-xs text-[#FFD700] font-medium">{t.grid.toLocaleString()} DYN</span>
                   )}
                 </div>
                 <p className="text-sm text-white/40 mb-3">{t.desc}</p>

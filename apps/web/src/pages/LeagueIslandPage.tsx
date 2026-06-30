@@ -176,7 +176,7 @@ export default function LeagueIslandPage({ islandId }: { islandId: string; leagu
             )}
             {league.entryFee > 0 && (
               <div className="text-xs text-amber-400">
-                Entry fee: {league.entryFee.toLocaleString()} GRID
+                Entry fee: {league.entryFee.toLocaleString()} DYN
               </div>
             )}
           </div>
@@ -237,7 +237,7 @@ export default function LeagueIslandPage({ islandId }: { islandId: string; leagu
               {league.entryFee > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-white/50">Entry Fee</span>
-                  <span className="text-amber-400 font-medium">{league.entryFee.toLocaleString()} GRID</span>
+                  <span className="text-amber-400 font-medium">{league.entryFee.toLocaleString()} DYN</span>
                 </div>
               )}
             </div>

@@ -69,7 +69,7 @@ export default function MarketplacePage() {
   const [buyingPlayer, setBuyingPlayer] = useState<string | null>(null);
 
   // ─── Shared ───
-  const [myWallet, setMyWallet] = useState({ cash: 0, gridTokens: 0 });
+  const [myWallet, setMyWallet] = useState({ cash: 0, dynTokens: 0 });
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showListItem, setShowListItem] = useState(false);
@@ -91,7 +91,7 @@ export default function MarketplacePage() {
       const res = await fetch('/api/economy/wallet', { headers });
       if (res.ok) {
         const data = await res.json();
-        setMyWallet(data.data || { cash: 0, gridTokens: 0 });
+        setMyWallet(data.data || { cash: 0, dynTokens: 0 });
       }
     } catch (err) { console.error('Wallet error:', err); }
   };
@@ -108,7 +108,7 @@ export default function MarketplacePage() {
     finally { setMarketLoading(false); }
   };
 
-  const buyFromMarket = async (itemId: string, currency: 'CASH' | 'GRID') => {
+  const buyFromMarket = async (itemId: string, currency: 'CASH' | 'DYN') => {
     if (!selectedPlayerForItem) {
       setActionError('Select a player to receive the item');
       return;
@@ -427,7 +427,7 @@ export default function MarketplacePage() {
                       </div>
                       {item.marketPriceGrid > 0 && (
                         <div className="text-sm font-bold text-purple-400">
-                          {item.marketPriceGrid.toLocaleString()} GRID
+                          {item.marketPriceGrid.toLocaleString()} DYN
                         </div>
                       )}
                     </div>
@@ -442,11 +442,11 @@ export default function MarketplacePage() {
                       </button>
                       {item.marketPriceGrid > 0 && (
                         <button
-                          onClick={() => buyFromMarket(item.id, 'GRID')}
+                          onClick={() => buyFromMarket(item.id, 'DYN')}
                           disabled={buyingItem === item.id || !selectedPlayerForItem}
                           className="px-3 py-2 bg-purple-500/20 text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-500/30 disabled:opacity-50"
                         >
-                          GRID
+                          DYN
                         </button>
                       )}
                     </div>

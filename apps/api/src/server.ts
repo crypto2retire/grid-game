@@ -132,7 +132,7 @@ async function seedTeamMarketplaceListings(prisma: PrismaClient) {
         sellerId: seller.id,
         teamId: team.id,
         price,
-        currency: 'GRID',
+        currency: 'DYN',
         status: 'ACTIVE',
         foundationTaxPaid: foundationTax,
         burnAmount,
@@ -143,7 +143,7 @@ async function seedTeamMarketplaceListings(prisma: PrismaClient) {
 
     await prisma.team.update({
       where: { id: team.id },
-      data: { isForSale: true, salePrice: price, saleCurrency: 'GRID', saleListedAt: new Date() },
+      data: { isForSale: true, salePrice: price, saleCurrency: 'DYN', saleListedAt: new Date() },
     });
   }
 
@@ -414,7 +414,7 @@ const startServer = async () => {
   const port = env.PORT;
 
   server.listen(port, '0.0.0.0', () => {
-    console.log(`GRID server running on port ${port}`);
+    console.log(`DYN server running on port ${port}`);
     console.log(`Environment: ${env.NODE_ENV}`);
     console.log(`Database: ${env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
     console.log(`JWT: ${env.JWT_SECRET ? 'SET' : 'NOT SET'}`);

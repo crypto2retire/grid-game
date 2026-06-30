@@ -86,7 +86,7 @@ export default function TeamCatalogPage() {
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
-  const [wallet, setWallet] = useState({ gridTokens: 0, solBalance: 0 });
+  const [wallet, setWallet] = useState({ dynTokens: 0, solBalance: 0 });
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -140,7 +140,7 @@ export default function TeamCatalogPage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
-        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
+        useGameStore.getState().setWallet(data.data || { cash: 0, dynTokens: 0 });
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
@@ -158,11 +158,11 @@ export default function TeamCatalogPage() {
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
-        useGameStore.getState().setWallet(data.data || { cash: 0, gridTokens: 0 });
-        showMessage('success', 'Added 100,000 Test GRID');
+        useGameStore.getState().setWallet(data.data || { cash: 0, dynTokens: 0 });
+        showMessage('success', 'Added 100,000 Test DYN');
       }
     } catch (err) {
-      console.error('Failed to topup GRID:', err);
+      console.error('Failed to topup DYN:', err);
     }
   };
 
@@ -171,7 +171,7 @@ export default function TeamCatalogPage() {
     setTimeout(() => setMessage(null), 4000);
   };
 
-  const handleBuy = async (entry: CatalogEntry, currency: 'GRID' | 'SOL') => {
+  const handleBuy = async (entry: CatalogEntry, currency: 'DYN' | 'SOL') => {
     setBuying(entry.id);
     try {
       const token = localStorage.getItem('token');
@@ -203,13 +203,13 @@ export default function TeamCatalogPage() {
     return eligibility?.eligibleTiers.includes(tier) ?? false;
   };
 
-  const canAfford = (entry: CatalogEntry, currency: 'GRID' | 'SOL') => {
+  const canAfford = (entry: CatalogEntry, currency: 'DYN' | 'SOL') => {
     if (entry.tier === 'STATE_COLLEGE') return true;
     const slotEntry = slotPricing?.find((sp) => sp.catalogId === entry.id);
-    const price = currency === 'GRID' 
+    const price = currency === 'DYN' 
       ? (slotEntry?.slotPrice ?? entry.gridPrice) 
       : (slotEntry?.solPrice ?? entry.solPrice);
-    const balance = currency === 'GRID' ? wallet.gridTokens : wallet.solBalance;
+    const balance = currency === 'DYN' ? wallet.dynTokens : wallet.solBalance;
     return balance >= price;
   };
 
@@ -302,15 +302,15 @@ export default function TeamCatalogPage() {
       <div className="flex gap-4 items-center">
         <div className="glass-card px-4 py-2 flex items-center gap-2">
           <Coins className="w-4 h-4 text-yellow-400" />
-          <span className="text-sm text-white">{wallet.gridTokens.toLocaleString()} GRID</span>
+          <span className="text-sm text-white">{wallet.dynTokens.toLocaleString()} DYN</span>
         </div>
         <button
           onClick={topupGrid}
           className="glass-card px-3 py-2 flex items-center gap-2 text-sm text-purple-400 hover:bg-purple-400/10 transition-colors"
-          title="Add 100,000 Test GRID"
+          title="Add 100,000 Test DYN"
         >
           <Plus className="w-4 h-4" />
-          Get GRID
+          Get DYN
         </button>
         <div className="glass-card px-4 py-2 flex items-center gap-2">
           <Zap className="w-4 h-4 text-blue-400" />
@@ -337,7 +337,7 @@ export default function TeamCatalogPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {entries.map((entry) => {
                   const eligible = tierEligible;
-                  const affordGrid = canAfford(entry, 'GRID');
+                  const affordGrid = canAfford(entry, 'DYN');
                   const affordSol = canAfford(entry, 'SOL');
                   const isFree = entry.tier === 'STATE_COLLEGE';
 
@@ -417,7 +417,7 @@ export default function TeamCatalogPage() {
                                 <>
                                   <div className={`text-sm ${affordGrid ? 'text-white' : 'text-red-400'}`}>
                                     <Coins className="w-3 h-3 inline mr-1" />
-                                    {gridPrice.toLocaleString()} GRID
+                                    {gridPrice.toLocaleString()} DYN
                                     {isProgressive && (
                                       <span className="text-xs text-amber-400 ml-1">({slotIndex + 1}x slot)</span>
                                     )}
@@ -435,7 +435,7 @@ export default function TeamCatalogPage() {
                           </div>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleBuy(entry, 'GRID')}
+                              onClick={() => handleBuy(entry, 'DYN')}
                               disabled={buying === entry.id || !eligible || !affordGrid}
                               className="btn-primary px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-30"
                             >
@@ -443,7 +443,7 @@ export default function TeamCatalogPage() {
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <span className="flex items-center gap-1">
-                                  <Coins className="w-3 h-3" /> GRID
+                                  <Coins className="w-3 h-3" /> DYN
                                 </span>
                               )}
                             </button>
@@ -466,7 +466,7 @@ export default function TeamCatalogPage() {
 
                       {isFree && eligible && (
                         <button
-                          onClick={() => handleBuy(entry, 'GRID')}
+                          onClick={() => handleBuy(entry, 'DYN')}
                           disabled={buying === entry.id}
                           className="w-full btn-primary py-2 rounded-lg font-semibold text-sm disabled:opacity-30"
                         >

@@ -72,21 +72,21 @@ router.post(
     const input = schema.parse(req.body);
     const userId = req.user!.id;
 
-    // Check wallet for league creation fee (progressive: 50k GRID for 1st, 100k for 2nd, etc.)
+    // Check wallet for league creation fee (progressive: 50k DYN for 1st, 100k for 2nd, etc.)
     const createdCount = await prisma.league.count({ where: { creatorId: userId } });
     const creationFee = 50000 * Math.pow(2, createdCount);
 
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new AppError(400, 'Wallet not found');
-    if (wallet.gridTokens < creationFee) {
-      throw new AppError(400, `Need ${creationFee.toLocaleString()} GRID to create a league. You have ${wallet.gridTokens.toLocaleString()}.`);
+    if (wallet.dynTokens < creationFee) {
+      throw new AppError(400, `Need ${creationFee.toLocaleString()} DYN to create a league. You have ${wallet.dynTokens.toLocaleString()}.`);
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
       // Deduct fee
       await tx.wallet.update({
         where: { userId },
-        data: { gridTokens: { decrement: creationFee } },
+        data: { dynTokens: { decrement: creationFee } },
       });
 
       // Create island
@@ -124,7 +124,7 @@ router.post(
     res.status(201).json({
       status: 'success',
       data: result,
-      message: `Created ${input.name} for ${creationFee.toLocaleString()} GRID`,
+      message: `Created ${input.name} for ${creationFee.toLocaleString()} DYN`,
     });
   })
 );
@@ -165,12 +165,12 @@ router.post(
     // Check entry fee
     if ((league as any).entryFee > 0) {
       const wallet = await prisma.wallet.findUnique({ where: { userId } });
-      if (!wallet || wallet.gridTokens < (league as any).entryFee) {
-        throw new AppError(400, `Need ${(league as any).entryFee.toLocaleString()} GRID entry fee`);
+      if (!wallet || wallet.dynTokens < (league as any).entryFee) {
+        throw new AppError(400, `Need ${(league as any).entryFee.toLocaleString()} DYN entry fee`);
       }
       await prisma.wallet.update({
         where: { userId },
-        data: { gridTokens: { decrement: (league as any).entryFee } },
+        data: { dynTokens: { decrement: (league as any).entryFee } },
       });
     }
 

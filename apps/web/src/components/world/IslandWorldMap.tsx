@@ -188,7 +188,7 @@ export default function IslandWorldMap() {
   // Chat
   const [chatOpen, setChatOpen] = useState(false);
   const [msgs, setMsgs] = useState<{ u: string; t: string }[]>([
-    { u: 'System', t: 'Welcome to Grid Sports! Click anywhere on the ground to walk. Click and hold to drag the map. Click buildings to interact.' },
+    { u: 'System', t: 'Welcome to Gridiron Dynasty! Click anywhere on the ground to walk. Click and hold to drag the map. Click buildings to interact.' },
   ]);
 
   // Camera with drag support
@@ -673,7 +673,7 @@ export default function IslandWorldMap() {
         <div className="flex items-center gap-2">
           <Compass className="w-5 h-5 text-[#E94560]" />
           <div className="text-white font-black text-lg tracking-tight">
-            GRID <span className="text-[#E94560]">SPORTS</span>
+            GRIDIRON <span className="text-[#E94560]">DYNASTY</span>
           </div>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-400">

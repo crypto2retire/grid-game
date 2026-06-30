@@ -1,11 +1,11 @@
 import { getSportConfig, listSports, summarizeSportEconomy } from './sports.config';
 
 describe('sport configuration foundation', () => {
-  it('ships an American-football-first roadmap with one shared GRID token across expansion sports', () => {
+  it('ships an American-football-first roadmap with one shared DYN token across expansion sports', () => {
     const sports = listSports();
 
     expect(sports.map((sport) => sport.id)).toEqual(['american-football', 'soccer', 'basketball', 'baseball']);
-    expect(new Set(sports.map((sport) => sport.primaryToken))).toEqual(new Set(['GRID']));
+    expect(new Set(sports.map((sport) => sport.primaryToken))).toEqual(new Set(['DYN']));
     expect(sports[0].launchPhase).toBe(1);
   });
 
@@ -25,6 +25,6 @@ describe('sport configuration foundation', () => {
 
     expect(summary).toContain('whales fund');
     expect(summary).toContain('regular users earn');
-    expect(summary).toContain('GRID');
+    expect(summary).toContain('DYN');
   });
 });
