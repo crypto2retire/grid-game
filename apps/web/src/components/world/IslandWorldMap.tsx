@@ -83,7 +83,7 @@ function getIslandByPosition(x: number, y: number): Island | null {
   }) || null;
 }
 
-// Distribute stadiums evenly around an island's edge
+// Distribute stadiums in a scattered cluster around an island with varying distances
 function getStadiumPositionOnIsland(island: Island, index: number, total: number): { x: number; y: number } {
   if (island.type === 'HUB') {
     // Place below the hub buildings
@@ -95,10 +95,16 @@ function getStadiumPositionOnIsland(island: Island, index: number, total: number
       y: island.y + 120 + row * 90,
     };
   }
-  // Place stadiums around the perimeter of the island
-  const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
-  const rx = island.w * 0.35;
-  const ry = island.h * 0.35;
+  // Vary the radius so some stadiums are closer, some farther out
+  // Use alternating radii to create a scattered cluster rather than a perfect circle
+  const radii = [0.42, 0.58, 0.35, 0.72, 0.50, 0.65, 0.38, 0.80];
+  const radiusFactor = radii[index % radii.length];
+  // Spread angle with small jitter so it's not perfectly even
+  const baseAngle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
+  const jitter = (index * 0.7) * 0.15; // each stadium gets a unique angular offset
+  const angle = baseAngle + jitter;
+  const rx = island.w * radiusFactor;
+  const ry = island.h * radiusFactor;
   return {
     x: island.x + Math.cos(angle) * rx,
     y: island.y + Math.sin(angle) * ry,
