@@ -4,6 +4,32 @@ const WORLD_ID = 'grid-city';
 const ONLINE_TTL_MS = 5 * 60 * 1000;
 const AVATAR_COLORS = ['#2563eb', '#ef4444', '#22c55e', '#f97316', '#8b5cf6', '#14b8a6', '#eab308', '#ec4899'];
 
+const WORLD_BOUNDS = {
+  topY: -430,
+  centerY: -90,
+  bottomY: 350,
+  halfWidth: 690,
+  avatarMargin: 34,
+};
+
+function islandHalfWidthAtY(y: number) {
+  if (y <= WORLD_BOUNDS.centerY) {
+    return Math.max(0, ((y - WORLD_BOUNDS.topY) / (WORLD_BOUNDS.centerY - WORLD_BOUNDS.topY)) * WORLD_BOUNDS.halfWidth);
+  }
+  return Math.max(0, ((WORLD_BOUNDS.bottomY - y) / (WORLD_BOUNDS.bottomY - WORLD_BOUNDS.centerY)) * WORLD_BOUNDS.halfWidth);
+}
+
+export function clampWorldPosition(point: { x?: number; y?: number }) {
+  const safeY = Number.isFinite(point.y) ? Number(point.y) : 95;
+  const y = Math.max(WORLD_BOUNDS.topY, Math.min(WORLD_BOUNDS.bottomY, safeY));
+  const halfWidth = Math.max(WORLD_BOUNDS.avatarMargin, islandHalfWidthAtY(y));
+  const minX = -halfWidth + WORLD_BOUNDS.avatarMargin;
+  const maxX = halfWidth - WORLD_BOUNDS.avatarMargin;
+  const safeX = Number.isFinite(point.x) ? Number(point.x) : 0;
+  const x = Math.max(minX, Math.min(maxX, safeX));
+  return { x, y };
+}
+
 // Map Prisma MatchStatus enum to frontend-friendly strings
 export function mapMatchStatus(status: string): string {
   return status === 'IN_PROGRESS' ? 'PLAYING' : status;
@@ -149,10 +175,18 @@ export async function upsertAvatarPresence(input: {
   facing?: 'left' | 'right' | 'up' | 'down';
 }) {
   const existing = await prisma.worldAvatarPresence.findUnique({ where: { userId: input.userId } });
-  const x = input.x ?? existing?.targetX ?? 0;
-  const y = input.y ?? existing?.targetY ?? 95;
-  const targetX = input.targetX ?? x;
-  const targetY = input.targetY ?? y;
+  const current = clampWorldPosition({
+    x: input.x ?? existing?.targetX ?? 0,
+    y: input.y ?? existing?.targetY ?? 95,
+  });
+  const target = clampWorldPosition({
+    x: input.targetX ?? current.x,
+    y: input.targetY ?? current.y,
+  });
+  const x = current.x;
+  const y = current.y;
+  const targetX = target.x;
+  const targetY = target.y;
   const facing = input.facing ?? facingFromDelta(x, y, targetX, targetY);
   const presence = await prisma.worldAvatarPresence.upsert({
     where: { userId: input.userId },

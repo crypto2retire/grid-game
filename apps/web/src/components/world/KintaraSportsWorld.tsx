@@ -39,6 +39,35 @@ function iso(tileX: number, tileY: number) {
   };
 }
 
+const WORLD_BOUNDS = {
+  topY: -430,
+  centerY: -90,
+  bottomY: 350,
+  halfWidth: 690,
+  avatarMargin: 34,
+};
+
+function islandHalfWidthAtY(y: number) {
+  const { topY, centerY, bottomY, halfWidth } = WORLD_BOUNDS;
+  if (y <= centerY) {
+    return Math.max(0, ((y - topY) / (centerY - topY)) * halfWidth);
+  }
+  return Math.max(0, ((bottomY - y) / (bottomY - centerY)) * halfWidth);
+}
+
+function clampToWorld(point: { x: number; y: number }) {
+  const y = Math.max(WORLD_BOUNDS.topY, Math.min(WORLD_BOUNDS.bottomY, Number.isFinite(point.y) ? point.y : 95));
+  const halfWidth = Math.max(WORLD_BOUNDS.avatarMargin, islandHalfWidthAtY(y));
+  const minX = -halfWidth + WORLD_BOUNDS.avatarMargin;
+  const maxX = halfWidth - WORLD_BOUNDS.avatarMargin;
+  const x = Math.max(minX, Math.min(maxX, Number.isFinite(point.x) ? point.x : 0));
+  return { x, y };
+}
+
+function pointsChanged(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.abs(a.x - b.x) > 0.5 || Math.abs(a.y - b.y) > 0.5;
+}
+
 type BuildingKind =
   | 'stadium'
   | 'field'
@@ -69,14 +98,115 @@ const BUILDINGS: SportsBuilding[] = [
   { id: 'practice', panelId: 'matches', label: 'Practice Field', subtitle: 'Play / Schedule', tx: -6, ty: -2, color: '#22c55e', accent: '#15803d', kind: 'field' },
   { id: 'training', panelId: 'training', label: 'Training Gym', subtitle: 'Run Drills', tx: 5, ty: -2, color: '#8b5cf6', accent: '#5b21b6', kind: 'gym' },
   { id: 'clubhouse', panelId: 'dashboard', label: 'Clubhouse HQ', subtitle: 'Daily Office', tx: -2, ty: 1, color: '#f97316', accent: '#9a3412', kind: 'clubhouse' },
-  { id: 'team', panelId: 'team', label: 'Locker Room', subtitle: 'Manage Squad', tx: 3, ty: 1, color: '#38bdf8', accent: '#0369a1', kind: 'team' },
-  { id: 'market', panelId: 'market', label: 'Sports Market', subtitle: 'Gear / Players', tx: -7, ty: 4, color: '#fbbf24', accent: '#b45309', kind: 'shop' },
+  { id: 'team', panelId: 'team', label: 'Locker Room', subtitle: 'Manage Team', tx: 3, ty: 1, color: '#38bdf8', accent: '#0369a1', kind: 'team' },
+  { id: 'market', panelId: 'market', label: 'Sports Market', subtitle: 'Trade Assets', tx: -7, ty: 4, color: '#fbbf24', accent: '#b45309', kind: 'shop' },
   { id: 'medical', panelId: 'progression', label: 'Medical Center', subtitle: 'Recovery', tx: 7, ty: 4, color: '#f8fafc', accent: '#ef4444', kind: 'medical' },
-  { id: 'scout', panelId: 'world', label: 'Scout Office', subtitle: 'Find Talent', tx: -4, ty: 7, color: '#14b8a6', accent: '#0f766e', kind: 'scout' },
+  { id: 'scout', panelId: 'world', label: 'Scout Tower', subtitle: 'Find Talent', tx: -4, ty: 7, color: '#14b8a6', accent: '#0f766e', kind: 'scout' },
   { id: 'hall', panelId: 'leaderboard', label: 'Trophy Hall', subtitle: 'Rankings', tx: 2, ty: 7, color: '#fde047', accent: '#ca8a04', kind: 'trophy' },
   { id: 'garage', panelId: 'transport', label: 'Team Garage', subtitle: 'Travel Fleet', tx: 8, ty: -1, color: '#94a3b8', accent: '#475569', kind: 'garage' },
   { id: 'bank', panelId: 'wallet', label: 'Sponsor Bank', subtitle: 'CASH / DYN', tx: -9, ty: 0, color: '#0ea5e9', accent: '#075985', kind: 'bank' },
 ];
+
+type LeagueGateStatus = 'open' | 'locked' | 'owner';
+
+interface LeagueGate {
+  id: string;
+  name: string;
+  label: string;
+  tier: string;
+  tx: number;
+  ty: number;
+  route: Array<[number, number]>;
+  color: string;
+  accent: string;
+  status: LeagueGateStatus;
+  operator: string;
+  entry: string;
+  revenue: string;
+  maintenance: string;
+  tax: string;
+  userIncentive: string;
+}
+
+const LEAGUE_GATES: LeagueGate[] = [
+  {
+    id: 'launch-rec',
+    name: 'Launch Rec League',
+    label: 'GRID Rec Road',
+    tier: 'Launch / Basic',
+    tx: -12,
+    ty: 0,
+    route: [[0, 0], [-3, 0], [-6, 0], [-9, 0], [-12, 0]],
+    color: '#22c55e',
+    accent: '#166534',
+    status: 'open',
+    operator: 'Game-run league',
+    entry: 'Open to starter teams',
+    revenue: 'Fixed league rewards, ticket growth, player progression value',
+    maintenance: 'Low travel, small venue wear, basic staff costs',
+    tax: 'Standard marketplace and game economy fees',
+    userIncentive: 'Safe first loop: play games, earn fans, improve players, sell developed talent upward.',
+  },
+  {
+    id: 'regional-grid',
+    name: 'Regional League',
+    label: 'Regional Route',
+    tier: 'Promotion Gate',
+    tx: 0,
+    ty: -10,
+    route: [[0, 0], [0, -2], [0, -5], [0, -8], [0, -10]],
+    color: '#38bdf8',
+    accent: '#0369a1',
+    status: 'locked',
+    operator: 'Game-run league',
+    entry: 'Requires team OVR, wins, or a league pass',
+    revenue: 'Higher tickets, sponsor bonuses, and leaderboard rewards',
+    maintenance: 'Travel and stadium standards increase with league tier',
+    tax: 'Game tax funds sinks, reward pools, and platform volume',
+    userIncentive: 'A visible reason to train, upgrade transport, and build a roster instead of only grinding matches.',
+  },
+  {
+    id: 'creator-leagues',
+    name: 'Creator League District',
+    label: 'Owner Leagues',
+    tier: 'User-owned',
+    tx: 12,
+    ty: 0,
+    route: [[0, 0], [3, 0], [6, 0], [9, 0], [12, 0]],
+    color: '#a855f7',
+    accent: '#6b21a8',
+    status: 'owner',
+    operator: 'User-run leagues',
+    entry: 'Join by skill rating, invitation, season fee, or owner rules',
+    revenue: 'Owners earn league revenue from season activity and demand',
+    maintenance: 'Owners pay upkeep, reward escrow, and platform game tax',
+    tax: 'A game tax keeps every league creating platform revenue and sinks',
+    userIncentive: 'Players build leagues worth joining; better leagues attract outside teams and trade volume.',
+  },
+  {
+    id: 'elite-franchise',
+    name: 'Elite Franchise Circuit',
+    label: 'Pro Circuit',
+    tier: 'Premium / Custom',
+    tx: 0,
+    ty: 10,
+    route: [[0, 0], [0, 2], [0, 5], [0, 8], [0, 10]],
+    color: '#f59e0b',
+    accent: '#92400e',
+    status: 'locked',
+    operator: 'Game + top user leagues',
+    entry: 'High prestige, paid accelerators, or qualifying seasons',
+    revenue: 'Media-style payouts, sponsor cards, elite player sales',
+    maintenance: 'High upkeep, travel, player wages, and facility wear',
+    tax: 'Higher activity creates more marketplace volume and platform fees',
+    userIncentive: 'Long-term aspirational path: own facilities, recruit stars, host events, and build prestige.',
+  },
+];
+
+function isLeaguePathTile(tx: number, ty: number) {
+  return LEAGUE_GATES.some((gate) => gate.route.some(([rx, ry]) => Math.abs(tx - rx) <= 1 && Math.abs(ty - ry) <= 1));
+}
+
 
 interface DailyQuestHudItem {
   id: string;
@@ -120,9 +250,9 @@ const HOTBAR: Array<{ key: string; icon: string; label: string; miniGameType?: '
 function darker(hex: string, amount = 34) {
   const raw = hex.replace('#', '');
   const n = parseInt(raw, 16);
-  const r = Math.max(0, ((n >> 16) & 255) - amount);
-  const g = Math.max(0, ((n >> 8) & 255) - amount);
-  const b = Math.max(0, (n & 255) - amount);
+  const r = Math.min(255, Math.max(0, ((n >> 16) & 255) - amount));
+  const g = Math.min(255, Math.max(0, ((n >> 8) & 255) - amount));
+  const b = Math.min(255, Math.max(0, (n & 255) - amount));
   return `rgb(${r}, ${g}, ${b})`;
 }
 
@@ -212,38 +342,109 @@ function FieldBuilding({ building }: { building: SportsBuilding }) {
 
 function BoxBuilding({ building }: { building: SportsBuilding }) {
   const { x, y } = iso(building.tx, building.ty);
-  const w = building.kind === 'gym' ? 78 : 66;
-  const h = building.kind === 'clubhouse' ? 80 : 62;
-  const d = 46;
+  const w = building.kind === 'gym' ? 86 : building.kind === 'garage' ? 96 : building.kind === 'bank' ? 82 : 68;
+  const h = building.kind === 'clubhouse' ? 86 : building.kind === 'scout' ? 112 : building.kind === 'trophy' ? 78 : 64;
+  const d = building.kind === 'garage' ? 58 : 46;
+  const roof = building.kind === 'bank' ? '#e0f2fe' : darker(building.color, -8);
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <ellipse cx={0} cy={14} rx={w * 0.65} ry={d * 0.45} fill="rgba(0,0,0,0.2)" />
-      <path d={`M ${-w / 2} 0 L 0 ${d / 2} L ${w / 2} 0 L 0 ${-d / 2} Z`} fill={`${building.color}77`} stroke={building.accent} strokeWidth={1.4} />
-      <path d={`M ${-w / 2} 0 L ${-w / 2} ${-h} L 0 ${-h + d / 2} L 0 ${d / 2} Z`} fill={building.color} stroke={building.accent} strokeWidth={1.4} />
-      <path d={`M 0 ${d / 2} L 0 ${-h + d / 2} L ${w / 2} ${-h} L ${w / 2} 0 Z`} fill={darker(building.color, 22)} stroke={building.accent} strokeWidth={1.4} />
-      <path d={`M ${-w / 2} ${-h} L 0 ${-h - d / 2} L ${w / 2} ${-h} L 0 ${-h + d / 2} Z`} fill={darker(building.color, -8)} stroke={building.accent} strokeWidth={1.4} />
-      <rect x={-8} y={-32} width={16} height={32} rx={3} fill="#0f172a" opacity={0.75} />
-      <rect x={-w * 0.32} y={-h * 0.62} width={14} height={12} rx={2} fill="#bae6fd" opacity={0.85} />
-      <rect x={w * 0.14} y={-h * 0.62} width={14} height={12} rx={2} fill="#bae6fd" opacity={0.85} />
+      <ellipse cx={0} cy={16} rx={w * 0.72} ry={d * 0.52} fill="rgba(0,0,0,0.24)" />
+      <path d={`M ${-w / 2} 0 L 0 ${d / 2} L ${w / 2} 0 L 0 ${-d / 2} Z`} fill={`${building.color}66`} stroke={building.accent} strokeWidth={1.5} />
+      <path d={`M ${-w / 2} 0 L ${-w / 2} ${-h} L 0 ${-h + d / 2} L 0 ${d / 2} Z`} fill={building.color} stroke={building.accent} strokeWidth={1.5} />
+      <path d={`M 0 ${d / 2} L 0 ${-h + d / 2} L ${w / 2} ${-h} L ${w / 2} 0 Z`} fill={darker(building.color, 24)} stroke={building.accent} strokeWidth={1.5} />
+      <path d={`M ${-w / 2} ${-h} L 0 ${-h - d / 2} L ${w / 2} ${-h} L 0 ${-h + d / 2} Z`} fill={roof} stroke={building.accent} strokeWidth={1.5} />
+
+      {building.kind === 'clubhouse' && (
+        <g>
+          <rect x={-18} y={-42} width={36} height={42} rx={4} fill="#1e293b" opacity={0.85} />
+          <path d="M -38 -58 L -8 -74 L 22 -58" fill="none" stroke="#fed7aa" strokeWidth={4} strokeLinecap="round" />
+          <rect x={25} y={-106} width={4} height={44} fill="#78350f" />
+          <path d="M 29 -106 L 58 -96 L 29 -86 Z" fill="#fde047" stroke="#92400e" />
+          <text x={-18} y={-68} fill="#fff7ed" fontSize={12} fontWeight={900}>HQ</text>
+        </g>
+      )}
+
+      {building.kind === 'team' && (
+        <g>
+          <rect x={-30} y={-34} width={60} height={34} rx={4} fill="#0f172a" opacity={0.82} />
+          {[-20, 0, 20].map((lx) => <rect key={lx} x={lx - 6} y={-55} width={12} height={14} rx={2} fill="#bae6fd" opacity={0.92} />)}
+          <text x={0} y={-72} textAnchor="middle" fontSize={26}>👕</text>
+          <text x={0} y={-15} textAnchor="middle" fill="#e0f2fe" fontSize={10} fontWeight={900}>LOCKERS</text>
+        </g>
+      )}
+
+      {building.kind === 'shop' && (
+        <g>
+          <rect x={-28} y={-30} width={56} height={30} rx={4} fill="#451a03" opacity={0.82} />
+          {[-30, -15, 0, 15].map((lx, idx) => <rect key={lx} x={lx} y={-68} width={15} height={15} fill={idx % 2 === 0 ? '#fff7ed' : '#ef4444'} stroke="#92400e" />)}
+          <path d="M -36 -68 L 36 -68 L 28 -82 L -28 -82 Z" fill="#f59e0b" stroke="#92400e" />
+          <text x={0} y={-16} textAnchor="middle" fill="#fde68a" fontSize={10} fontWeight={900}>TRADE</text>
+          <text x={0} y={-96} textAnchor="middle" fontSize={24}>🛒</text>
+        </g>
+      )}
+
       {building.kind === 'medical' && (
         <g>
-          <rect x={-5} y={-h - 20} width={10} height={24} rx={2} fill="#ef4444" />
-          <rect x={-12} y={-h - 13} width={24} height={10} rx={2} fill="#ef4444" />
+          <rect x={-20} y={-45} width={40} height={44} rx={4} fill="#f8fafc" stroke="#ef4444" strokeWidth={1.5} />
+          <rect x={-5} y={-77} width={10} height={26} rx={2} fill="#ef4444" />
+          <rect x={-14} y={-68} width={28} height={10} rx={2} fill="#ef4444" />
+          <rect x={18} y={-20} width={26} height={18} rx={3} fill="#dcfce7" stroke="#166534" />
+          <circle cx={24} cy={0} r={4} fill="#0f172a" />
+          <circle cx={38} cy={0} r={4} fill="#0f172a" />
         </g>
       )}
+
       {building.kind === 'gym' && (
-        <g transform={`translate(0, ${-h - 5})`}>
-          <rect x={-18} y={0} width={36} height={5} rx={2} fill="#334155" />
-          <circle cx={-21} cy={2.5} r={7} fill="#475569" />
-          <circle cx={21} cy={2.5} r={7} fill="#475569" />
+        <g>
+          <rect x={-30} y={-38} width={60} height={38} rx={5} fill="#1e1b4b" opacity={0.82} />
+          <g transform={`translate(0, ${-h - 10})`}>
+            <rect x={-28} y={0} width={56} height={6} rx={3} fill="#334155" />
+            <circle cx={-34} cy={3} r={10} fill="#475569" />
+            <circle cx={34} cy={3} r={10} fill="#475569" />
+          </g>
+          <text x={0} y={-18} textAnchor="middle" fill="#ede9fe" fontSize={11} fontWeight={900}>TRAIN</text>
         </g>
       )}
-      {building.kind === 'trophy' && <text x={0} y={-h - 10} textAnchor="middle" fontSize={28}>🏆</text>}
-      {building.kind === 'garage' && <text x={0} y={-h - 10} textAnchor="middle" fontSize={28}>🚌</text>}
-      {building.kind === 'scout' && <text x={0} y={-h - 10} textAnchor="middle" fontSize={28}>🔭</text>}
-      {building.kind === 'team' && <text x={0} y={-h - 10} textAnchor="middle" fontSize={28}>👕</text>}
-      {building.kind === 'bank' && <text x={0} y={-h - 10} textAnchor="middle" fontSize={28}>💰</text>}
-      {building.kind === 'shop' && <text x={0} y={-h - 10} textAnchor="middle" fontSize={28}>🛒</text>}
+
+      {building.kind === 'trophy' && (
+        <g>
+          <path d="M -36 -58 Q 0 -100 36 -58 Z" fill="#fef3c7" stroke="#ca8a04" strokeWidth={2} />
+          {[-28, -10, 10, 28].map((lx) => <rect key={lx} x={lx - 4} y={-58} width={8} height={58} fill="#facc15" stroke="#a16207" />)}
+          <text x={0} y={-82} textAnchor="middle" fontSize={28}>🏆</text>
+          <text x={0} y={-16} textAnchor="middle" fill="#422006" fontSize={10} fontWeight={900}>HALL</text>
+        </g>
+      )}
+
+      {building.kind === 'garage' && (
+        <g>
+          <rect x={-38} y={-34} width={76} height={34} rx={3} fill="#1e293b" opacity={0.9} />
+          {[-22, 22].map((lx) => <rect key={lx} x={lx - 16} y={-29} width={32} height={29} fill="#334155" stroke="#cbd5e1" />)}
+          <rect x={-18} y={-62} width={36} height={16} rx={3} fill="#f8fafc" stroke="#475569" />
+          <text x={0} y={-50} textAnchor="middle" fill="#0f172a" fontSize={9} fontWeight={900}>BUS</text>
+          <text x={0} y={-84} textAnchor="middle" fontSize={26}>🚌</text>
+        </g>
+      )}
+
+      {building.kind === 'scout' && (
+        <g>
+          <path d="M -18 0 L -10 -92 L 10 -92 L 18 0 Z" fill="#115e59" stroke="#0f766e" strokeWidth={2} />
+          <rect x={-30} y={-124} width={60} height={34} rx={5} fill="#0f766e" stroke="#99f6e4" strokeWidth={2} />
+          <circle cx={0} cy={-107} r={10} fill="#67e8f9" opacity={0.9} />
+          <line x1={-24} y1={-88} x2={-42} y2={-12} stroke="#99f6e4" strokeWidth={2} />
+          <line x1={24} y1={-88} x2={42} y2={-12} stroke="#99f6e4" strokeWidth={2} />
+          <text x={0} y={-137} textAnchor="middle" fontSize={23}>🔭</text>
+        </g>
+      )}
+
+      {building.kind === 'bank' && (
+        <g>
+          <path d="M -42 -58 L 0 -88 L 42 -58 Z" fill="#e0f2fe" stroke="#075985" strokeWidth={2} />
+          {[-27, -9, 9, 27].map((lx) => <rect key={lx} x={lx - 5} y={-58} width={10} height={58} fill="#bae6fd" stroke="#075985" />)}
+          <rect x={-44} y={-6} width={88} height={10} fill="#075985" />
+          <circle cx={0} cy={-60} r={12} fill="#facc15" stroke="#a16207" />
+          <text x={0} y={-56} textAnchor="middle" fill="#422006" fontSize={10} fontWeight={900}>$</text>
+        </g>
+      )}
     </g>
   );
 }
@@ -274,6 +475,81 @@ function SportsBuildingView({ building, onClick }: { building: SportsBuilding; o
   );
 }
 
+function leagueGatePoint(gate: LeagueGate) {
+  if (gate.id === 'regional-grid') return { x: 0, y: WORLD_BOUNDS.topY + 16 };
+  if (gate.id === 'elite-franchise') return { x: 0, y: WORLD_BOUNDS.bottomY - 10 };
+  if (gate.id === 'creator-leagues') return { x: WORLD_BOUNDS.halfWidth - 22, y: WORLD_BOUNDS.centerY };
+  return { x: -WORLD_BOUNDS.halfWidth + 22, y: WORLD_BOUNDS.centerY };
+}
+
+function LeagueGateView({ gate, onClick }: { gate: LeagueGate; onClick: (gate: LeagueGate) => void }) {
+  const endpoint = leagueGatePoint(gate);
+  const routePoints = [iso(0, 0), ...gate.route.slice(1).map(([tx, ty]) => iso(tx, ty)), endpoint];
+  const points = routePoints.map((p) => `${p.x},${p.y}`).join(' ');
+  const statusLabel = gate.status === 'open' ? 'OPEN' : gate.status === 'owner' ? 'CREATE' : 'LOCKED';
+  return (
+    <g onClick={(e) => { e.stopPropagation(); onClick(gate); }} className="cursor-pointer">
+      <polyline points={points} fill="none" stroke="#78350f" strokeWidth={32} strokeLinecap="round" strokeLinejoin="round" opacity={0.55} />
+      <polyline points={points} fill="none" stroke={gate.color} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" opacity={0.95} strokeDasharray="14 10" />
+      <g transform={`translate(${endpoint.x}, ${endpoint.y})`}>
+        <ellipse cx={0} cy={20} rx={74} ry={28} fill="rgba(0,0,0,0.28)" />
+        <path d="M -58 10 Q -45 -76 0 -100 Q 45 -76 58 10 Z" fill="#0f172a" stroke={gate.color} strokeWidth={4} />
+        <path d="M -34 10 Q -26 -50 0 -68 Q 26 -50 34 10 Z" fill={gate.status === 'locked' ? '#334155' : gate.color} opacity={0.85} />
+        <rect x={-68} y={8} width={136} height={34} rx={12} fill="rgba(15,23,42,0.94)" stroke={gate.accent} strokeWidth={2} />
+        <text x={0} y={1} textAnchor="middle" fill="#fff" fontSize={15} fontWeight={900}>{gate.status === 'locked' ? '🔒' : gate.status === 'owner' ? '👑' : '🏟️'}</text>
+        <text x={0} y={25} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={900}>{gate.label}</text>
+        <text x={0} y={37} textAnchor="middle" fill={gate.color} fontSize={8} fontWeight={900}>{statusLabel} • {gate.tier}</text>
+      </g>
+    </g>
+  );
+}
+
+function LeagueEconomyPanel({ gate }: { gate: LeagueGate }) {
+  const rows = [
+    ['Operator', gate.operator],
+    ['Entry', gate.entry],
+    ['Revenue', gate.revenue],
+    ['Costs', gate.maintenance],
+    ['Game Tax', gate.tax],
+  ];
+  return (
+    <div className="min-h-full bg-slate-950 text-white p-6 space-y-5">
+      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-2xl">
+        <div className="text-xs uppercase tracking-[0.3em] text-slate-400">League Gate</div>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-3xl font-black">{gate.name}</h2>
+            <p className="text-sm text-slate-300 mt-1">{gate.tier} • {gate.status === 'owner' ? 'user-owned economy' : 'controlled progression league'}</p>
+          </div>
+          <div className="rounded-2xl px-4 py-3 text-center border" style={{ borderColor: gate.color, color: gate.color }}>
+            <div className="text-2xl">{gate.status === 'locked' ? '🔒' : gate.status === 'owner' ? '👑' : '🏟️'}</div>
+            <div className="text-xs font-black uppercase">{gate.status}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-[11px] uppercase tracking-widest text-slate-400 font-black">{label}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-100">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+        <div className="text-sm font-black text-emerald-200">Why users return</div>
+        <p className="mt-1 text-sm text-emerald-50">{gate.userIncentive}</p>
+      </div>
+
+      <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
+        <div className="text-sm font-black text-amber-200">Economy guardrail</div>
+        <p className="mt-1 text-sm text-amber-50">Teams earn from game-day business, sponsors, asset value, and league rewards. Fees pay maintenance, sinks, owner operations, and platform tax — not winner-takes-opponent-fees.</p>
+      </div>
+    </div>
+  );
+}
+
 function MiniMap({ player }: { player: { x: number; y: number } }) {
   const px = 54 + player.x / 13;
   const py = 54 + player.y / 10;
@@ -286,6 +562,10 @@ function MiniMap({ player }: { player: { x: number; y: number } }) {
         {BUILDINGS.map((b) => {
           const p = iso(b.tx, b.ty);
           return <div key={b.id} className="absolute w-2 h-2 rounded-sm bg-slate-900" style={{ left: 72 + p.x / 10, top: 72 + p.y / 7 }} />;
+        })}
+        {LEAGUE_GATES.map((gate) => {
+          const p = leagueGatePoint(gate);
+          return <div key={gate.id} className="absolute w-3 h-3 rounded-full border border-white" style={{ left: 72 + p.x / 10, top: 72 + p.y / 7, backgroundColor: gate.color }} />;
         })}
         <div className="absolute w-3 h-3 rounded-full bg-yellow-300 border-2 border-white shadow" style={{ left: Math.max(10, Math.min(130, px)), top: Math.max(10, Math.min(130, py)) }} />
       </div>
@@ -303,6 +583,7 @@ export default function KintaraSportsWorld() {
   const { openPanel } = usePanels();
   const [player, setPlayer] = useState(() => ({ x: 0, y: 95 }));
   const [nearby, setNearby] = useState<SportsBuilding | null>(null);
+  const [nearbyGate, setNearbyGate] = useState<LeagueGate | null>(null);
   const [quests, setQuests] = useState<DailyQuestHudItem[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatHudMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -315,10 +596,11 @@ export default function KintaraSportsWorld() {
       for (let ty = -9; ty <= 10; ty += 1) {
         const p = iso(tx, ty);
         const onMainRoad = Math.abs(tx) <= 1 || Math.abs(ty) <= 1 || Math.abs(tx + ty) <= 1;
+        const onLeagueRoad = isLeaguePathTile(tx, ty);
         const onPlaza = Math.abs(tx) <= 2 && Math.abs(ty) <= 2;
         const nearStadium = tx >= -3 && tx <= 3 && ty >= -8 && ty <= -4;
-        const fill = onPlaza ? '#d1d5db' : onMainRoad ? '#b77943' : nearStadium ? '#86efac' : (tx + ty) % 2 === 0 ? '#78c74f' : '#6fbd45';
-        const stroke = onMainRoad ? '#8b5a2b' : '#5fa83f';
+        const fill = onPlaza ? '#d1d5db' : onLeagueRoad ? '#f2c078' : onMainRoad ? '#b77943' : nearStadium ? '#86efac' : (tx + ty) % 2 === 0 ? '#78c74f' : '#6fbd45';
+        const stroke = onLeagueRoad ? '#f59e0b' : onMainRoad ? '#8b5a2b' : '#5fa83f';
         all.push({ key: `${tx}:${ty}`, x: p.x, y: p.y, fill, stroke });
       }
     }
@@ -371,7 +653,13 @@ export default function KintaraSportsWorld() {
       .map(({ b, p }) => ({ b, dist: Math.hypot(p.x - player.x, p.y - player.y) }))
       .filter(({ dist }) => dist < 118)
       .sort((a, b) => a.dist - b.dist)[0]?.b ?? null;
+    const nearestLeagueGate = LEAGUE_GATES
+      .map((gate) => ({ gate, p: leagueGatePoint(gate) }))
+      .map(({ gate, p }) => ({ gate, dist: Math.hypot(p.x - player.x, p.y - player.y) }))
+      .filter(({ dist }) => dist < 145)
+      .sort((a, b) => a.dist - b.dist)[0]?.gate ?? null;
     setNearby(nearest);
+    setNearbyGate(nearestLeagueGate);
   }, [player.x, player.y]);
 
   const panelForBuilding = (building: SportsBuilding) => {
@@ -407,6 +695,30 @@ export default function KintaraSportsWorld() {
     });
   };
 
+  const openLeagueGate = (gate: LeagueGate) => {
+    openPanel({
+      id: `league-${gate.id}`,
+      title: gate.name,
+      buildingId: gate.id,
+      x: 110,
+      y: 72,
+      width: 860,
+      height: 620,
+      minimized: false,
+      maximized: false,
+      content: <LeagueEconomyPanel gate={gate} />,
+    });
+    setWorldStatus(`${gate.name}: ${gate.status === 'owner' ? 'creator economy preview' : gate.entry}`);
+  };
+
+  const movePlayerTo = useCallback((point: { x: number; y: number }) => {
+    const clamped = clampToWorld(point);
+    if (pointsChanged(point, clamped)) {
+      setWorldStatus('Map edge reached — use a league gate path to travel to another league.');
+    }
+    setPlayer(clamped);
+  }, []);
+
   const moveToSvgPoint = (clientX: number, clientY: number) => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -416,31 +728,34 @@ export default function KintaraSportsWorld() {
     const matrix = svg.getScreenCTM();
     if (!matrix) return;
     const transformed = point.matrixTransform(matrix.inverse());
-    setPlayer({ x: transformed.x, y: transformed.y });
+    movePlayerTo({ x: transformed.x, y: transformed.y });
   };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if (!['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright', 'e'].includes(key)) return;
-      if (key === 'e' && nearby) {
+      if (key === 'e') {
         event.preventDefault();
-        openBuilding(nearby);
-        return;
+        if (nearby) {
+          openBuilding(nearby);
+          return;
+        }
+        if (nearbyGate) {
+          openLeagueGate(nearbyGate);
+          return;
+        }
       }
       const step = 44;
       event.preventDefault();
-      setPlayer((prev) => {
-        if (key === 'w' || key === 'arrowup') return { ...prev, y: prev.y - step };
-        if (key === 's' || key === 'arrowdown') return { ...prev, y: prev.y + step };
-        if (key === 'a' || key === 'arrowleft') return { ...prev, x: prev.x - step };
-        if (key === 'd' || key === 'arrowright') return { ...prev, x: prev.x + step };
-        return prev;
-      });
+      if (key === 'w' || key === 'arrowup') movePlayerTo({ x: player.x, y: player.y - step });
+      if (key === 's' || key === 'arrowdown') movePlayerTo({ x: player.x, y: player.y + step });
+      if (key === 'a' || key === 'arrowleft') movePlayerTo({ x: player.x - step, y: player.y });
+      if (key === 'd' || key === 'arrowright') movePlayerTo({ x: player.x + step, y: player.y });
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [nearby]);
+  }, [movePlayerTo, nearby, nearbyGate, player.x, player.y]);
 
   const sendChat = async (event: FormEvent) => {
     event.preventDefault();
@@ -532,6 +847,10 @@ export default function KintaraSportsWorld() {
           {tiles.map((t) => <Tile key={t.key} x={t.x} y={t.y} fill={t.fill} stroke={t.stroke} />)}
         </g>
 
+        <g>
+          {LEAGUE_GATES.map((gate) => <LeagueGateView key={gate.id} gate={gate} onClick={openLeagueGate} />)}
+        </g>
+
         {/* Central fountain / town-square anchor */}
         <g transform="translate(0,0)">
           <ellipse cx={0} cy={0} rx={54} ry={25} fill="#94a3b8" stroke="#475569" strokeWidth={2} />
@@ -603,8 +922,32 @@ export default function KintaraSportsWorld() {
 
       <MiniMap player={player} />
 
+      {/* Economy loop card */}
+      <div className="absolute right-4 top-52 z-[6] hidden xl:block w-[330px] rounded-2xl bg-slate-950/88 border border-white/15 shadow-2xl text-white backdrop-blur-md overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-orange-500/25 to-sky-500/20">
+          <div className="text-[11px] uppercase tracking-[0.25em] text-slate-300 font-black">Return + Volume Loop</div>
+          <div className="text-lg font-black">Build, Trade, Host, Advance</div>
+        </div>
+        <div className="p-4 grid grid-cols-2 gap-2 text-xs">
+          {[
+            ['Make', 'Tickets, sponsors, player sales, league rewards'],
+            ['Spend', 'Training, recovery, travel, stadium upgrades'],
+            ['Trade', 'Players, gear, passes, facility slots'],
+            ['Own', 'Custom leagues, venues, tournaments, media'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="font-black text-amber-200 uppercase tracking-wider">{label}</div>
+              <div className="mt-1 text-slate-200 leading-snug">{value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 pb-4 text-[11px] leading-snug text-emerald-100">
+          Better user leagues attract outside teams; owners earn revenue while paying maintenance and game tax, creating repeat play and platform sinks.
+        </div>
+      </div>
+
       {/* Right action buttons */}
-      <div className="absolute right-5 top-52 z-[6] grid grid-cols-2 gap-3">
+      <div className="absolute right-5 top-[31rem] z-[6] grid grid-cols-2 gap-3">
         {[
           { icon: <Users className="w-5 h-5" />, badge: '' },
           { icon: <Shirt className="w-5 h-5" />, badge: '3' },
@@ -693,7 +1036,7 @@ export default function KintaraSportsWorld() {
       <div className="absolute left-1/2 bottom-24 -translate-x-1/2 z-[6]">
         <div className="rounded-full bg-slate-900/90 border border-white/25 px-5 py-2 text-white shadow-xl flex items-center gap-2 text-sm font-bold">
           <Hand className="w-4 h-4 text-yellow-300" />
-          {nearby ? <>Press <span className="px-2 py-0.5 rounded bg-white/15">E</span> to enter {nearby.label}</> : 'Click ground or use WASD to move'}
+          {nearby ? <>Press <span className="px-2 py-0.5 rounded bg-white/15">E</span> to enter {nearby.label}</> : nearbyGate ? <>Press <span className="px-2 py-0.5 rounded bg-white/15">E</span> for {nearbyGate.name}</> : 'Click ground or use WASD to move — edges are league gates'}
         </div>
       </div>
 
