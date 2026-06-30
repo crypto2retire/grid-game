@@ -1,16 +1,14 @@
 import { useAuthStore } from '../../store/authStore';
 import { PanelOverlay } from './PanelSystem';
-import IslandWorldMap from './IslandWorldMap';
-import WelcomeModal from './WelcomeModal';
-import { DailyQuestPanel } from './DailyQuestSystem';
+import KintaraSportsWorld from './KintaraSportsWorld';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] bg-[#0a0f1a] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E94560]"></div>
+      <div className="min-h-[100dvh] bg-[#8ed5f5] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
       </div>
     );
   }
@@ -21,11 +19,9 @@ export default function GameShell() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
-      <IslandWorldMap />
+    <div className="fixed inset-0 overflow-hidden bg-[#8ed5f5]">
+      <KintaraSportsWorld />
       <PanelOverlay />
-      <WelcomeModal />
-      <DailyQuestPanel />
     </div>
   );
 }
