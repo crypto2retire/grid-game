@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler } from '../../middleware/errorHandler';
+import { routeParam } from '../../utils/routeParams';
 import { claimDailyQuest, getDailyQuestsForUser } from './daily-quests.service';
 
 const router = Router();
@@ -18,7 +19,8 @@ router.post(
   '/:questId/claim',
   authMiddleware,
   asyncHandler(async (req: AuthRequest, res) => {
-    const result = await claimDailyQuest(req.user!.id, req.params.questId);
+    const questId = routeParam(req.params.questId, 'questId');
+    const result = await claimDailyQuest(req.user!.id, questId);
     res.json({ status: 'success', data: result, message: 'Daily quest reward claimed' });
   })
 );
