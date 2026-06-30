@@ -1041,7 +1041,7 @@ export default function KintaraSportsWorld() {
       </div>
 
       {/* Mini sports status card */}
-      <div className="absolute bottom-4 right-4 z-[6] hidden md:block rounded-2xl bg-white/92 border border-slate-200 px-4 py-3 shadow-2xl text-slate-900 w-72">
+      <div className="absolute bottom-4 right-4 z-[6] hidden md:block xl:hidden rounded-2xl bg-white/92 border border-slate-200 px-4 py-3 shadow-2xl text-slate-900 w-72">
         <div className="text-xs uppercase tracking-widest text-slate-500 font-black">My Venue</div>
         <div className="text-lg font-black truncate">{myStadium?.venueName || 'Community Stadium'}</div>
         <div className="mt-2 grid grid-cols-3 gap-2 text-center">
