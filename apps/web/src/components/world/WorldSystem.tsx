@@ -105,12 +105,8 @@ export function WorldProvider({ children }: { children: React.ReactNode }) {
 
       if (venuesRes?.ok) {
         const data = await venuesRes.json();
-        const stadiums = (data.data || []).map((s: any, i: number) => ({
-          ...s,
-          x: 60 + (i % 4) * 230,
-          y: 520 + Math.floor(i / 4) * 140,
-        }));
-        setOtherStadiums(stadiums);
+        // Stadium positions are computed by IslandWorldMap based on tier
+        setOtherStadiums(data.data || []);
       }
 
       if (matchesRes?.ok) {

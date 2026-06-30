@@ -18,14 +18,14 @@ import LeagueIslandPage from '../../pages/LeagueIslandPage';
 import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
 import WorldMapPage from '../../pages/WorldMapPage';
 import {
-  MessageSquare, X, MapPin, Users, Compass
+  MessageSquare, X, MapPin, Users, Compass, Hand
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
 //  WORLD CONSTANTS
 // ═══════════════════════════════════════════════════════════
-const WW = 2400;  // world width in SVG units
-const WH = 1600;  // world height in SVG units
+const WW = 2400;
+const WH = 1600;
 
 // ═══════════════════════════════════════════════════════════
 //  ISLANDS — Hub + 6 League Islands
@@ -42,6 +42,7 @@ interface Island {
   accent: string;
   ground: string;
   tier?: string;
+  stadiumSlots?: { x: number; y: number }[]; // pre-defined positions for stadiums on this island
 }
 
 const ISLANDS: Island[] = [
@@ -54,6 +55,22 @@ const ISLANDS: Island[] = [
   { id: 'elite', name: 'Pro Elite', type: 'LEAGUE', x: 550, y: 350, w: 280, h: 200, color: '#f87171', accent: '#dc2626', ground: '#2e1a1a', tier: 'PRO_ELITE' },
 ];
 
+// Map tier to island for placing stadiums
+const TIER_TO_ISLAND: Record<string, string> = {
+  'STATE_COLLEGE': 'state',
+  'MID_COLLEGE': 'mid',
+  'TOP_COLLEGE': 'top',
+  'REGIONAL_PRO': 'regional',
+  'PRO_ENTRY': 'pro',
+  'PRO_ELITE': 'elite',
+  'shack': 'state',
+  'basic': 'state',
+  'standard': 'mid',
+  'premium': 'regional',
+  'elite': 'pro',
+  'legendary': 'elite',
+};
+
 function getIsland(id: string): Island {
   return ISLANDS.find(i => i.id === id) || ISLANDS[0];
 }
@@ -64,6 +81,28 @@ function getIslandByPosition(x: number, y: number): Island | null {
     const dy = y - island.y;
     return (dx * dx) / ((island.w / 2) * (island.w / 2)) + (dy * dy) / ((island.h / 2) * (island.h / 2)) <= 1;
   }) || null;
+}
+
+// Distribute stadiums evenly around an island's edge
+function getStadiumPositionOnIsland(island: Island, index: number, total: number): { x: number; y: number } {
+  if (island.type === 'HUB') {
+    // Place below the hub buildings
+    const cols = Math.min(total, 3);
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    return {
+      x: island.x - 120 + col * 120,
+      y: island.y + 120 + row * 90,
+    };
+  }
+  // Place stadiums around the perimeter of the island
+  const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
+  const rx = island.w * 0.35;
+  const ry = island.h * 0.35;
+  return {
+    x: island.x + Math.cos(angle) * rx,
+    y: island.y + Math.sin(angle) * ry,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -87,7 +126,6 @@ interface WorldBuilding {
 }
 
 const BUILDINGS: WorldBuilding[] = [
-  // Hub buildings
   { id: 'hq', label: 'HQ', islandId: 'hub', x: -180, y: -80, w: 70, h: 55, d: 35, color: '#0f172a', accent: '#E94560', variant: 'hq', panelWidth: 700, panelHeight: 500, getContent: () => <CityPage /> },
   { id: 'market', label: 'Market', islandId: 'hub', x: -60, y: -100, w: 70, h: 50, d: 35, color: '#3f2e0f', accent: '#f59e0b', variant: 'shop', panelWidth: 800, panelHeight: 600, getContent: () => <MarketplacePage /> },
   { id: 'training', label: 'Training', islandId: 'hub', x: 60, y: -100, w: 70, h: 52, d: 35, color: '#3f0f3f', accent: '#a855f7', variant: 'training', panelWidth: 700, panelHeight: 550, getContent: () => <TrainingPage /> },
@@ -96,7 +134,7 @@ const BUILDINGS: WorldBuilding[] = [
   { id: 'locker', label: 'Locker', islandId: 'hub', x: 60, y: 80, w: 70, h: 50, d: 35, color: '#1a1a2e', accent: '#64748b', variant: 'generic', panelWidth: 800, panelHeight: 600, getContent: () => <EquipmentPage /> },
   { id: 'travel', label: 'Travel', islandId: 'hub', x: -60, y: 80, w: 70, h: 50, d: 35, color: '#0c2e4e', accent: '#06b6d4', variant: 'generic', panelWidth: 900, panelHeight: 600, getContent: () => <WorldMapPage /> },
 
-  // League stadiums
+  // League stadiums (admin/market buildings on league islands)
   { id: 'stm-state', label: 'State Stadium', islandId: 'state', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#1a2e1a', accent: '#22c55e', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-state-001" leagueId="league-state-001" /> },
   { id: 'stm-mid', label: 'Mid Stadium', islandId: 'mid', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#0a2e2e', accent: '#06b6d4', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-mid-001" leagueId="league-mid-001" /> },
   { id: 'stm-top', label: 'Top Stadium', islandId: 'top', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#2e2a0a', accent: '#d97706', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-top-001" leagueId="league-top-001" /> },
@@ -144,97 +182,183 @@ export default function IslandWorldMap() {
   // Chat
   const [chatOpen, setChatOpen] = useState(false);
   const [msgs, setMsgs] = useState<{ u: string; t: string }[]>([
-    { u: 'System', t: 'Welcome to Grid Sports! Click anywhere on the ground to walk. Click buildings to interact.' },
+    { u: 'System', t: 'Welcome to Grid Sports! Click anywhere on the ground to walk. Click and hold to drag the map. Click buildings to interact.' },
   ]);
 
-  // Camera smooth follow (lerp)
-  const targetCamRef = useRef({ x: 0, y: 0 });
+  // Camera with drag support
   const [cam, setCam] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0, camX: 0, camY: 0 });
+  const dragStartScreenRef = useRef({ x: 0, y: 0 });
+  const hasDraggedRef = useRef(false);
+  const dragThreshold = 5; // px threshold to distinguish click vs drag
 
+  // Camera smooth follow (lerp) when not dragging
+  const targetCamRef = useRef({ x: 0, y: 0 });
   useEffect(() => { targetCamRef.current = { x: px, y: py }; }, [px, py]);
 
   useEffect(() => {
     let raf: number;
     const smooth = () => {
-      setCam(prev => {
-        const dx = targetCamRef.current.x - prev.x;
-        const dy = targetCamRef.current.y - prev.y;
-        let nx = prev.x + dx * 0.06;
-        let ny = prev.y + dy * 0.06;
-        const minX = -WW / 2 + win.w / 2;
-        const maxX = WW / 2 - win.w / 2;
-        const minY = -WH / 2 + win.h / 2;
-        const maxY = WH / 2 - win.h / 2;
-        nx = Math.max(minX, Math.min(maxX, nx));
-        ny = Math.max(minY, Math.min(maxY, ny));
-        return { x: nx, y: ny };
-      });
+      if (!isDragging) {
+        setCam(prev => {
+          const dx = targetCamRef.current.x - prev.x;
+          const dy = targetCamRef.current.y - prev.y;
+          let nx = prev.x + dx * 0.06;
+          let ny = prev.y + dy * 0.06;
+          const minX = -WW / 2 + win.w / 2;
+          const maxX = WW / 2 - win.w / 2;
+          const minY = -WH / 2 + win.h / 2;
+          const maxY = WH / 2 - win.h / 2;
+          nx = Math.max(minX, Math.min(maxX, nx));
+          ny = Math.max(minY, Math.min(maxY, ny));
+          return { x: nx, y: ny };
+        });
+      }
       raf = requestAnimationFrame(smooth);
     };
     raf = requestAnimationFrame(smooth);
     return () => cancelAnimationFrame(raf);
-  }, [win.w, win.h]);
+  }, [win.w, win.h, isDragging]);
+
+  // Drag handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Only start drag on left mouse button and not on interactive elements
+    if (e.button !== 0) return;
+    const target = e.target as Element;
+    if (target.closest('[data-building]') || target.closest('[data-stadium]')) return;
+
+    setIsDragging(true);
+    hasDraggedRef.current = false;
+    dragStartRef.current = { x: e.clientX, y: e.clientY, camX: cam.x, camY: cam.y };
+    dragStartScreenRef.current = { x: e.clientX, y: e.clientY };
+  }, [cam.x, cam.y]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+
+    // Check if we've moved past the drag threshold
+    const totalDx = e.clientX - dragStartScreenRef.current.x;
+    const totalDy = e.clientY - dragStartScreenRef.current.y;
+    if (Math.abs(totalDx) > dragThreshold || Math.abs(totalDy) > dragThreshold) {
+      hasDraggedRef.current = true;
+    }
+
+    // Move camera by drag delta (inverse: dragging right moves world left, which moves camera right)
+    let nx = dragStartRef.current.camX - dx;
+    let ny = dragStartRef.current.camY - dy;
+
+    const minX = -WW / 2 + win.w / 2;
+    const maxX = WW / 2 - win.w / 2;
+    const minY = -WH / 2 + win.h / 2;
+    const maxY = WH / 2 - win.h / 2;
+    nx = Math.max(minX, Math.min(maxX, nx));
+    ny = Math.max(minY, Math.min(maxY, ny));
+
+    setCam({ x: nx, y: ny });
+  }, [isDragging, win.w, win.h]);
+
+  const handleMouseUp = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    // If we didn't drag past threshold, treat it as a click
+    if (!hasDraggedRef.current) {
+      const svg = e.currentTarget;
+      const rect = svg.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+
+      // Convert to world coordinates
+      const worldX = sx - win.w / 2 + cam.x;
+      const worldY = sy - win.h / 2 + cam.y;
+
+      // Check if on an island or bridge
+      const onIsland = ISLANDS.some(island => {
+        const dx = worldX - island.x;
+        const dy = worldY - island.y;
+        return (dx * dx) / ((island.w / 2) * (island.w / 2)) + (dy * dy) / ((island.h / 2) * (island.h / 2)) <= 1;
+      });
+
+      const onBridge = BRIDGES.some(bridge => {
+        const from = getIsland(bridge.from);
+        const to = getIsland(bridge.to);
+        const lineDx = to.x - from.x;
+        const lineDy = to.y - from.y;
+        const lineLenSq = lineDx * lineDx + lineDy * lineDy;
+        if (lineLenSq === 0) return false;
+        const t = Math.max(0, Math.min(1, ((worldX - from.x) * lineDx + (worldY - from.y) * lineDy) / lineLenSq));
+        const projX = from.x + t * lineDx;
+        const projY = from.y + t * lineDy;
+        return Math.sqrt((worldX - projX) ** 2 + (worldY - projY) ** 2) < 30;
+      });
+
+      if (!onIsland && !onBridge) return;
+
+      // Set facing and move player
+      const dx = worldX - px;
+      const dy = worldY - py;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        setFacing(dx > 0 ? 'right' : 'left');
+      } else {
+        setFacing(dy > 0 ? 'down' : 'up');
+      }
+
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
+      setIsMoving(true);
+      setPx(worldX);
+      setPy(worldY);
+      const duration = Math.min(dist / 150 + 0.3, 3);
+      moveTimeoutRef.current = window.setTimeout(() => setIsMoving(false), duration * 1000);
+    }
+  }, [isDragging, win.w, win.h, cam.x, cam.y, px, py]);
+
+  // Touch support for mobile drag
+  const handleTouchStart = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
+    const touch = e.touches[0];
+    const target = e.target as Element;
+    if (target.closest('[data-building]') || target.closest('[data-stadium]')) return;
+    setIsDragging(true);
+    hasDraggedRef.current = false;
+    dragStartRef.current = { x: touch.clientX, y: touch.clientY, camX: cam.x, camY: cam.y };
+    dragStartScreenRef.current = { x: touch.clientX, y: touch.clientY };
+  }, [cam.x, cam.y]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStartRef.current.x;
+    const dy = touch.clientY - dragStartRef.current.y;
+
+    const totalDx = touch.clientX - dragStartScreenRef.current.x;
+    const totalDy = touch.clientY - dragStartScreenRef.current.y;
+    if (Math.abs(totalDx) > dragThreshold || Math.abs(totalDy) > dragThreshold) {
+      hasDraggedRef.current = true;
+    }
+
+    let nx = dragStartRef.current.camX - dx;
+    let ny = dragStartRef.current.camY - dy;
+    const minX = -WW / 2 + win.w / 2;
+    const maxX = WW / 2 - win.w / 2;
+    const minY = -WH / 2 + win.h / 2;
+    const maxY = WH / 2 - win.h / 2;
+    nx = Math.max(minX, Math.min(maxX, nx));
+    ny = Math.max(minY, Math.min(maxY, ny));
+    setCam({ x: nx, y: ny });
+  }, [isDragging, win.w, win.h]);
+
+  const handleTouchEnd = useCallback((_e: React.TouchEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    // Touch doesn't have a final position in changedTouches in this context, so skip click-to-move for touch
+  }, [isDragging]);
 
   // Movement timeout ref
   const moveTimeoutRef = useRef<number | null>(null);
-
-  // Convert screen click to world coordinates
-  const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    const svg = e.currentTarget;
-    const rect = svg.getBoundingClientRect();
-    const sx = e.clientX - rect.left;
-    const sy = e.clientY - rect.top;
-
-    // Check if click was on a building or stadium
-    const targetEl = e.target as Element;
-    if (targetEl.closest('[data-building]') || targetEl.closest('[data-stadium]')) return;
-
-    // Convert to world coordinates
-    const worldX = sx - win.w / 2 + cam.x;
-    const worldY = sy - win.h / 2 + cam.y;
-
-    // Check if on an island
-    const onIsland = ISLANDS.some(island => {
-      const dx = worldX - island.x;
-      const dy = worldY - island.y;
-      return (dx * dx) / ((island.w / 2) * (island.w / 2)) + (dy * dy) / ((island.h / 2) * (island.h / 2)) <= 1;
-    });
-
-    // Check if on a bridge
-    const onBridge = BRIDGES.some(bridge => {
-      const from = getIsland(bridge.from);
-      const to = getIsland(bridge.to);
-      const lineDx = to.x - from.x;
-      const lineDy = to.y - from.y;
-      const lineLenSq = lineDx * lineDx + lineDy * lineDy;
-      if (lineLenSq === 0) return false;
-      const t = Math.max(0, Math.min(1, ((worldX - from.x) * lineDx + (worldY - from.y) * lineDy) / lineLenSq));
-      const projX = from.x + t * lineDx;
-      const projY = from.y + t * lineDy;
-      const dist = Math.sqrt((worldX - projX) ** 2 + (worldY - projY) ** 2);
-      return dist < 30;
-    });
-
-    if (!onIsland && !onBridge) return;
-
-    // Set facing direction
-    const dx = worldX - px;
-    const dy = worldY - py;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      setFacing(dx > 0 ? 'right' : 'left');
-    } else {
-      setFacing(dy > 0 ? 'down' : 'up');
-    }
-
-    // Move player
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
-    setIsMoving(true);
-    setPx(worldX);
-    setPy(worldY);
-    const duration = Math.min(dist / 150 + 0.3, 3);
-    moveTimeoutRef.current = window.setTimeout(() => setIsMoving(false), duration * 1000);
-  }, [win.w, win.h, cam.x, cam.y, px, py]);
 
   // Building click
   const handleBuildingClick = useCallback((b: WorldBuilding) => {
@@ -314,6 +438,28 @@ export default function IslandWorldMap() {
     });
   }, [openPanel]);
 
+  // Position other stadiums on their league islands
+  const positionedStadiums = useMemo(() => {
+    // Group by island
+    const byIsland: Record<string, typeof otherStadiums> = {};
+    for (const stadium of otherStadiums) {
+      const islandId = TIER_TO_ISLAND[stadium.tier] || 'hub';
+      if (!byIsland[islandId]) byIsland[islandId] = [];
+      byIsland[islandId].push(stadium);
+    }
+
+    // Position each group on their island
+    const result: (typeof otherStadiums[0] & { worldX: number; worldY: number })[] = [];
+    for (const [islandId, stadiums] of Object.entries(byIsland)) {
+      const island = getIsland(islandId);
+      for (let i = 0; i < stadiums.length; i++) {
+        const pos = getStadiumPositionOnIsland(island, i, stadiums.length);
+        result.push({ ...stadiums[i], worldX: pos.x, worldY: pos.y });
+      }
+    }
+    return result;
+  }, [otherStadiums]);
+
   // Convert online players to avatar format
   const worldPlayers: AvatarState[] = useMemo(() => {
     return onlinePlayers.map((p: any) => ({
@@ -335,9 +481,7 @@ export default function IslandWorldMap() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0a0f1a]">
-      {/* ═══════════════════════════════════════════════════════
-          WORLD CAMERA — translated container
-      ═══════════════════════════════════════════════════════ */}
+      {/* World Camera Container */}
       <div
         style={{
           transform: `translate(${camTx}px, ${camTy}px)`,
@@ -345,23 +489,28 @@ export default function IslandWorldMap() {
           position: 'absolute',
           top: 0,
           left: 0,
+          cursor: isDragging ? 'grabbing' : 'grab',
         }}
       >
         <svg
           width={WW}
           height={WH}
           viewBox={`${-WW / 2} ${-WH / 2} ${WW} ${WH}`}
-          onClick={handleClick}
-          style={{ cursor: 'crosshair' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ touchAction: 'none' }}
         >
           <defs>
-            {/* Grass tile pattern */}
             <pattern id="grass" width="60" height="60" patternUnits="userSpaceOnUse">
               <rect width="60" height="60" fill="#0d1520" />
               <path d="M 0 30 L 30 0 L 60 30 L 30 60 Z" fill="#0f1725" opacity="0.5" />
               <circle cx="30" cy="30" r="1" fill="#1a2535" opacity="0.4" />
             </pattern>
-            {/* Water tile pattern */}
             <pattern id="water" width="40" height="40" patternUnits="userSpaceOnUse">
               <rect width="40" height="40" fill="#0c1e33" />
               <path d="M 0 20 L 20 0 L 40 20 L 20 40 Z" fill="#0a1628" opacity="0.3" />
@@ -371,10 +520,9 @@ export default function IslandWorldMap() {
           {/* Water background */}
           <rect x={-WW / 2} y={-WH / 2} width={WW} height={WH} fill="url(#water)" />
 
-          {/* ─── Islands ─── */}
+          {/* Islands */}
           {ISLANDS.map(island => (
             <g key={island.id}>
-              {/* Island body */}
               <ellipse
                 cx={island.x}
                 cy={island.y}
@@ -385,7 +533,6 @@ export default function IslandWorldMap() {
                 strokeWidth={2}
                 opacity={0.9}
               />
-              {/* Island grass texture */}
               <ellipse
                 cx={island.x}
                 cy={island.y}
@@ -394,7 +541,6 @@ export default function IslandWorldMap() {
                 fill="url(#grass)"
                 opacity={0.5}
               />
-              {/* Island name */}
               <text
                 x={island.x}
                 y={island.y - island.h / 2 - 18}
@@ -421,46 +567,25 @@ export default function IslandWorldMap() {
             </g>
           ))}
 
-          {/* ─── Bridges ─── */}
+          {/* Bridges */}
           {BRIDGES.map((bridge, i) => {
             const from = getIsland(bridge.from);
             const to = getIsland(bridge.to);
             return (
               <g key={i}>
-                <line
-                  x1={from.x}
-                  y1={from.y}
-                  x2={to.x}
-                  y2={to.y}
-                  stroke="#1e293b"
-                  strokeWidth={14}
-                  opacity={0.7}
-                />
-                <line
-                  x1={from.x}
-                  y1={from.y}
-                  x2={to.x}
-                  y2={to.y}
-                  stroke="#475569"
-                  strokeWidth={6}
-                  strokeDasharray="8 4"
-                  opacity={0.8}
-                />
+                <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#1e293b" strokeWidth={14} opacity={0.7} />
+                <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#475569" strokeWidth={6} strokeDasharray="8 4" opacity={0.8} />
               </g>
             );
           })}
 
-          {/* ─── Buildings ─── */}
+          {/* Buildings */}
           {BUILDINGS.map(b => {
             const island = getIsland(b.islandId);
             const wx = island.x + b.x;
             const wy = island.y + b.y;
             return (
-              <g
-                key={b.id}
-                transform={`translate(${wx}, ${wy})`}
-                data-building="true"
-              >
+              <g key={b.id} transform={`translate(${wx}, ${wy})`} data-building="true">
                 <IsometricBuilding
                   id={b.id}
                   label={b.label}
@@ -480,9 +605,9 @@ export default function IslandWorldMap() {
             );
           })}
 
-          {/* ─── My Stadium ─── */}
+          {/* My Stadium — on hub island below buildings */}
           {myStadium && (
-            <g data-stadium="true" transform="translate(0, 150)">
+            <g data-stadium="true" transform={`translate(0, 150)`}>
               <PlayerStadiumSVG
                 stadium={myStadium}
                 x={0}
@@ -495,9 +620,9 @@ export default function IslandWorldMap() {
             </g>
           )}
 
-          {/* ─── Other Stadiums ─── */}
-          {otherStadiums.map((stadium: any) => (
-            <g key={stadium.venueId} data-stadium="true" transform={`translate(${stadium.x}, ${stadium.y})`}>
+          {/* Other Stadiums — positioned on their league islands */}
+          {positionedStadiums.map((stadium) => (
+            <g key={stadium.venueId} data-stadium="true" transform={`translate(${stadium.worldX}, ${stadium.worldY})`}>
               <PlayerStadiumSVG
                 stadium={stadium}
                 x={0}
@@ -510,12 +635,12 @@ export default function IslandWorldMap() {
             </g>
           ))}
 
-          {/* ─── Other players ─── */}
+          {/* Other players */}
           {worldPlayers.map(player => (
             <IsometricAvatar key={player.username} player={player} scale={0.8} />
           ))}
 
-          {/* ─── Player avatar (You) ─── */}
+          {/* Player avatar (You) */}
           <IsometricAvatar
             player={{
               x: px,
@@ -529,15 +654,13 @@ export default function IslandWorldMap() {
             scale={1}
           />
 
-          {/* ─── Ambient particles ─── */}
+          {/* Ambient particles */}
           <FloatingParticles width={WW} height={WH} particleCount={40} />
           <Fireflies width={WW} height={WH} fireflies={20} />
         </svg>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          UI OVERLAYS
-      ═══════════════════════════════════════════════════════ */}
+      {/* UI Overlays */}
 
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-2 bg-[#0a0f1a]/80 backdrop-blur-sm border-b border-white/5">
@@ -564,15 +687,15 @@ export default function IslandWorldMap() {
         <svg viewBox={`${-WW / 2} ${-WH / 2} ${WW} ${WH}`} className="w-full h-full">
           <rect x={-WW / 2} y={-WH / 2} width={WW} height={WH} fill="#0c1e33" />
           {ISLANDS.map(island => (
-            <ellipse
-              key={island.id}
-              cx={island.x}
-              cy={island.y}
-              rx={island.w / 2}
-              ry={island.h / 2}
-              fill={island.color}
-              opacity={0.6}
-            />
+            <ellipse key={island.id} cx={island.x} cy={island.y} rx={island.w / 2} ry={island.h / 2} fill={island.color} opacity={0.6} />
+          ))}
+          {/* My stadium on minimap */}
+          {myStadium && (
+            <circle cx={0} cy={150} r={20} fill="#E94560" opacity={0.7} />
+          )}
+          {/* Other stadiums on minimap */}
+          {positionedStadiums.map(s => (
+            <circle key={s.venueId} cx={s.worldX} cy={s.worldY} r={12} fill="#64748b" opacity={0.5} />
           ))}
           <circle cx={px} cy={py} r={30} fill="#E94560" />
           <rect
@@ -586,6 +709,12 @@ export default function IslandWorldMap() {
             opacity={0.4}
           />
         </svg>
+      </div>
+
+      {/* Drag hint */}
+      <div className="absolute top-14 left-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-black/60 rounded-lg text-xs text-white/50">
+        <Hand className="w-3 h-3" />
+        Click & drag to pan
       </div>
 
       {/* Chat toggle */}
@@ -646,7 +775,7 @@ export default function IslandWorldMap() {
           <span className="w-2 h-2 rounded-full bg-[#E94560]" />
           {myHomeMatches.length} home matches
         </span>
-        <span className="ml-auto text-slate-600">Click ground to walk • Click buildings to interact</span>
+        <span className="ml-auto text-slate-600">Click ground to walk • Click & drag to pan</span>
       </div>
     </div>
   );
