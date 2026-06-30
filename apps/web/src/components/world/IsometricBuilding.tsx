@@ -15,7 +15,7 @@ interface IsometricBuildingProps {
   isActive?: boolean;
   onClick?: () => void;
   onHover?: (id: string | null) => void;
-  variant?: 'shop' | 'stadium' | 'training-facility' | 'medical' | 'scouting' | 'hq' | 'bank' | 'generic';
+  variant?: 'shop' | 'stadium' | 'training-facility' | 'training' | 'medical' | 'scouting' | 'hq' | 'bank' | 'generic';
 }
 
 export default function IsometricBuilding({
@@ -83,6 +83,7 @@ export default function IsometricBuilding({
           </g>
         );
       case 'training-facility':
+      case 'training':
         return (
           <g>
             {/* Gym building with pitched roof */}
