@@ -1059,6 +1059,8 @@ model LeaderboardSnapshot {
   entries     Json     // [{ rank, teamId, teamName, ownerId, ownerName, wins, draws, losses, points, goalsFor, goalsAgainst }]
   totalTeams  Int
 
+  rewards     LeaderboardReward[]
+
   @@index([sportId, season, week])
   @@index([sportId, snapshotAt])
 }
