@@ -46,13 +46,13 @@ interface Island {
 }
 
 const ISLANDS: Island[] = [
-  { id: 'hub', name: 'Grid City Central', type: 'HUB', x: 0, y: 0, w: 600, h: 400, color: '#E94560', accent: '#E94560', ground: '#0f172a' },
-  { id: 'state', name: 'State College', type: 'LEAGUE', x: -550, y: -350, w: 280, h: 200, color: '#86efac', accent: '#22c55e', ground: '#1a2e1a', tier: 'STATE_COLLEGE' },
-  { id: 'mid', name: 'Mid-College', type: 'LEAGUE', x: 550, y: -350, w: 280, h: 200, color: '#22d3ee', accent: '#06b6d4', ground: '#0a2e2e', tier: 'MID_COLLEGE' },
-  { id: 'top', name: 'Top College', type: 'LEAGUE', x: 0, y: -550, w: 280, h: 200, color: '#fbbf24', accent: '#d97706', ground: '#2e2a0a', tier: 'TOP_COLLEGE' },
-  { id: 'regional', name: 'Regional Pro', type: 'LEAGUE', x: 550, y: 0, w: 280, h: 200, color: '#94a3b8', accent: '#475569', ground: '#1a1a2e', tier: 'REGIONAL_PRO' },
-  { id: 'pro', name: 'Pro Entry', type: 'LEAGUE', x: -550, y: 350, w: 280, h: 200, color: '#e2e8f0', accent: '#64748b', ground: '#2e2e3e', tier: 'PRO_ENTRY' },
-  { id: 'elite', name: 'Pro Elite', type: 'LEAGUE', x: 550, y: 350, w: 280, h: 200, color: '#f87171', accent: '#dc2626', ground: '#2e1a1a', tier: 'PRO_ELITE' },
+  { id: 'hub', name: 'Grid City Central', type: 'HUB', x: 0, y: 0, w: 600, h: 400, color: '#f97316', accent: '#ea580c', ground: '#7ec850', tier: undefined },
+  { id: 'state', name: 'State College', type: 'LEAGUE', x: -550, y: -350, w: 280, h: 200, color: '#86efac', accent: '#22c55e', ground: '#6db840', tier: 'STATE_COLLEGE' },
+  { id: 'mid', name: 'Mid-College', type: 'LEAGUE', x: 550, y: -350, w: 280, h: 200, color: '#67e8f9', accent: '#06b6d4', ground: '#6db840', tier: 'MID_COLLEGE' },
+  { id: 'top', name: 'Top College', type: 'LEAGUE', x: 0, y: -550, w: 280, h: 200, color: '#fde047', accent: '#eab308', ground: '#6db840', tier: 'TOP_COLLEGE' },
+  { id: 'regional', name: 'Regional Pro', type: 'LEAGUE', x: 550, y: 0, w: 280, h: 200, color: '#c4b5fd', accent: '#7c3aed', ground: '#6db840', tier: 'REGIONAL_PRO' },
+  { id: 'pro', name: 'Pro Entry', type: 'LEAGUE', x: -550, y: 350, w: 280, h: 200, color: '#fda4af', accent: '#e11d48', ground: '#6db840', tier: 'PRO_ENTRY' },
+  { id: 'elite', name: 'Pro Elite', type: 'LEAGUE', x: 550, y: 350, w: 280, h: 200, color: '#fca5a5', accent: '#dc2626', ground: '#6db840', tier: 'PRO_ELITE' },
 ];
 
 // Map tier to island for placing stadiums

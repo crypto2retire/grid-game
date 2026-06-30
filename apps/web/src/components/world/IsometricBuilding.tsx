@@ -15,7 +15,7 @@ interface IsometricBuildingProps {
   isActive?: boolean;
   onClick?: () => void;
   onHover?: (id: string | null) => void;
-  variant?: 'shop' | 'stadium' | 'hq' | 'bank' | 'training' | 'generic';
+  variant?: 'shop' | 'stadium' | 'training-facility' | 'medical' | 'scouting' | 'hq' | 'bank' | 'generic';
 }
 
 export default function IsometricBuilding({
@@ -56,18 +56,68 @@ export default function IsometricBuilding({
       case 'stadium':
         return (
           <g>
-            {/* Stadium bowl */}
-            <ellipse cx={0} cy={-height * 0.3} rx={w2 * 0.9} ry={d2 * 0.6} fill={`${color}88`} stroke={accent} strokeWidth={1} />
-            <ellipse cx={0} cy={-height * 0.3} rx={w2 * 0.6} ry={d2 * 0.4} fill="#4ade80" opacity={0.4} />
-            {/* Light towers */}
-            <rect x={-w2 * 0.8} y={-height * 0.9} width={3} height={height * 0.5} fill={accent} />
-            <rect x={w2 * 0.8 - 3} y={-height * 0.9} width={3} height={height * 0.5} fill={accent} />
-            <circle cx={-w2 * 0.8 + 1.5} cy={-height * 0.9} r={3} fill="#fbbf24" opacity={0.8}>
-              <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2s" repeatCount="indefinite" />
-            </circle>
-            <circle cx={w2 * 0.8 - 1.5} cy={-height * 0.9} r={3} fill="#fbbf24" opacity={0.8}>
-              <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2.3s" repeatCount="indefinite" />
-            </circle>
+            {/* Stadium outer wall ring */}
+            <ellipse cx={0} cy={-height * 0.25} rx={w2 * 0.92} ry={d2 * 0.62} fill={`${color}aa`} stroke={accent} strokeWidth={1.5} />
+            {/* Upper deck */}
+            <ellipse cx={0} cy={-height * 0.35} rx={w2 * 0.78} ry={d2 * 0.5} fill={`${color}cc`} stroke={accent} strokeWidth={1} />
+            {/* Inner field — bright green */}
+            <ellipse cx={0} cy={-height * 0.3} rx={w2 * 0.55} ry={d2 * 0.34} fill="#4ade80" opacity={0.85} />
+            {/* Field markings — yard lines */}
+            {[-0.3, -0.15, 0, 0.15, 0.3].map((offset, i) => (
+              <line key={i} x1={w2 * 0.35 * offset * 2} y1={-height * 0.3 - d2 * 0.28} x2={w2 * 0.35 * offset * 2} y2={-height * 0.3 + d2 * 0.28} stroke="white" strokeWidth={0.5} opacity={0.5} />
+            ))}
+            {/* Center circle */}
+            <ellipse cx={0} cy={-height * 0.3} rx={w2 * 0.12} ry={d2 * 0.08} fill="none" stroke="white" strokeWidth={0.5} opacity={0.4} />
+            {/* Light towers — 4 corners */}
+            {[-1, 1].map(sx => [-1, 1].map((sy, i) => (
+              <g key={`${sx}-${sy}`}>
+                <rect x={sx * w2 * 0.88 - 2} y={-height * 0.85} width={3} height={height * 0.45} fill="#64748b" rx={1} />
+                <circle cx={sx * w2 * 0.88 - 0.5} cy={-height * 0.86} r={2.5} fill="#fbbf24" opacity={0.9}>
+                  <animate attributeName="opacity" values="0.9;0.5;0.9" dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
+                </circle>
+              </g>
+            )))}
+            {/* Scoreboard */}
+            <rect x={-w2 * 0.25} y={-height * 0.75} width={w2 * 0.5} height={d2 * 0.15} rx={2} fill="#1e293b" stroke="#475569" strokeWidth={0.5} />
+            <text x={0} y={-height * 0.72} textAnchor="middle" fill="white" fontSize={4} fontWeight="bold" opacity={0.7}>HOME 0 - 0 AWAY</text>
+          </g>
+        );
+      case 'training-facility':
+        return (
+          <g>
+            {/* Gym building with pitched roof */}
+            <path d={`M ${-w2 + 6} ${-height * 0.5} L 0 ${-height * 0.75} L ${w2 - 6} ${-height * 0.5} Z`} fill={`${color}aa`} stroke={accent} strokeWidth={1} />
+            {/* Weights icon */}
+            <rect x={-10} y={-height * 0.6} width={20} height={3} rx={1.5} fill="#94a3b8" />
+            <circle cx={-10} cy={-height * 0.6 + 1.5} r={4} fill="#64748b" />
+            <circle cx={10} cy={-height * 0.6 + 1.5} r={4} fill="#64748b" />
+            {/* Door */}
+            <rect x={-6} y={-height * 0.35} width={12} height={height * 0.35} rx={2} fill={`${color}dd`} stroke={accent} strokeWidth={1} />
+          </g>
+        );
+      case 'medical':
+        return (
+          <g>
+            {/* Cross symbol on roof */}
+            <rect x={-3} y={-height * 0.85} width={6} height={14} rx={1} fill="#ef4444" />
+            <rect x={-7} y={-height * 0.81} width={14} height={6} rx={1} fill="#ef4444" />
+            {/* White building */}
+            <rect x={-w2 + 4} y={-height * 0.7} width={width - 8} height={height * 0.5} rx={2} fill="#f8fafc" stroke="#cbd5e1" strokeWidth={1} />
+            {/* Door */}
+            <rect x={-5} y={-height * 0.3} width={10} height={height * 0.3} rx={2} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} />
+          </g>
+        );
+      case 'scouting':
+        return (
+          <g>
+            {/* Binoculars / observation deck */}
+            <rect x={-6} y={-height * 0.8} width={12} height={6} rx={3} fill="#1e293b" />
+            <circle cx={-4} cy={-height * 0.8 + 3} r={2.5} fill="#38bdf8" opacity={0.7} />
+            <circle cx={4} cy={-height * 0.8 + 3} r={2.5} fill="#38bdf8" opacity={0.7} />
+            {/* Stand */}
+            <rect x={-2} y={-height * 0.75} width={4} height={height * 0.15} fill="#475569" />
+            {/* Building */}
+            <rect x={-w2 + 4} y={-height * 0.6} width={width - 8} height={height * 0.6} rx={2} fill={`${color}cc`} stroke={accent} strokeWidth={1} />
           </g>
         );
       case 'shop':

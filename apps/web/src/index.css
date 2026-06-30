@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    /* GRID Game - Dark Arena Theme */
-    --background: 220 25% 5%;
-    --foreground: 0 0% 100%;
-    --card: 220 20% 10%;
-    --card-foreground: 0 0% 100%;
-    --popover: 220 20% 10%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 0 0% 100%;
-    --primary-foreground: 220 25% 5%;
-    --secondary: 220 15% 16%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 220 15% 16%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 350 85% 60%;
+    /* Blocky Sports Theme — bright, playful, Kintara-inspired */
+    --background: 200 60% 96%;
+    --foreground: 215 30% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 30% 15%;
+    --primary: 215 30% 15%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 40% 92%;
+    --secondary-foreground: 215 30% 15%;
+    --muted: 200 30% 88%;
+    --muted-foreground: 215 15% 45%;
+    --accent: 15 85% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 350 85% 60%;
+    --border: 200 30% 82%;
+    --input: 200 30% 82%;
+    --ring: 15 85% 55%;
     --radius: 0.75rem;
   }
 
@@ -34,116 +34,92 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(135deg, hsl(220 25% 5%) 0%, hsl(220 30% 8%) 50%, hsl(220 25% 5%) 100%);
+    background: linear-gradient(180deg, #e8f4f8 0%, #f0f7e8 50%, #e8f4f8 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
 
-  /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: hsl(220 20% 8%);
+    background: hsl(200 40% 90%);
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(220 15% 25%);
+    background: hsl(200 20% 70%);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(350 85% 60%);
+    background: hsl(15 70% 55%);
   }
 }
 
 @layer components {
-  /* Glass Card - Modern frosted glass */
+  /* Solid Card — clean white with subtle shadow */
   .glass-card {
-    @apply bg-card/90 backdrop-blur-xl border border-white/10 rounded-xl;
-    box-shadow: 
-      0 4px 6px -1px rgba(0, 0, 0, 0.3),
-      0 2px 4px -1px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+    @apply bg-white/95 border border-gray-200/80 rounded-2xl;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 4px 12px rgba(0, 0, 0, 0.04);
   }
 
   .glass-card:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 
-      0 8px 12px -2px rgba(0, 0, 0, 0.4),
-      0 4px 6px -1px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    border-color: rgba(0, 0, 0, 0.12);
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.06);
   }
 
-  /* Neon Glow Button */
-  .btn-glow {
-    @apply relative overflow-hidden;
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+  /* Game Panel — dark translucent like Kintara quest/chat panels */
+  .game-panel {
+    @apply bg-slate-800/90 backdrop-blur-md border border-slate-600/50 rounded-2xl text-white;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   }
-  .btn-glow:hover {
-    box-shadow: 0 0 30px rgba(233, 69, 96, 0.5);
+
+  /* Primary Button — bold, colorful */
+  .btn-primary {
+    @apply bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl
+           shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98];
+  }
+
+  /* Secondary Button */
+  .btn-secondary {
+    @apply bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 px-6 rounded-xl
+           border border-slate-200 hover:border-slate-300 transition-all duration-200;
   }
 
   /* Gradient Text */
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #fff 0%, #e0e0e0 100%);
+    background-image: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   }
 
   .gradient-text-accent {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #E94560 0%, #FF6B6B 100%);
+    background-image: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
   }
 
-  /* Stat Card Glow */
-  .stat-glow {
-    position: relative;
-  }
-  .stat-glow::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(233, 69, 96, 0.2), rgba(255, 215, 0, 0.1));
-    z-index: -1;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  .stat-glow:hover::before {
-    opacity: 1;
+  /* Stat Card */
+  .stat-card {
+    @apply bg-white border border-gray-200 rounded-2xl p-4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
-  /* Rarity Styles with Glow */
-  .rarity-common {
-    @apply border-gray-500/50;
-    box-shadow: 0 0 10px rgba(128, 128, 128, 0.1);
-  }
-  .rarity-bronze {
-    @apply border-amber-700/50;
-    box-shadow: 0 0 15px rgba(205, 127, 50, 0.2);
-  }
-  .rarity-silver {
-    @apply border-slate-300/50;
-    box-shadow: 0 0 15px rgba(192, 192, 192, 0.2);
-  }
-  .rarity-gold {
-    @apply border-yellow-400/50;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-  }
-  .rarity-elite {
-    @apply border-purple-400/50;
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
-  }
-  .rarity-legend {
-    @apply border-red-400/50;
-    box-shadow: 0 0 25px rgba(248, 113, 113, 0.4);
-  }
+  /* Rarity Styles — colorful borders */
+  .rarity-common    { @apply border-gray-400/70; box-shadow: 0 0 8px rgba(128,128,128,0.08); }
+  .rarity-bronze    { @apply border-amber-600/70; box-shadow: 0 0 12px rgba(180,83,9,0.15); }
+  .rarity-silver    { @apply border-slate-400/70; box-shadow: 0 0 12px rgba(148,163,184,0.15); }
+  .rarity-gold      { @apply border-yellow-500/70; box-shadow: 0 0 16px rgba(234,179,8,0.2); }
+  .rarity-elite     { @apply border-purple-500/70; box-shadow: 0 0 16px rgba(168,85,247,0.2); }
+  .rarity-legend    { @apply border-red-500/70; box-shadow: 0 0 20px rgba(239,68,68,0.25); }
 
-  /* Grid Background Pattern */
+  /* Isometric Grid Pattern — light visible grid like Kintara */
   .grid-pattern {
-    background-image: 
-      linear-gradient(rgba(233, 69, 96, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(233, 69, 96, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
+    background-image:
+      linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
 
   /* Card Hover Lift */
@@ -151,34 +127,14 @@
     @apply transition-all duration-300;
   }
   .card-lift:hover {
-    transform: translateY(-4px);
-  }
-
-  /* Neon Border */
-  .neon-border {
-    border: 1px solid rgba(233, 69, 96, 0.3);
-    box-shadow: 
-      inset 0 0 20px rgba(233, 69, 96, 0.05),
-      0 0 20px rgba(233, 69, 96, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   }
 
   /* Section Divider */
   .section-divider {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(233, 69, 96, 0.3), transparent);
-  }
-
-  /* Animated Background Gradient */
-  .animated-bg {
-    background: linear-gradient(-45deg, #0a0a0a, #1a1a2e, #16213e, #0a0a0a);
-    background-size: 400% 400%;
-    animation: gradient-shift 15s ease infinite;
-  }
-
-  @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.08), transparent);
   }
 
   /* Pulse Glow for Live Elements */
@@ -187,17 +143,17 @@
   }
 
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 5px rgba(233, 69, 96, 0.3); }
-    50% { box-shadow: 0 0 20px rgba(233, 69, 96, 0.6); }
+    0%, 100% { box-shadow: 0 0 4px rgba(249, 115, 22, 0.2); }
+    50% { box-shadow: 0 0 16px rgba(249, 115, 22, 0.4); }
   }
 
-  /* Shimmer Effect for Loading */
+  /* Shimmer Loading */
   .shimmer {
     background: linear-gradient(
       90deg,
-      hsl(220 20% 10%) 0%,
-      hsl(220 20% 15%) 50%,
-      hsl(220 20% 10%) 100%
+      #f1f5f9 0%,
+      #e2e8f0 50%,
+      #f1f5f9 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
