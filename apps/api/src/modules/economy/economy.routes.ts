@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
+import { env } from '../../config/env';
 import { recordCurrencyLedger } from './ledger';
 
 const router = Router();

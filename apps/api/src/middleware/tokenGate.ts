@@ -26,13 +26,13 @@ export const tokenGate = async (req: Request, _res: Response, next: NextFunction
 
     const wallet = await prisma.wallet.findUnique({
       where: { userId: authReq.user.id },
-      select: { gridTokens: true },
+      select: { dynTokens: true },
     });
 
-    if (!wallet || wallet.gridTokens < required) {
+    if (!wallet || wallet.dynTokens < required) {
       throw new AppError(403,
         `Token gate: ${required.toLocaleString()} DYN required to access this feature. ` +
-        `You have ${wallet?.gridTokens?.toLocaleString() ?? 0}.`
+        `You have ${wallet?.dynTokens?.toLocaleString() ?? 0}.`
       );
     }
 
