@@ -168,10 +168,20 @@ router.post(
         where: { id: listingId },
         data: { status: 'SOLD', soldAt: new Date() },
       });
-      // Remove player from seller's team
+      // Remove player from seller's team only (not all teams)
       await tx.teamPlayer.deleteMany({
-        where: { playerId: listing.playerId },
+        where: { playerId: listing.playerId, team: { ownerId: listing.sellerId } },
       });
+      // Assign player to buyer's team
+      const buyerTeam = await tx.team.findFirst({
+        where: { ownerId: userId, sportId: listing.sportId },
+        select: { id: true },
+      });
+      if (buyerTeam) {
+        await tx.teamPlayer.create({
+          data: { teamId: buyerTeam.id, playerId: listing.playerId, isStarter: false },
+        });
+      }
       await tx.player.update({
         where: { id: listing.playerId },
         data: { lastSoldPrice: listing.price, priceUpdatedAt: new Date() },
@@ -337,6 +347,20 @@ router.post(
         where: { id: offer.listingId },
         data: { status: 'SOLD', soldAt: new Date() },
       });
+      // Remove player from seller's team only
+      await tx.teamPlayer.deleteMany({
+        where: { playerId: offer.listing.playerId, team: { ownerId: userId } },
+      });
+      // Assign player to buyer's team
+      const buyerTeamForOffer = await tx.team.findFirst({
+        where: { ownerId: offer.buyerId, sportId: offer.listing.sportId },
+        select: { id: true },
+      });
+      if (buyerTeamForOffer) {
+        await tx.teamPlayer.create({
+          data: { teamId: buyerTeamForOffer.id, playerId: offer.listing.playerId, isStarter: false },
+        });
+      }
       await tx.player.update({
         where: { id: offer.listing.playerId },
         data: { lastSoldPrice: offer.price, priceUpdatedAt: new Date() },

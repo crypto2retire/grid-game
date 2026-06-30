@@ -21,7 +21,7 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
       throw new AppError(401, 'Authentication required');
     }
 
-    const decoded = jwt.verify(token, env.JWT_SECRET || 'fallback-secret-for-dev-only') as {
+    const decoded = jwt.verify(token, env.JWT_SECRET) as {
       id: string;
       email: string;
       username: string;

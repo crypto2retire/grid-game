@@ -16,7 +16,7 @@ function randomInt(min: number, max: number): number {
 }
 
 export const generateToken = (user: { id: string; email: string; username: string; role: string }): string => {
-  const secret = env.JWT_SECRET || 'fallback-secret-for-dev-only';
+  const secret = env.JWT_SECRET;
   return jwt.sign(
     { id: user.id, email: user.email, username: user.username, role: user.role },
     secret,

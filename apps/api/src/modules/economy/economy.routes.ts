@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
-import { authMiddleware, AuthRequest } from '../../middleware/auth';
+import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { recordCurrencyLedger } from './ledger';
 
@@ -37,10 +37,11 @@ router.get(
   })
 );
 
-// Admin/debug: top up wallet for testing
+// Admin-only: top up wallet for testing
 router.post(
   '/wallet/topup',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({
       amount: z.number().int().positive().max(10000000),
@@ -75,10 +76,11 @@ router.post(
   })
 );
 
-// Admin/debug: top up DYN tokens for testing
+// Admin-only: top up DYN tokens for testing
 router.post(
   '/wallet/topup-grid',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({
       amount: z.number().int().positive().max(10000000),

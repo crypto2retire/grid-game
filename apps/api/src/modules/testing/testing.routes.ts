@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
-import { authMiddleware, AuthRequest } from '../../middleware/auth';
+import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler } from '../../middleware/errorHandler';
 import {
   runTestSeason,
@@ -20,6 +20,7 @@ const router = Router();
 router.post(
   '/season',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({
       gameCount: z.number().int().min(1).max(100).default(20),
@@ -40,6 +41,7 @@ router.post(
 router.post(
   '/mega-simulation',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({
       userCount: z.number().int().min(10).max(500).default(250),
@@ -61,6 +63,7 @@ router.post(
 router.post(
   '/mega-simulation-v2',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({
       userCount: z.number().int().min(10).max(500).default(250),
@@ -83,6 +86,7 @@ router.post(
 router.get(
   '/audit/economics',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (_req: AuthRequest, res) => {
     const audit = await getEconomicAudit();
     res.json({ status: 'success', data: audit });
@@ -93,6 +97,7 @@ router.get(
 router.get(
   '/audit/players',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (_req: AuthRequest, res) => {
     const audit = await getPlayerDevelopmentAudit();
     res.json({ status: 'success', data: audit });
@@ -103,6 +108,7 @@ router.get(
 router.post(
   '/reset',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (_req: AuthRequest, res) => {
     const result = await resetTestSeason();
     res.json({
@@ -117,6 +123,7 @@ router.post(
 router.post(
   '/economy/reset',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (_req: AuthRequest, res) => {
     const result = await resetEconomy();
     res.json({
@@ -131,6 +138,7 @@ router.post(
 router.post(
   '/economy/weekly-costs',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (_req: AuthRequest, res) => {
     const result = await processWeeklyOperatingCosts();
     res.json({
@@ -145,6 +153,7 @@ router.post(
 router.get(
   '/status',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (_req: AuthRequest, res) => {
     const aiTeamCount = await prisma.team.count({ where: { isAI: true } });
     const playerCount = await prisma.player.count();
