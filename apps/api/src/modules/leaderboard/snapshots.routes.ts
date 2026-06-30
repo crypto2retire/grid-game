@@ -79,8 +79,8 @@ router.get(
 
     // Compute current week
     const gameSettings = await prisma.gameSettings.findFirst();
-    const epochStart = gameSettings?.epochStart
-      ? new Date(gameSettings.epochStart as string)
+    const epochStart = gameSettings?.gameEpochStart
+      ? new Date(gameSettings.gameEpochStart as string)
       : new Date('2025-01-01');
     const msPerWeek = 7 * 24 * 60 * 60 * 1000;
     const currentWeek = Math.floor((Date.now() - epochStart.getTime()) / msPerWeek) + 1;

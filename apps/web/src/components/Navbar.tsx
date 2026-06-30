@@ -46,7 +46,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
           <Wallet className="w-4 h-4 text-[#FFD700]" />
           <span className="text-sm font-mono font-bold text-[#FFD700]">
-            {wallet.cash.toLocaleString()}
+            {wallet?.cash?.toLocaleString?.() ?? '0'}
           </span>
           <span className="text-xs text-white/40 font-medium">CASH</span>
         </div>
