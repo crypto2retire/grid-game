@@ -13,47 +13,6 @@ import { canTeamPlayToday } from '../game-time/game-time.routes';
 
 const router = Router();
 
-// ─── GET /api/matches — list matches with pagination and filters ───
-router.get(
-  '/',
-  authMiddleware,
-  asyncHandler(async (req: AuthRequest, res) => {
-    const userId = req.user!.id;
-    const { teamId, sportId, status, limit = '20', offset = '0' } = req.query as Record<string, string>;
-
-    const where: any = {
-      OR: [
-        { homeTeam: { ownerId: userId } },
-        { awayTeam: { ownerId: userId } },
-      ],
-    };
-    if (teamId) {
-      where.OR = [{ homeTeamId: teamId, awayTeamId: teamId }];
-    }
-    if (sportId) where.sportId = sportId as string;
-    if (status) where.status = status as string;
-
-    const [matches, total] = await Promise.all([
-      prisma.match.findMany({
-        where,
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: Math.min(Number(limit), 100),
-        skip: Number(offset),
-      }),
-      prisma.match.count({ where }),
-    ]);
-
-    res.json({
-      status: 'success',
-      data: { matches, total, limit: Number(limit), offset: Number(offset) },
-    });
-  })
-);
-
 const scheduleMatchSchema = z.object({
   homeTeamId: z.string().uuid(),
   awayTeamId: z.string().uuid(),
@@ -391,7 +350,7 @@ router.post(
         })),
       });
 
-      await applyPostGameProgression(tx, {
+      const progResult = await applyPostGameProgression(tx, {
         sportId: match.sportId,
         season: 'beta',
         matchId: match.id,
@@ -406,7 +365,31 @@ router.post(
           ].find((tp: any) => tp.player.id === playerId)?.player.position,
           stats,
         })),
+        teamContext: {
+          [match.homeTeamId]: { isAway: false, transportTier: homeTransport?.tier, ownerId: match.homeTeam.ownerId },
+          [match.awayTeamId]: { isAway: true, transportTier: awayTransport?.tier, ownerId: match.awayTeam.ownerId },
+        },
       });
+
+      // Deduct medical costs from team owners for any injuries
+      for (const inj of progResult.injuries) {
+        if (inj.ownerId && inj.cost > 0) {
+          const medWallet = await tx.wallet.update({
+            where: { userId: inj.ownerId },
+            data: { cash: { decrement: inj.cost } },
+          });
+          await recordCurrencyLedger(tx, {
+            userId: inj.ownerId,
+            currency: 'CASH',
+            amount: -inj.cost,
+            balanceAfter: medWallet.cash,
+            reason: 'MEDICAL_EXPENSE',
+            sourceType: 'INJURY',
+            sourceId: match.id,
+            metadata: { playerId: inj.playerId, playerName: inj.playerName, severity: inj.severity },
+          });
+        }
+      }
 
       // Update team records
       await tx.team.update({

@@ -24,6 +24,14 @@ export type ProgressionPlayerInput = {
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
+// ─── Medical Costs (sink) ───
+export const MEDICAL_COSTS: Record<string, number> = {
+  MINOR: 200,
+  MODERATE: 500,
+  MAJOR: 1500,
+  SEASON_ENDING: 5000,
+};
+
 function num(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
@@ -67,7 +75,7 @@ function getDeclineChance(age: number): number {
 
 // ─── Injury System ───
 // Chance based on: position, fatigue, physical stat, age
-function calculateInjuryChance(player: any): number {
+function calculateInjuryChance(player: any, transportTier?: string, isAway?: boolean): number {
   const positionRisk: Record<string, number> = {
     RB: 0.035, QB: 0.025, WR: 0.03, TE: 0.025, // High contact
     OL: 0.025, DL: 0.03, LB: 0.035, CB: 0.025,  // Moderate contact
@@ -77,11 +85,20 @@ function calculateInjuryChance(player: any): number {
   const fatigueMult = player.fatigue > 70 ? 2.0 : player.fatigue > 50 ? 1.5 : 1.0;
   const physicalMult = player.physical < 50 ? 1.5 : player.physical < 70 ? 1.2 : 0.9;
   const ageMult = player.age > 30 ? 1.3 : player.age > 25 ? 1.1 : 1.0;
-  return baseChance * fatigueMult * physicalMult * ageMult;
+
+  // Transport quality multiplier — poor transport on away games increases risk
+  let transportMult = 1.0;
+  if (isAway) {
+    if (transportTier === 'CARPOOL') transportMult = 1.5;
+    else if (transportTier === 'USED_BUS') transportMult = 1.2;
+    else if (transportTier === 'TEAM_BUS') transportMult = 1.05;
+  }
+
+  return baseChance * fatigueMult * physicalMult * ageMult * transportMult;
 }
 
-function rollInjury(player: any): { occurred: boolean; type?: string; severity?: string; weeks?: number; healthLoss?: number } {
-  const chance = calculateInjuryChance(player);
+function rollInjury(player: any, transportTier?: string, isAway?: boolean): { occurred: boolean; type?: string; severity?: string; weeks?: number; healthLoss?: number } {
+  const chance = calculateInjuryChance(player, transportTier, isAway);
   const roll = Math.random();
   if (roll > chance) return { occurred: false };
 
@@ -100,14 +117,21 @@ function rollInjury(player: any): { occurred: boolean; type?: string; severity?:
   }
 }
 
-function calculateGrowth(input: ProgressionPlayerInput, age: number) {
+function calculateGrowth(input: ProgressionPlayerInput, age: number, isAway?: boolean, transportTier?: string) {
   const s = input.stats;
   const native = s.sportStats || {};
   const ageFactor = getAgeGrowthFactor(age);
   const declineChance = getDeclineChance(age);
   const ratingBoost = s.rating >= 8.2 ? 2 : s.rating >= 7.2 ? 1 : 0;
   const heavyUse = s.shots + s.passes + s.tackles + s.saves;
-  const fatigueGain = clamp(Math.round(3 + heavyUse / 3), 2, 12);
+  // Base fatigue gain — add travel fatigue penalty for away teams with poor transport
+  let travelFatigue = 0;
+  if (isAway) {
+    if (transportTier === 'CARPOOL') travelFatigue = 5;
+    else if (transportTier === 'USED_BUS') travelFatigue = 2;
+    else if (transportTier === 'TEAM_BUS') travelFatigue = 1;
+  }
+  const fatigueGain = clamp(Math.round(3 + heavyUse / 3 + travelFatigue), 2, 18);
   const moraleDelta = s.rating >= 7.5 ? 3 : s.rating >= 6.5 ? 1 : s.rating < 5.8 ? -3 : -1;
   const formDelta = s.rating >= 7.5 ? 4 : s.rating >= 6.5 ? 2 : s.rating < 5.8 ? -4 : -1;
 
@@ -141,9 +165,12 @@ export async function applyPostGameProgression(
     season?: string;
     matchId: string;
     players: ProgressionPlayerInput[];
+    /** Team ID -> { isAway, transportTier, ownerId } for medical billing */
+    teamContext?: Record<string, { isAway: boolean; transportTier?: string; ownerId: string }>;
   }
-) {
+): Promise<{ injuries: { playerId: string; playerName: string; teamId: string; severity: string; cost: number; ownerId: string }[] }> {
   const season = input.season || 'beta';
+  const injuries: { playerId: string; playerName: string; teamId: string; severity: string; cost: number; ownerId: string }[] = [];
 
   for (const player of input.players) {
     const s = player.stats;
@@ -222,10 +249,11 @@ export async function applyPostGameProgression(
     const current = await tx.player.findUnique({ where: { id: player.playerId } });
     if (!current) continue;
 
-    const growth = calculateGrowth(player, current.age);
+    const ctx = input.teamContext?.[player.teamId] || { isAway: false, ownerId: '' };
+    const growth = calculateGrowth(player, current.age, ctx.isAway, ctx.transportTier);
     
-    // Apply injury if it occurred
-    const injury = rollInjury(current);
+    // Apply injury if it occurred (transport quality affects chance)
+    const injury = rollInjury(current, ctx.transportTier, ctx.isAway);
     
     const nextHealth = clamp(current.health - (injury.healthLoss || 0), 0, 100);
     const nextInjuryStatus = injury.occurred ? (injury.severity === 'SEASON_ENDING' ? 'SEASON_ENDING' : 'WEEK_TO_WEEK') : (current.injuryWeeks > 0 ? current.injuryStatus : 'HEALTHY');
@@ -293,17 +321,28 @@ export async function applyPostGameProgression(
     }
 
     if (injury.occurred) {
+      const cost = MEDICAL_COSTS[injury.severity!] || 200;
+      injuries.push({
+        playerId: player.playerId,
+        playerName: current.name,
+        teamId: player.teamId,
+        severity: injury.severity!,
+        cost,
+        ownerId: ctx.ownerId,
+      });
       await tx.playerDevelopmentLog.create({
         data: {
           playerId: player.playerId,
           matchId: input.matchId,
           statGained: 'INJURY',
           amount: -(injury.healthLoss || 0),
-          reason: `Injury: ${injury.type} (${injury.severity}) - ${injury.weeks} weeks`,
+          reason: `Injury: ${injury.type} (${injury.severity}) - ${injury.weeks} weeks | Medical cost: ${cost} CASH`,
         },
       });
     }
   }
+
+  return { injuries };
 }
 
 // ─── Age Progression (called once per simulated season/year) ───

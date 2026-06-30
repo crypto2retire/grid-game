@@ -1047,3 +1047,35 @@ model PlayerDevelopmentLog {
   @@index([playerId, matchId])
   @@index([playerId, createdAt])
 }
+
+// ─── Leaderboard Snapshots (weekly/seasonal) ───
+
+model LeaderboardSnapshot {
+  id          String   @id @default(uuid())
+  sportId     String   @default("american-football")
+  season      String   @default("beta")
+  week        Int      // week number within the season
+  snapshotAt  DateTime @default(now())
+  entries     Json     // [{ rank, teamId, teamName, ownerId, ownerName, wins, draws, losses, points, goalsFor, goalsAgainst }]
+  totalTeams  Int
+
+  @@index([sportId, season, week])
+  @@index([sportId, snapshotAt])
+}
+
+model LeaderboardReward {
+  id            String   @id @default(uuid())
+  snapshotId    String
+  snapshot      LeaderboardSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  rank          Int      // 1st, 2nd, 3rd, etc.
+  teamId        String
+  ownerId       String
+  rewardAmount  Int      // CASH awarded
+  currency      String   @default("CASH")
+  status        String   @default("PENDING") // PENDING | PAID
+  paidAt        DateTime?
+
+  @@index([snapshotId])
+  @@index([ownerId])
+  @@index([status])
+}
