@@ -10,6 +10,7 @@ import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/led
 import { calculateGameEconomics } from '../economy/gameEconomics';
 import { applyPostGameProgression } from './progression';
 import { canTeamPlayToday } from '../game-time/game-time.routes';
+import { applyPostMatchStadiumWear } from '../economy/maintenance.service';
 
 const router = Router();
 
@@ -462,6 +463,12 @@ router.post(
           breakdown: awayEconomics.breakdown,
         },
       });
+
+      // Apply stadium wear from match attendance (home team's venue)
+      const attendance = Math.round((homeEconomics.breakdown['Ticket Sales'] || 0) / (match.homeTeam.venue?.ticketPrice || 8));
+      if (match.homeTeam.venue) {
+        await applyPostMatchStadiumWear(tx, match.homeTeam.venue.id, attendance, match.homeTeam.venue.capacity);
+      }
 
       // Create TeamFinanceSnapshot for both teams
       await tx.teamFinanceSnapshot.create({
