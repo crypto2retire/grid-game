@@ -401,8 +401,8 @@ router.post(
           wins: { increment: homeWon ? 1 : 0 },
           draws: { increment: draw ? 1 : 0 },
           losses: { increment: awayWon ? 1 : 0 },
-          goalsFor: { increment: result.homeScore },
-          goalsAgainst: { increment: result.awayScore },
+          pointsFor: { increment: result.homeScore },
+          pointsAgainst: { increment: result.awayScore },
           points: { increment: homeWon ? 3 : draw ? 1 : 0 },
         },
       });
@@ -413,8 +413,8 @@ router.post(
           wins: { increment: awayWon ? 1 : 0 },
           draws: { increment: draw ? 1 : 0 },
           losses: { increment: homeWon ? 1 : 0 },
-          goalsFor: { increment: result.awayScore },
-          goalsAgainst: { increment: result.homeScore },
+          pointsFor: { increment: result.awayScore },
+          pointsAgainst: { increment: result.homeScore },
           points: { increment: awayWon ? 3 : draw ? 1 : 0 },
         },
       });

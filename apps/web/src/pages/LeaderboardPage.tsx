@@ -9,8 +9,8 @@ interface LeaderboardTeam {
   wins: number;
   draws: number;
   losses: number;
-  goalsFor: number;
-  goalsAgainst: number;
+  pointsFor: number;
+  pointsAgainst: number;
   points: number;
   _count: { teamPlayers: number };
 }
@@ -163,7 +163,7 @@ export default function LeaderboardPage() {
                       <div className="text-xs text-muted-foreground">W-L-T</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-bold text-white">{team.goalsFor}:{team.goalsAgainst}</div>
+                      <div className="font-bold text-white">{team.pointsFor}:{team.pointsAgainst}</div>
                       <div className="text-xs text-muted-foreground">PF:PA</div>
                     </div>
                     <div className="text-center w-12">

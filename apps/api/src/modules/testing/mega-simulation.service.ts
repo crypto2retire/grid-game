@@ -18,7 +18,7 @@ interface SimTeam {
   sponsorships: SimSponsor[]; equipment: string[];
   formation: string; style: string; pressing: string; mentality: string;
   wins: number; draws: number; losses: number; points: number;
-  goalsFor: number; goalsAgainst: number;
+  pointsFor: number; pointsAgainst: number;
   purchasedAt: Date; purchasePrice: number; purchaseCurrency: string; isAI: boolean;
   prestige: number;
 }
@@ -92,7 +92,7 @@ interface SeasonMetrics {
 interface MegaSimV2Result {
   usersCreated: number; teamsCreated: number; aiTeamsCreated: number; totalPlayers: number;
   seasons: SeasonMetrics[];
-  finalStandings: Array<{ teamId: string; teamName: string; tier: string; owner: string; wins: number; draws: number; losses: number; points: number; goalsFor: number; goalsAgainst: number; netRevenue: number }>;
+  finalStandings: Array<{ teamId: string; teamName: string; tier: string; owner: string; wins: number; draws: number; losses: number; points: number; pointsFor: number; pointsAgainst: number; netRevenue: number }>;
   topPlayers: Array<{ playerId: string; playerName: string; teamName: string; position: string; age: number; overall: number; mvpScore: number; ratingAverage: number }>;
   feeTracker: FeeTracker;
   pumpfunSummary: { startingPrice: number; finalPrice: number; allTimeHigh: number; allTimeLow: number; totalVolume: number; totalFees: number; finalMarketCap: number; priceHistory: PumpFunState['priceHistory']; regimeTransitions: Array<{ season: number; week: number; from: string; to: string }> };
@@ -323,7 +323,7 @@ async function assignTeamToUser(user: SimUser, season: number, aiOwnerId: string
     simPlayers.push({ id: player.id, name: player.name, position: pos, overall: player.overall, age: player.age, health: 100, injuryStatus: 'HEALTHY', injuryType: null, injuryWeeks: 0, form: player.form, fatigue: 0, morale: player.morale, rarity: player.rarity, pace, shooting, passing, dribbling, defending, physical, goalkeeping: 0, basePrice: player.basePrice, isStarter: i < 11 });
   }
 
-  return { id: team.id, ownerId: user.id, name: teamName, tier, sportId: 'american-football', players: simPlayers, venue: { id: venue.id, teamId: team.id, ownerId: aiOwnerId, name: venue.name, tier: venue.tier, capacity: venue.capacity, ticketPrice: venue.ticketPrice, condition: venue.condition, prestige: venue.prestige, leaseRate: venue.leaseRate, purchasePrice: venue.purchasePrice || 0, solPrice: venue.solPrice || 0, operatingCost: Math.round(venue.capacity * 0.1) }, transport: { id: transport.id, teamId: team.id, ownerId: aiOwnerId, tier: transport.tier, name: transport.name, operatingCost: transport.operatingCost, fatigueReduction: transport.fatigueReduction, prestige: transport.prestige, purchasePrice: transport.purchasePrice || 0, solPrice: transport.solPrice || 0 }, sponsorships: [], equipment: [], formation: '4-3-3', style: randomPick(['balanced', 'runHeavy', 'passHeavy', 'aggressive', 'conservative']), pressing: randomPick(['low', 'medium', 'high']), mentality: randomPick(['defensive', 'balanced', 'attacking']), wins: 0, draws: 0, losses: 0, points: 0, goalsFor: 0, goalsAgainst: 0, purchasedAt: new Date(), purchasePrice, purchaseCurrency, isAI: false, prestige: venue.prestige || 10 };
+  return { id: team.id, ownerId: user.id, name: teamName, tier, sportId: 'american-football', players: simPlayers, venue: { id: venue.id, teamId: team.id, ownerId: aiOwnerId, name: venue.name, tier: venue.tier, capacity: venue.capacity, ticketPrice: venue.ticketPrice, condition: venue.condition, prestige: venue.prestige, leaseRate: venue.leaseRate, purchasePrice: venue.purchasePrice || 0, solPrice: venue.solPrice || 0, operatingCost: Math.round(venue.capacity * 0.1) }, transport: { id: transport.id, teamId: team.id, ownerId: aiOwnerId, tier: transport.tier, name: transport.name, operatingCost: transport.operatingCost, fatigueReduction: transport.fatigueReduction, prestige: transport.prestige, purchasePrice: transport.purchasePrice || 0, solPrice: transport.solPrice || 0 }, sponsorships: [], equipment: [], formation: '4-3-3', style: randomPick(['balanced', 'runHeavy', 'passHeavy', 'aggressive', 'conservative']), pressing: randomPick(['low', 'medium', 'high']), mentality: randomPick(['defensive', 'balanced', 'attacking']), wins: 0, draws: 0, losses: 0, points: 0, pointsFor: 0, pointsAgainst: 0, purchasedAt: new Date(), purchasePrice, purchaseCurrency, isAI: false, prestige: venue.prestige || 10 };
 }
 
 async function generateAITeam(tier: string, index: number, aiOwnerId: string): Promise<SimTeam> {
@@ -382,7 +382,7 @@ async function generateAITeam(tier: string, index: number, aiOwnerId: string): P
     simPlayers.push({ id: player.id, name: player.name, position: pos, overall, age, health: 100, injuryStatus: 'HEALTHY', injuryType: null, injuryWeeks: 0, form: player.form, fatigue: 0, morale: player.morale, rarity: player.rarity, pace, shooting, passing, dribbling, defending, physical, goalkeeping: 0, basePrice: player.basePrice, isStarter: i < 11 });
   }
 
-  return { id: team.id, ownerId: aiOwnerId, name: teamName, tier, sportId: 'american-football', players: simPlayers, venue: { id: venue.id, teamId: team.id, ownerId: aiOwnerId, name: venue.name, tier: venue.tier, capacity: venue.capacity, ticketPrice: venue.ticketPrice, condition: venue.condition, prestige: venue.prestige, leaseRate: venue.leaseRate, purchasePrice: venue.purchasePrice || 0, solPrice: venue.solPrice || 0, operatingCost: Math.round(venue.capacity * 0.1) }, transport: { id: transport.id, teamId: team.id, ownerId: aiOwnerId, tier: transport.tier, name: transport.name, operatingCost: transport.operatingCost, fatigueReduction: transport.fatigueReduction, prestige: transport.prestige, purchasePrice: transport.purchasePrice || 0, solPrice: transport.solPrice || 0 }, sponsorships: [], equipment: [], formation: '4-3-3', style: team.aiStrategy || 'balanced', pressing: 'medium', mentality: 'balanced', wins: 0, draws: 0, losses: 0, points: 0, goalsFor: 0, goalsAgainst: 0, purchasedAt: new Date(), purchasePrice: gridPrice, purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'DYN', isAI: true, prestige: venue.prestige || 10 };
+  return { id: team.id, ownerId: aiOwnerId, name: teamName, tier, sportId: 'american-football', players: simPlayers, venue: { id: venue.id, teamId: team.id, ownerId: aiOwnerId, name: venue.name, tier: venue.tier, capacity: venue.capacity, ticketPrice: venue.ticketPrice, condition: venue.condition, prestige: venue.prestige, leaseRate: venue.leaseRate, purchasePrice: venue.purchasePrice || 0, solPrice: venue.solPrice || 0, operatingCost: Math.round(venue.capacity * 0.1) }, transport: { id: transport.id, teamId: team.id, ownerId: aiOwnerId, tier: transport.tier, name: transport.name, operatingCost: transport.operatingCost, fatigueReduction: transport.fatigueReduction, prestige: transport.prestige, purchasePrice: transport.purchasePrice || 0, solPrice: transport.solPrice || 0 }, sponsorships: [], equipment: [], formation: '4-3-3', style: team.aiStrategy || 'balanced', pressing: 'medium', mentality: 'balanced', wins: 0, draws: 0, losses: 0, points: 0, pointsFor: 0, pointsAgainst: 0, purchasedAt: new Date(), purchasePrice: gridPrice, purchaseCurrency: tier === 'STATE_COLLEGE' ? 'FREE' : 'DYN', isAI: true, prestige: venue.prestige || 10 };
 }
 // ─── Pump.fun Price Model ───
 
@@ -583,10 +583,10 @@ async function simulateMatch(homeTeam: SimTeam, awayTeam: SimTeam, homeUser: Sim
     const awayScore = Math.round(Math.max(0, normalRandom((awayOvr / 20), 2)));
 
     // Update standings
-    homeTeam.goalsFor += homeScore;
-    homeTeam.goalsAgainst += awayScore;
-    awayTeam.goalsFor += awayScore;
-    awayTeam.goalsAgainst += homeScore;
+    homeTeam.pointsFor += homeScore;
+    homeTeam.pointsAgainst += awayScore;
+    awayTeam.pointsFor += awayScore;
+    awayTeam.pointsAgainst += homeScore;
 
     if (homeScore > awayScore) { homeTeam.wins++; awayTeam.losses++; homeTeam.points += 3; metrics.homeWins++; }
     else if (awayScore > homeScore) { awayTeam.wins++; homeTeam.losses++; awayTeam.points += 3; metrics.awayWins++; }
@@ -1145,12 +1145,12 @@ function buildMegaSimulationResults(state: SimRunState): MegaSimV2Result {
     .filter((t: SimTeam) => !t.isAI)
     .map((team: SimTeam) => {
       const owner = users.find((u: SimUser) => u.id === team.ownerId);
-      const netRevenue = (team.goalsFor * 10) - ((team.players.length * 25 * 52) + (team.venue?.operatingCost || 0) + (team.transport?.operatingCost || 0));
+      const netRevenue = (team.pointsFor * 10) - ((team.players.length * 25 * 52) + (team.venue?.operatingCost || 0) + (team.transport?.operatingCost || 0));
       return {
         teamId: team.id, teamName: team.name, tier: team.tier,
         owner: owner?.displayName || 'AI Owner',
         wins: team.wins, draws: team.draws, losses: team.losses,
-        points: team.points, goalsFor: team.goalsFor, goalsAgainst: team.goalsAgainst,
+        points: team.points, pointsFor: team.pointsFor, pointsAgainst: team.pointsAgainst,
         netRevenue,
       };
     })

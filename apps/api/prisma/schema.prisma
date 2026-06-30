@@ -374,8 +374,8 @@ model Team {
   wins          Int      @default(0)
   draws         Int      @default(0)
   losses        Int      @default(0)
-  goalsFor      Int      @default(0)
-  goalsAgainst  Int      @default(0)
+  pointsFor     Int      @default(0) @map("goalsFor")
+  pointsAgainst Int      @default(0) @map("goalsAgainst")
   points        Int      @default(0)
   record        Json     @default("{}")
 

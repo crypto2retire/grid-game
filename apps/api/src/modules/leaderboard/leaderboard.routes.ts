@@ -37,7 +37,7 @@ router.get(
         orderBy: [
           { points: 'desc' },
           { wins: 'desc' },
-          { goalsFor: 'desc' },
+          { pointsFor: 'desc' },
         ],
         include: {
           owner: {

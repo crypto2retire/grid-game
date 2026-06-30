@@ -680,8 +680,8 @@ export async function completeGame(matchId: string) {
         wins: { increment: homeWins },
         draws: { increment: isDraw },
         losses: { increment: homeLosses },
-        goalsFor: { increment: match.homeScore },
-        goalsAgainst: { increment: match.awayScore },
+        pointsFor: { increment: match.homeScore },
+        pointsAgainst: { increment: match.awayScore },
         points: { increment: homePoints },
       },
     });
@@ -692,8 +692,8 @@ export async function completeGame(matchId: string) {
         wins: { increment: awayWins },
         draws: { increment: isDraw },
         losses: { increment: awayLosses },
-        goalsFor: { increment: match.awayScore },
-        goalsAgainst: { increment: match.homeScore },
+        pointsFor: { increment: match.awayScore },
+        pointsAgainst: { increment: match.homeScore },
         points: { increment: awayPoints },
       },
     });

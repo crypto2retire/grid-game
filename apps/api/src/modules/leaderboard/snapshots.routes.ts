@@ -63,7 +63,7 @@ router.get(
     // Get current standings
     const teams = await prisma.team.findMany({
       where: { sportId },
-      orderBy: [{ points: 'desc' }, { wins: 'desc' }, { goalsFor: 'desc' }],
+      orderBy: [{ points: 'desc' }, { wins: 'desc' }, { pointsFor: 'desc' }],
       select: {
         id: true,
         name: true,
@@ -71,8 +71,8 @@ router.get(
         draws: true,
         losses: true,
         points: true,
-        goalsFor: true,
-        goalsAgainst: true,
+        pointsFor: true,
+        pointsAgainst: true,
         owner: { select: { id: true, username: true } },
       },
     });
@@ -114,7 +114,7 @@ router.post(
     // Get current standings
     const teams = await prisma.team.findMany({
       where: { sportId },
-      orderBy: [{ points: 'desc' }, { wins: 'desc' }, { goalsFor: 'desc' }],
+      orderBy: [{ points: 'desc' }, { wins: 'desc' }, { pointsFor: 'desc' }],
       select: {
         id: true,
         name: true,
@@ -122,8 +122,8 @@ router.post(
         draws: true,
         losses: true,
         points: true,
-        goalsFor: true,
-        goalsAgainst: true,
+        pointsFor: true,
+        pointsAgainst: true,
         owner: { select: { id: true, username: true } },
       },
     });
@@ -144,8 +144,8 @@ router.post(
       draws: t.draws,
       losses: t.losses,
       points: t.points,
-      goalsFor: t.goalsFor,
-      goalsAgainst: t.goalsAgainst,
+      pointsFor: t.pointsFor,
+      pointsAgainst: t.pointsAgainst,
     }));
 
     // Create snapshot and rewards in a transaction

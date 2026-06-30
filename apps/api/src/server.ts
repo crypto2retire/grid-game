@@ -423,6 +423,9 @@ const startServer = async () => {
     logger.info(`Environment: ${env.NODE_ENV}`);
     logger.info(`Database: ${env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
     logger.info(`JWT: ${env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
+    if (!env.DAILY_SALT) {
+      logger.warn('DAILY_SALT not set — using default salt. Set this for cryptographic seed security.');
+    }
   });
 
   if (env.DATABASE_URL) {
@@ -439,9 +442,9 @@ const startServer = async () => {
         });
       } catch (gsErr: any) {
         if (gsErr.code === 'P2021') {
-          logger.info('GameSettings table not ready yet, skipping upsert');
+          logger.info('GameSettings table not ready yet, skipping upsert (migration pending)');
         } else {
-          logger.error('GameSettings upsert error:', gsErr.message);
+          logger.warn('GameSettings upsert failed — non-critical, continuing boot:', gsErr.message);
         }
       }
 

@@ -80,8 +80,8 @@ interface TeamStanding {
   draws: number;
   losses: number;
   points: number;
-  goalsFor: number;
-  goalsAgainst: number;
+  pointsFor: number;
+  pointsAgainst: number;
   netRevenue: number;
 }
 
@@ -153,11 +153,11 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
   const beforeSolBalance = beforeSolTreasury?.balance || 0;
 
   // 4. Snapshot team records before
-  const beforeRecords = new Map<string, { wins: number; draws: number; losses: number; points: number; goalsFor: number; goalsAgainst: number }>();
+  const beforeRecords = new Map<string, { wins: number; draws: number; losses: number; points: number; pointsFor: number; pointsAgainst: number }>();
   for (const team of aiTeams) {
     beforeRecords.set(team.id, {
       wins: team.wins, draws: team.draws, losses: team.losses,
-      points: team.points, goalsFor: team.goalsFor, goalsAgainst: team.goalsAgainst,
+      points: team.points, pointsFor: team.pointsFor, pointsAgainst: team.pointsAgainst,
     });
   }
 
@@ -385,7 +385,7 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
           data: {
             wins: { increment: homeWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
             losses: { increment: awayWon ? 1 : 0 },
-            goalsFor: { increment: result.homeScore }, goalsAgainst: { increment: result.awayScore },
+            pointsFor: { increment: result.homeScore }, pointsAgainst: { increment: result.awayScore },
             points: { increment: homeWon ? 3 : draw ? 1 : 0 },
           },
         });
@@ -394,7 +394,7 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
           data: {
             wins: { increment: awayWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
             losses: { increment: homeWon ? 1 : 0 },
-            goalsFor: { increment: result.awayScore }, goalsAgainst: { increment: result.homeScore },
+            pointsFor: { increment: result.awayScore }, pointsAgainst: { increment: result.homeScore },
             points: { increment: awayWon ? 3 : draw ? 1 : 0 },
           },
         });
@@ -548,8 +548,8 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
       teamId: team.id, teamName: team.name, tier: team.tier,
       wins: team.wins - before.wins, draws: team.draws - before.draws,
       losses: team.losses - before.losses, points: team.points - before.points,
-      goalsFor: team.goalsFor - before.goalsFor,
-      goalsAgainst: team.goalsAgainst - before.goalsAgainst,
+      pointsFor: team.pointsFor - before.pointsFor,
+      pointsAgainst: team.pointsAgainst - before.pointsAgainst,
       netRevenue,
     };
   }).sort((a, b) => b.points - a.points);
@@ -764,7 +764,7 @@ export async function resetTestSeason() {
   await prisma.match.deleteMany({ where: { id: { startsWith: 'test-match-' } } });
   await prisma.team.updateMany({
     where: { isAI: true },
-    data: { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 },
+    data: { wins: 0, draws: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, points: 0 },
   });
   await prisma.playerSeasonStats.deleteMany({ where: { season: 'beta' } });
   await prisma.marketplaceListing.deleteMany({});
@@ -1165,7 +1165,7 @@ export async function runMegaSimulation(userCount: number = 250, seasonCount: nu
     teamId: team.id, teamName: team.name, tier: team.tier,
     wins: team.wins, draws: team.draws, losses: team.losses,
     points: team.points,
-    goalsFor: team.goalsFor, goalsAgainst: team.goalsAgainst,
+    pointsFor: team.pointsFor, pointsAgainst: team.pointsAgainst,
     netRevenue: (team as any).financeSnapshots?.reduce((sum: number, fs: any) => sum + (fs.net || 0), 0) || 0,
   }));
 
@@ -1431,7 +1431,7 @@ async function simulateSingleSeason(
               data: {
                 wins: { increment: homeWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
                 losses: { increment: awayWon ? 1 : 0 },
-                goalsFor: { increment: result.homeScore }, goalsAgainst: { increment: result.awayScore },
+                pointsFor: { increment: result.homeScore }, pointsAgainst: { increment: result.awayScore },
                 points: { increment: homeWon ? 3 : draw ? 1 : 0 },
               },
             });
@@ -1440,7 +1440,7 @@ async function simulateSingleSeason(
               data: {
                 wins: { increment: awayWon ? 1 : 0 }, draws: { increment: draw ? 1 : 0 },
                 losses: { increment: homeWon ? 1 : 0 },
-                goalsFor: { increment: result.awayScore }, goalsAgainst: { increment: result.homeScore },
+                pointsFor: { increment: result.awayScore }, pointsAgainst: { increment: result.homeScore },
                 points: { increment: awayWon ? 3 : draw ? 1 : 0 },
               },
             });

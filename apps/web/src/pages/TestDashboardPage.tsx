@@ -79,8 +79,8 @@ interface SeasonResult {
     draws: number;
     losses: number;
     points: number;
-    goalsFor: number;
-    goalsAgainst: number;
+    pointsFor: number;
+    pointsAgainst: number;
     netRevenue: number;
   }>;
   issues: string[];
@@ -147,7 +147,7 @@ interface MegaSimResult {
   finalStandings: Array<{
     teamId: string; teamName: string; tier: string;
     owner: string; wins: number; draws: number; losses: number;
-    points: number; goalsFor: number; goalsAgainst: number;
+    points: number; pointsFor: number; pointsAgainst: number;
     netRevenue: number;
   }>;
   topPlayers: Array<{
@@ -621,8 +621,8 @@ export default function TestDashboardPage() {
                       <td className="py-2 text-right text-amber-400">{team.draws}</td>
                       <td className="py-2 text-right text-red-400">{team.losses}</td>
                       <td className="py-2 text-right text-white font-bold">{team.points}</td>
-                      <td className="py-2 text-right text-white">{team.goalsFor}</td>
-                      <td className="py-2 text-right text-white">{team.goalsAgainst}</td>
+                      <td className="py-2 text-right text-white">{team.pointsFor}</td>
+                      <td className="py-2 text-right text-white">{team.pointsAgainst}</td>
                       <td className="py-2 text-right text-emerald-400">{team.netRevenue.toLocaleString()}</td>
                     </tr>
                   ))}
@@ -907,8 +907,8 @@ export default function TestDashboardPage() {
                       <td className="py-2 text-right text-amber-400">{team.draws}</td>
                       <td className="py-2 text-right text-red-400">{team.losses}</td>
                       <td className="py-2 text-right text-white font-bold">{team.points}</td>
-                      <td className="py-2 text-right text-white">{team.goalsFor}</td>
-                      <td className="py-2 text-right text-white">{team.goalsAgainst}</td>
+                      <td className="py-2 text-right text-white">{team.pointsFor}</td>
+                      <td className="py-2 text-right text-white">{team.pointsAgainst}</td>
                       <td className="py-2 text-right text-emerald-400">{team.netRevenue.toLocaleString()}</td>
                     </tr>
                   ))}
