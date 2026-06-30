@@ -35,6 +35,10 @@ import { playGameRouter } from './modules/play-game/play-game.routes';
 import { aiTeamsRouter } from './modules/ai-teams/ai-teams.routes';
 import { testingRouter } from './modules/testing/testing.routes';
 import { worldRouter } from './modules/world/world.routes';
+import { dailyQuestsRouter } from './modules/daily-quests/daily-quests.routes';
+import { chatRouter } from './modules/chat/chat.routes';
+import { miniGamesRouter } from './modules/mini-games/mini-games.routes';
+import { ensureDefaultDailyQuests } from './modules/daily-quests/daily-quests.service';
 import { gameTimeRouter } from './modules/game-time/game-time.routes';
 import { islandRouter } from './modules/islands/island.routes';
 import { leagueRouter } from './modules/leagues/league.routes';
@@ -366,6 +370,9 @@ app.use('/api/play-game', playGameRouter);
 app.use('/api/ai-teams', aiTeamsRouter);
 app.use('/api/testing', testingRouter);
 app.use('/api/world', worldRouter);
+app.use('/api/daily-quests', dailyQuestsRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/mini-games', miniGamesRouter);
 app.use('/api/game-time', gameTimeRouter);
 app.use('/api/islands', islandRouter);
 app.use('/api/leagues', leagueRouter);
@@ -495,8 +502,9 @@ const startServer = async () => {
                   import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
                     generateAllAITeams().catch((e: any) => logger.error('AI team generation error:', e));
                   });
-                  // Seed equipment types and marketplace listings
+                  // Seed equipment types, daily quests, and marketplace listings
                   seedEquipmentTypes(prisma).catch((e: any) => logger.error('Equipment seed error:', e));
+                  ensureDefaultDailyQuests().catch((e: any) => logger.error('Daily quest seed error:', e));
                   seedMarketplaceListings(prisma).catch((e: any) => logger.error('Marketplace seed error:', e));
                   seedTeamMarketplaceListings(prisma).catch((e: any) => logger.error('Team marketplace seed error:', e));
                   seedDefaultIslands(prisma).catch((e: any) => logger.error('Island seed error:', e));

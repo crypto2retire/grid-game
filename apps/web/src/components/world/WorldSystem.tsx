@@ -1,4 +1,7 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { fetchApi } from '../../lib/api';
+import { connectSocket, disconnectSocket, sendAvatarMove, socket } from '../../lib/socket';
+import { useAuthStore } from '../../store/authStore';
 
 export interface WorldPlayer {
   userId: string;
@@ -78,7 +81,12 @@ export const useWorld = () => {
   return ctx;
 };
 
-export function WorldProvider({ children }: { children: React.ReactNode }) {
+function filterSelf(players: WorldPlayer[], userId?: string) {
+  return userId ? players.filter((player) => player.userId !== userId) : players;
+}
+
+export function WorldProvider({ children }: { children: ReactNode }) {
+  const { user, token } = useAuthStore();
   const [onlinePlayers, setOnlinePlayers] = useState<WorldPlayer[]>([]);
   const [myStadium, setMyStadium] = useState<MyStadium | null>(null);
   const [otherStadiums, setOtherStadiums] = useState<OtherStadium[]>([]);
@@ -87,71 +95,77 @@ export function WorldProvider({ children }: { children: React.ReactNode }) {
   const animationRef = useRef<number | null>(null);
 
   const refreshWorld = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      setOnlinePlayers([]);
+      return;
+    }
+
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const [stadiumRes, venuesRes, matchesRes] = await Promise.all([
-        fetch('/api/world/my-stadium', { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch('/api/world/stadiums', { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch('/api/world/matches', { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+      const [stadiumData, venuesData, matchesData, playersData] = await Promise.all([
+        fetchApi('/api/world/my-stadium').catch(() => null),
+        fetchApi('/api/world/stadiums').catch(() => null),
+        fetchApi('/api/world/matches').catch(() => null),
+        fetchApi('/api/world/players').catch(() => null),
       ]);
 
-      if (stadiumRes?.ok) {
-        const data = await stadiumRes.json();
-        setMyStadium(data.data || null);
-      }
-
-      if (venuesRes?.ok) {
-        const data = await venuesRes.json();
-        // Stadium positions are computed by IslandWorldMap based on tier
-        setOtherStadiums(data.data || []);
-      }
-
-      if (matchesRes?.ok) {
-        const data = await matchesRes.json();
-        setLiveMatches(data.data || []);
-      }
-
-      // Simulate other players for now (until backend socket is ready)
-      setOnlinePlayers((prev) => {
-        if (prev.length > 0) return prev;
-        return [
-          { userId: 'player-1', username: 'GridKing', x: 200, y: 300, targetX: 200, targetY: 300, isMoving: false, facing: 'right', avatarColor: '#E94560', lastSeen: Date.now() },
-          { userId: 'player-2', username: 'TouchdownTom', x: 500, y: 400, targetX: 500, targetY: 400, isMoving: false, facing: 'left', avatarColor: '#22c55e', lastSeen: Date.now() },
-          { userId: 'player-3', username: 'StadiumBoss', x: 700, y: 200, targetX: 700, targetY: 200, isMoving: false, facing: 'down', avatarColor: '#3b82f6', lastSeen: Date.now() },
-        ];
-      });
+      if (stadiumData?.data !== undefined) setMyStadium(stadiumData.data || null);
+      if (venuesData?.data !== undefined) setOtherStadiums(venuesData.data || []);
+      if (matchesData?.data !== undefined) setLiveMatches(matchesData.data || []);
+      if (playersData?.data !== undefined) setOnlinePlayers(filterSelf(playersData.data || [], user?.id));
     } catch (e) {
       console.error('Failed to refresh world:', e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token, user?.id]);
 
-  // Animate player avatars
+  useEffect(() => {
+    if (!token) return undefined;
+
+    connectSocket(token);
+
+    const handlePlayers = (players: WorldPlayer[]) => setOnlinePlayers(filterSelf(players, user?.id));
+    const handleJoinOrMove = (player: WorldPlayer) => {
+      if (player.userId === user?.id) return;
+      setOnlinePlayers((prev) => {
+        const without = prev.filter((p) => p.userId !== player.userId);
+        return [...without, player];
+      });
+    };
+    const handleLeft = ({ userId }: { userId: string }) => {
+      setOnlinePlayers((prev) => prev.filter((player) => player.userId !== userId));
+    };
+
+    socket.on('world:players', handlePlayers);
+    socket.on('world:avatar:joined', handleJoinOrMove);
+    socket.on('world:avatar:move', handleJoinOrMove);
+    socket.on('world:avatar:left', handleLeft);
+
+    return () => {
+      socket.off('world:players', handlePlayers);
+      socket.off('world:avatar:joined', handleJoinOrMove);
+      socket.off('world:avatar:move', handleJoinOrMove);
+      socket.off('world:avatar:left', handleLeft);
+      disconnectSocket();
+    };
+  }, [token, user?.id]);
+
+  // Smoothly animate remote avatars toward their server-authoritative targets.
   useEffect(() => {
     const animate = () => {
       setOnlinePlayers((prev) =>
         prev.map((p) => {
-          if (!p.isMoving) return p;
           const dx = p.targetX - p.x;
           const dy = p.targetY - p.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 1) {
-            return { ...p, x: p.targetX, y: p.targetY, isMoving: false };
-          }
-          const speed = 2;
-          const newX = p.x + (dx / dist) * speed;
-          const newY = p.y + (dy / dist) * speed;
-          const facing = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
-          return {
-            ...p,
-            x: newX,
-            y: newY,
-            facing,
-          };
+          if (dist < 1) return { ...p, x: p.targetX, y: p.targetY, isMoving: false };
+          const speed = 3;
+          const x = p.x + (dx / dist) * speed;
+          const y = p.y + (dy / dist) * speed;
+          const facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+          return { ...p, x, y, facing, isMoving: true };
         })
       );
       animationRef.current = requestAnimationFrame(animate);
@@ -162,43 +176,22 @@ export function WorldProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Periodic player movement simulation (random wandering)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOnlinePlayers((prev) =>
-        prev.map((p) => {
-          if (p.isMoving || Math.random() > 0.3) return p;
-          // Pick a random building position to wander to
-          const targets = [
-            { x: 140, y: 105 }, // HQ
-            { x: 500, y: 120 }, // Stadium
-            { x: 880, y: 105 }, // World
-            { x: 150, y: 290 }, // Garage
-            { x: 850, y: 290 }, // Training
-            { x: 150, y: 470 }, // Market
-            { x: 500, y: 470 }, // Team
-            { x: 850, y: 470 }, // Bank
-            { x: 500, y: 290 }, // Leaderboard
-            { x: 310, y: 290 }, // Locker
-          ];
-          const target = targets[Math.floor(Math.random() * targets.length)];
-          return { ...p, targetX: target.x + (Math.random() - 0.5) * 40, targetY: target.y + 20, isMoving: true };
-        })
-      );
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Initial load + poll every 15s
   useEffect(() => {
     refreshWorld();
     const poll = setInterval(refreshWorld, 15000);
     return () => clearInterval(poll);
   }, [refreshWorld]);
 
-  const moveAvatar = useCallback((_targetX: number, _targetY: number) => {
-    // This would be called when the current player moves
-    // For now, just a placeholder for the socket emission
+  const moveAvatar = useCallback((targetX: number, targetY: number) => {
+    if (socket.connected) {
+      sendAvatarMove(targetX, targetY);
+      return;
+    }
+
+    fetchApi('/api/world/avatar', {
+      method: 'POST',
+      body: JSON.stringify({ x: targetX, y: targetY, targetX, targetY }),
+    }).catch(() => undefined);
   }, []);
 
   const value: WorldContextValue = {

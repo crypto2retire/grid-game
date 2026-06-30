@@ -1,5 +1,9 @@
 import { prisma } from '../../config/database';
 
+const WORLD_ID = 'grid-city';
+const ONLINE_TTL_MS = 5 * 60 * 1000;
+const AVATAR_COLORS = ['#2563eb', '#ef4444', '#22c55e', '#f97316', '#8b5cf6', '#14b8a6', '#eab308', '#ec4899'];
+
 // Map Prisma MatchStatus enum to frontend-friendly strings
 export function mapMatchStatus(status: string): string {
   return status === 'IN_PROGRESS' ? 'PLAYING' : status;
@@ -106,6 +110,99 @@ export async function getOtherStadiums(excludeUserId: string) {
       liveMatch: undefined, // Will be populated by getLiveMatches
     };
   }).filter(Boolean);
+}
+
+function avatarColorForUser(userId: string): string {
+  const sum = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+}
+
+function facingFromDelta(x: number, y: number, targetX: number, targetY: number): 'left' | 'right' | 'up' | 'down' {
+  const dx = targetX - x;
+  const dy = targetY - y;
+  if (Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
+  return dy >= 0 ? 'down' : 'up';
+}
+
+export function formatWorldPlayer(presence: any) {
+  return {
+    userId: presence.userId,
+    username: presence.usernameSnapshot,
+    x: presence.x,
+    y: presence.y,
+    targetX: presence.targetX,
+    targetY: presence.targetY,
+    isMoving: Math.hypot(presence.targetX - presence.x, presence.targetY - presence.y) > 1,
+    facing: presence.facing,
+    avatarColor: presence.avatarColor,
+    lastSeen: presence.lastSeen instanceof Date ? presence.lastSeen.getTime() : Date.now(),
+  };
+}
+
+export async function upsertAvatarPresence(input: {
+  userId: string;
+  username: string;
+  x?: number;
+  y?: number;
+  targetX?: number;
+  targetY?: number;
+  facing?: 'left' | 'right' | 'up' | 'down';
+}) {
+  const existing = await prisma.worldAvatarPresence.findUnique({ where: { userId: input.userId } });
+  const x = input.x ?? existing?.targetX ?? 0;
+  const y = input.y ?? existing?.targetY ?? 95;
+  const targetX = input.targetX ?? x;
+  const targetY = input.targetY ?? y;
+  const facing = input.facing ?? facingFromDelta(x, y, targetX, targetY);
+  const presence = await prisma.worldAvatarPresence.upsert({
+    where: { userId: input.userId },
+    update: {
+      usernameSnapshot: input.username,
+      x,
+      y,
+      targetX,
+      targetY,
+      facing,
+      status: 'ONLINE',
+      lastSeen: new Date(),
+    },
+    create: {
+      userId: input.userId,
+      usernameSnapshot: input.username,
+      worldId: WORLD_ID,
+      x,
+      y,
+      targetX,
+      targetY,
+      facing,
+      avatarColor: avatarColorForUser(input.userId),
+      status: 'ONLINE',
+      lastSeen: new Date(),
+    },
+  });
+  return formatWorldPlayer(presence);
+}
+
+export async function markAvatarOffline(userId: string) {
+  await prisma.worldAvatarPresence.updateMany({
+    where: { userId },
+    data: { status: 'OFFLINE', lastSeen: new Date() },
+  });
+}
+
+export async function getOnlinePlayers(excludeUserId?: string) {
+  const since = new Date(Date.now() - ONLINE_TTL_MS);
+  const players = await prisma.worldAvatarPresence.findMany({
+    where: {
+      worldId: WORLD_ID,
+      status: 'ONLINE',
+      lastSeen: { gte: since },
+      ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
+    },
+    orderBy: { lastSeen: 'desc' },
+    take: 60,
+  });
+  return players.map(formatWorldPlayer);
 }
 
 export async function getLiveMatches() {

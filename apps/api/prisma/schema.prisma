@@ -29,6 +29,10 @@ model User {
   hasPaidPurchase Boolean @default(false)
   teamMarketplaceListings TeamMarketplaceListing[]
   marketplaceItemListings MarketplaceItemListing[]
+  chatMessages ChatMessage[]
+  worldAvatarPresence WorldAvatarPresence?
+  dailyQuestProgress DailyQuestProgress[]
+  miniGameAttempts MiniGameAttempt[]
   
   // ─── League Management ───
   createdLeagues  League[] @relation("CreatedLeagues")
@@ -38,6 +42,103 @@ model User {
 
   @@index([email])
   @@index([username])
+}
+
+// ─── Server-backed MMO World Systems ───
+
+model ChatMessage {
+  id               String   @id @default(uuid())
+  channel          String   @default("Realm")
+  worldId          String   @default("grid-city")
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usernameSnapshot String
+  message          String
+  createdAt        DateTime @default(now())
+
+  @@index([worldId, channel, createdAt])
+  @@index([userId, createdAt])
+}
+
+model WorldAvatarPresence {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  worldId          String   @default("grid-city")
+  usernameSnapshot String
+  x                Float    @default(0)
+  y                Float    @default(95)
+  targetX          Float    @default(0)
+  targetY          Float    @default(95)
+  facing           String   @default("down")
+  avatarColor      String   @default("#2563eb")
+  status           String   @default("ONLINE")
+  lastSeen         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([worldId, status, lastSeen])
+}
+
+model DailyQuest {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  title       String
+  description String   @default("")
+  category    String
+  target      Int
+  rewardCash  Int      @default(0)
+  rewardDyn   Int      @default(0)
+  rewardXp    Int      @default(0)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  progresses DailyQuestProgress[]
+
+  @@index([active, sortOrder])
+  @@index([category])
+}
+
+model DailyQuestProgress {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId       String
+  quest         DailyQuest @relation(fields: [questId], references: [id], onDelete: Cascade)
+  dateKey       String
+  progress      Int      @default(0)
+  completed     Boolean  @default(false)
+  claimed       Boolean  @default(false)
+  rewardGranted Boolean  @default(false)
+  completedAt   DateTime?
+  claimedAt     DateTime?
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, questId, dateKey])
+  @@index([userId, dateKey])
+  @@index([questId, dateKey])
+}
+
+model MiniGameAttempt {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  miniGameType  String
+  score         Int
+  outcome       String
+  rewardCash    Int      @default(0)
+  rewardDyn     Int      @default(0)
+  questProgress Json     @default("[]")
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([miniGameType, createdAt])
 }
 // ─── Rewards Pool System ───
 

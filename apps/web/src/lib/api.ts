@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
+const API_ORIGIN = import.meta.env.VITE_API_URL || window.location.origin;
+const API_URL = API_ORIGIN.endsWith('/api') ? API_ORIGIN.slice(0, -4) : API_ORIGIN;
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = localStorage.getItem('token');

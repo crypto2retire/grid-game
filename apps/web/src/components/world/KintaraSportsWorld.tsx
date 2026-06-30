@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Coins,
   Compass,
@@ -13,6 +13,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { fetchApi } from '../../lib/api';
+import { socket } from '../../lib/socket';
 import { useWorld } from './WorldSystem';
 import { usePanels } from './PanelSystem';
 import CityPage from '../../pages/CityPage';
@@ -76,17 +78,28 @@ const BUILDINGS: SportsBuilding[] = [
   { id: 'bank', panelId: 'wallet', label: 'Sponsor Bank', subtitle: 'CASH / DYN', tx: -9, ty: 0, color: '#0ea5e9', accent: '#075985', kind: 'bank' },
 ];
 
-const QUESTS = [
-  { label: 'Complete 3 team drills', progress: 2, total: 3, reward: '+750 Team XP' },
-  { label: 'Play 1 stadium match', progress: 0, total: 1, reward: '+1,500 CASH' },
-  { label: 'Scout 2 athletes', progress: 1, total: 2, reward: '+1 Draft Ticket' },
-];
+interface DailyQuestHudItem {
+  id: string;
+  label: string;
+  progress: number;
+  total: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardLabel: string;
+}
 
-const CHAT_MESSAGES = [
-  { channel: 'Club', user: 'CoachRay', msg: 'training boost is live at the gym' },
-  { channel: 'Global', user: 'StadiumBoss', msg: 'regional cup starts in 10 min' },
-  { channel: 'Trade', user: 'GridKing', msg: 'selling bronze receiver cleats' },
-];
+interface ChatHudMessage {
+  id: string;
+  channel: string;
+  user: string;
+  msg: string;
+  createdAt?: string;
+}
+
+interface WalletSnapshot {
+  cash: number;
+  dynTokens: number;
+}
 
 const NPCS = [
   { name: 'Coach Mills', role: 'Daily Drills', tx: -5, ty: -1, color: '#f97316', marker: '?' },
@@ -95,13 +108,13 @@ const NPCS = [
   { name: 'Ticket Sam', role: 'Revenue', tx: -6, ty: 3, color: '#fbbf24', marker: '$' },
 ];
 
-const HOTBAR = [
-  { key: '1', icon: '🏈', label: 'Ball' },
-  { key: '2', icon: '📋', label: 'Playbook' },
-  { key: '3', icon: '💪', label: 'Drill' },
-  { key: '4', icon: '🎟️', label: 'Ticket' },
-  { key: '5', icon: '🩹', label: 'Med Kit' },
-  { key: '6', icon: '🚌', label: 'Travel' },
+const HOTBAR: Array<{ key: string; icon: string; label: string; miniGameType?: 'TEAM_DRILL' | 'SCOUTING' | 'STADIUM_MATCH'; panelId?: string }> = [
+  { key: '1', icon: '🏈', label: 'Scrim', miniGameType: 'STADIUM_MATCH' },
+  { key: '2', icon: '📋', label: 'Playbook', miniGameType: 'TEAM_DRILL' },
+  { key: '3', icon: '💪', label: 'Drill', miniGameType: 'TEAM_DRILL' },
+  { key: '4', icon: '🔭', label: 'Scout', miniGameType: 'SCOUTING' },
+  { key: '5', icon: '🩹', label: 'Recovery', panelId: 'progression' },
+  { key: '6', icon: '🚌', label: 'Travel', panelId: 'transport' },
 ];
 
 function darker(hex: string, amount = 34) {
@@ -286,10 +299,15 @@ function MiniMap({ player }: { player: { x: number; y: number } }) {
 export default function KintaraSportsWorld() {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { user } = useAuthStore();
-  const { onlinePlayers, myStadium } = useWorld();
+  const { onlinePlayers, myStadium, moveAvatar, refreshWorld } = useWorld();
   const { openPanel } = usePanels();
   const [player, setPlayer] = useState(() => ({ x: 0, y: 95 }));
   const [nearby, setNearby] = useState<SportsBuilding | null>(null);
+  const [quests, setQuests] = useState<DailyQuestHudItem[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatHudMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [worldStatus, setWorldStatus] = useState('Live world connected');
+  const [walletOverride, setWalletOverride] = useState<WalletSnapshot | null>(null);
 
   const tiles = useMemo(() => {
     const all: Array<{ key: string; x: number; y: number; fill: string; stroke: string }> = [];
@@ -306,6 +324,46 @@ export default function KintaraSportsWorld() {
     }
     return all;
   }, []);
+
+  const loadQuests = useCallback(async () => {
+    try {
+      const data = await fetchApi('/api/daily-quests');
+      setQuests(data.data || []);
+    } catch {
+      setQuests([]);
+    }
+  }, []);
+
+  const loadChat = useCallback(async () => {
+    try {
+      const data = await fetchApi('/api/chat/messages?channel=Realm&limit=40');
+      setChatMessages(data.data || []);
+    } catch {
+      setChatMessages([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadQuests();
+    loadChat();
+  }, [loadChat, loadQuests]);
+
+  useEffect(() => {
+    const handleMessage = (message: ChatHudMessage) => {
+      setChatMessages((prev) => [...prev.filter((m) => m.id !== message.id), message].slice(-40));
+    };
+    socket.on('chat:message', handleMessage);
+    socket.emit('chat:history', { channel: 'Realm', limit: 40 });
+    socket.on('chat:history', (messages: ChatHudMessage[]) => setChatMessages(messages || []));
+    return () => {
+      socket.off('chat:message', handleMessage);
+      socket.off('chat:history');
+    };
+  }, []);
+
+  useEffect(() => {
+    moveAvatar(player.x, player.y);
+  }, [moveAvatar, player.x, player.y]);
 
   useEffect(() => {
     const nearest = BUILDINGS
@@ -384,9 +442,66 @@ export default function KintaraSportsWorld() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [nearby]);
 
+  const sendChat = async (event: FormEvent) => {
+    event.preventDefault();
+    const message = chatInput.trim();
+    if (!message) return;
+    setChatInput('');
+
+    if (socket.connected) {
+      socket.emit('chat:send', { channel: 'Realm', message }, (response: { status?: string; message?: string }) => {
+        if (response?.status === 'error') setWorldStatus(response.message || 'Chat send failed');
+      });
+      return;
+    }
+
+    try {
+      const data = await fetchApi('/api/chat/messages', {
+        method: 'POST',
+        body: JSON.stringify({ channel: 'Realm', message }),
+      });
+      setChatMessages((prev) => [...prev, data.data].slice(-40));
+    } catch (error) {
+      setWorldStatus(error instanceof Error ? error.message : 'Chat send failed');
+    }
+  };
+
+  const claimQuest = async (quest: DailyQuestHudItem) => {
+    try {
+      const data = await fetchApi(`/api/daily-quests/${quest.id}/claim`, { method: 'POST' });
+      if (data.data?.wallet) setWalletOverride(data.data.wallet);
+      setWorldStatus(`${quest.label} reward claimed`);
+      await loadQuests();
+    } catch (error) {
+      setWorldStatus(error instanceof Error ? error.message : 'Quest claim failed');
+    }
+  };
+
+  const playHotbarMiniGame = async (slot: (typeof HOTBAR)[number]) => {
+    if (slot.panelId) {
+      const building = BUILDINGS.find((b) => b.panelId === slot.panelId);
+      if (building) openBuilding(building);
+      return;
+    }
+    if (!slot.miniGameType) return;
+
+    try {
+      setWorldStatus(`Running ${slot.label} on the server...`);
+      const data = await fetchApi('/api/mini-games/play', {
+        method: 'POST',
+        body: JSON.stringify({ miniGameType: slot.miniGameType }),
+      });
+      if (data.data?.wallet) setWalletOverride(data.data.wallet);
+      setWorldStatus(`${data.data?.miniGame?.label || slot.label}: ${data.data?.outcome || 'Complete'} • +${(data.data?.netCash ?? 0).toLocaleString()} CASH net`);
+      await Promise.all([loadQuests(), refreshWorld()]);
+    } catch (error) {
+      setWorldStatus(error instanceof Error ? error.message : 'Mini-game failed');
+    }
+  };
+
   const username = user?.displayName || user?.username || 'Owner';
-  const cash = user?.wallet?.cash ?? 0;
-  const dyn = user?.wallet?.dynTokens ?? 0;
+  const cash = walletOverride?.cash ?? user?.wallet?.cash ?? 0;
+  const dyn = walletOverride?.dynTokens ?? user?.wallet?.dynTokens ?? 0;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#8ed5f5] select-none">
@@ -450,11 +565,9 @@ export default function KintaraSportsWorld() {
           );
         })}
 
-        {onlinePlayers.slice(0, 4).map((p, index) => {
-          const presets = [iso(4, -4), iso(-4, 3), iso(6, 7), iso(-8, -1)];
-          const pos = presets[index] ?? { x: p.x - 500, y: p.y - 240 };
-          return <VoxelAvatar key={p.userId} x={pos.x} y={pos.y} name={p.username} level={9 + index * 3} color={p.avatarColor || '#3b82f6'} />;
-        })}
+        {onlinePlayers.slice(0, 8).map((p) => (
+          <VoxelAvatar key={p.userId} x={p.x} y={p.y} name={p.username} level={9} color={p.avatarColor || '#3b82f6'} />
+        ))}
 
         <g style={{ transition: 'transform 700ms cubic-bezier(.2,.8,.2,1)' }} transform={`translate(${player.x}, ${player.y})`}>
           <VoxelAvatar x={0} y={0} name={username} level={18} color="#2563eb" isPlayer />
@@ -472,7 +585,7 @@ export default function KintaraSportsWorld() {
         </div>
         <div className="px-4 py-2 rounded-xl bg-slate-900/85 text-white border border-white/20 shadow-xl">
           <div className="text-xs uppercase tracking-widest text-slate-300">Grid City Club 4</div>
-          <div className="text-sm font-black">Sports Hub</div>
+          <div className="text-sm font-black">{worldStatus}</div>
         </div>
       </div>
 
@@ -498,7 +611,7 @@ export default function KintaraSportsWorld() {
           { icon: <Dumbbell className="w-5 h-5" />, badge: '' },
           { icon: <Trophy className="w-5 h-5" />, badge: '1' },
           { icon: <MapPin className="w-5 h-5" />, badge: '' },
-          { icon: <MessageSquare className="w-5 h-5" />, badge: '23' },
+          { icon: <MessageSquare className="w-5 h-5" />, badge: chatMessages.length ? String(Math.min(chatMessages.length, 99)) : '' },
         ].map((button, idx) => (
           <button key={idx} className="relative w-12 h-12 rounded-full bg-slate-900/90 border border-white/30 text-white flex items-center justify-center shadow-xl hover:scale-105 transition-transform">
             {button.icon}
@@ -514,16 +627,23 @@ export default function KintaraSportsWorld() {
           <span className="text-sm font-black tracking-wider">DAILY SPORTS QUESTS</span>
         </div>
         <div className="p-4 space-y-3">
-          {QUESTS.map((q) => (
-            <div key={q.label}>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="font-bold">{q.label}</span>
-                <span className="text-slate-300">{q.progress}/{q.total}</span>
+          {quests.length === 0 && <div className="text-xs text-slate-300">Loading server-backed quests...</div>}
+          {quests.map((q) => (
+            <div key={q.id}>
+              <div className="flex items-center justify-between text-xs mb-1 gap-2">
+                <span className="font-bold truncate">{q.label}</span>
+                <span className="text-slate-300 shrink-0">{q.progress}/{q.total}</span>
               </div>
               <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-orange-400 to-yellow-300" style={{ width: `${Math.min(100, (q.progress / q.total) * 100)}%` }} />
               </div>
-              <div className="text-[11px] text-emerald-300 mt-1 font-bold">{q.reward}</div>
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <div className="text-[11px] text-emerald-300 font-bold">{q.rewardLabel}</div>
+                {q.completed && !q.claimed && (
+                  <button onClick={() => claimQuest(q)} className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-400">CLAIM</button>
+                )}
+                {q.claimed && <span className="text-[10px] text-slate-400 font-black">CLAIMED</span>}
+              </div>
             </div>
           ))}
         </div>
@@ -536,20 +656,32 @@ export default function KintaraSportsWorld() {
           <span className="px-3 py-1 rounded-full bg-white/10 text-slate-300">Global</span>
           <span className="px-3 py-1 rounded-full bg-white/10 text-slate-300">Trade</span>
         </div>
-        <div className="px-4 py-2 space-y-1 max-h-24 overflow-hidden text-xs">
-          {CHAT_MESSAGES.map((m, idx) => (
-            <div key={`${m.user}-${idx}`}><span className="text-sky-300 font-black">[{m.channel}] {m.user}:</span> <span className="text-slate-100">{m.msg}</span></div>
+        <div className="px-4 py-2 space-y-1 max-h-24 overflow-y-auto text-xs">
+          {chatMessages.length === 0 && <div className="text-slate-400">No realm messages yet. Say hello.</div>}
+          {chatMessages.map((m, idx) => (
+            <div key={m.id || `${m.user}-${idx}`}><span className="text-sky-300 font-black">[{m.channel}] {m.user}:</span> <span className="text-slate-100">{m.msg}</span></div>
           ))}
         </div>
-        <div className="px-3 pb-3">
-          <div className="h-9 rounded-xl bg-slate-800 border border-white/10 px-3 flex items-center text-xs text-slate-400">Type message...</div>
-        </div>
+        <form className="px-3 pb-3" onSubmit={sendChat}>
+          <input
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            maxLength={240}
+            className="h-9 w-full rounded-xl bg-slate-800 border border-white/10 px-3 text-xs text-slate-100 placeholder:text-slate-400 outline-none focus:border-orange-400"
+            placeholder="Type realm message..."
+          />
+        </form>
       </div>
 
       {/* Hotbar */}
       <div className="absolute left-1/2 bottom-5 -translate-x-1/2 z-[6] flex items-end gap-2">
         {HOTBAR.map((slot, idx) => (
-          <button key={slot.key} className={`relative w-16 h-16 rounded-2xl border-2 ${idx === 0 ? 'border-yellow-300 bg-slate-800' : 'border-white/25 bg-slate-900/90'} text-white shadow-2xl flex flex-col items-center justify-center hover:-translate-y-1 transition-transform`}>
+          <button
+            key={slot.key}
+            onClick={() => playHotbarMiniGame(slot)}
+            title={slot.miniGameType ? `Run server-backed ${slot.label}` : `Open ${slot.label}`}
+            className={`relative w-16 h-16 rounded-2xl border-2 ${idx === 0 ? 'border-yellow-300 bg-slate-800' : 'border-white/25 bg-slate-900/90'} text-white shadow-2xl flex flex-col items-center justify-center hover:-translate-y-1 transition-transform`}
+          >
             <span className="absolute left-1.5 top-1 text-[10px] text-slate-300 font-black">{slot.key}</span>
             <span className="text-2xl leading-none">{slot.icon}</span>
             <span className="text-[9px] font-bold text-slate-300 mt-1">{slot.label}</span>
