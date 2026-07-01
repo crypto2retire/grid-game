@@ -54,8 +54,9 @@ export function MatchDayProvider({ children }: { children: ReactNode }) {
       });
       const json = await res.json();
       
-      if (json.status === 'success' && json.data) {
-        const matches = json.data.map((m: any) => ({
+      if (json.status === 'success') {
+        const matchRows = Array.isArray(json.data) ? json.data : (json.data?.matches || []);
+        const matches = matchRows.map((m: any) => ({
           id: m.id,
           homeTeamId: m.homeTeamId,
           awayTeamId: m.awayTeamId,
