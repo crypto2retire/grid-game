@@ -61,7 +61,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const schema = z.object({ quantity: z.number().int().positive().max(25).default(1) });
     const input = schema.parse(req.body ?? {});
-    const inventoryId = req.params.inventoryId;
+    const inventoryId = Array.isArray(req.params.inventoryId) ? req.params.inventoryId[0] : req.params.inventoryId;
     if (!inventoryId) throw new AppError(400, 'inventoryId is required');
     const result = await purchaseCommissionerInventory(req.user!.id, inventoryId, input.quantity);
     res.json({

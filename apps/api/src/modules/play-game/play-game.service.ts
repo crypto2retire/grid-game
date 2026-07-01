@@ -690,12 +690,6 @@ export async function completeGame(matchId: string) {
         completedAt: new Date(),
       },
     });
-    // If the game was already COMPLETED by a previous request, return early
-    // without re-recording ledger entries or re-counting standings.
-    if (match.status === 'COMPLETED' || completedMatch.status === 'COMPLETED') {
-      return { match: completedMatch, gameRevenue: null };
-    }
-
     const finalHomeScore = completedMatch.homeScore;
     const finalAwayScore = completedMatch.awayScore;
 
@@ -795,10 +789,6 @@ export async function completeGame(matchId: string) {
       
       // Visiting team pays entry fee. Partial collection prevents match completion from
       // hard-failing if a user has gone broke, while keeping the ledger honest.
-      const awayTeam = await tx.team.findUnique({
-        where: { id: match.awayTeamId },
-        include: { owner: true },
-      });
       if (awayTeam?.ownerId && entryFee > 0) {
         const debit = await debitCurrency(tx, {
           userId: awayTeam.ownerId,

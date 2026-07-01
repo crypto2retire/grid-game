@@ -210,22 +210,23 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
   const transportBuyers = aiTeams.filter((_, i) => i % 7 === 0);
   for (const team of transportBuyers) {
     const transport = team.transportationAssets[0];
-    if (transport && transport.solPrice) {
+    if (transport && transport.solPrice != null) {
       try {
+        const solPrice = transport.solPrice;
         await prisma.$transaction(async (tx: any) => {
           await tx.transportationAsset.update({
             where: { id: transport.id },
             data: { ownerId: team.ownerId },
           });
-          await processTreasuryInflow(tx, 'SOL', transport.solPrice, 'SIM_TRANSPORT_SOL_PURCHASE', transport.id, 'TEST_SEASON', {
+          await processTreasuryInflow(tx, 'SOL', solPrice, 'SIM_TRANSPORT_SOL_PURCHASE', transport.id, 'TEST_SEASON', {
             teamId: team.id,
             ownerId: team.ownerId,
           });
         });
-        totalSolRevenue += transport.solPrice;
+        totalSolRevenue += solPrice;
         totalSolPurchases++;
         marketplaceActivity.transportSolPurchases++;
-        marketplaceActivity.totalSolSpent += transport.solPrice;
+        marketplaceActivity.totalSolSpent += solPrice;
       } catch (err: any) {
         issues.push(`Transport purchase failed: ${err.message}`);
       }
