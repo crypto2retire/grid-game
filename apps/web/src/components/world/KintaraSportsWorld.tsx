@@ -2,13 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import {
   Coins,
   Compass,
-  Dumbbell,
   Hand,
-  MapPin,
-  MessageSquare,
-  Shirt,
+  RefreshCw,
   Target,
-  Trophy,
   Users,
   Zap,
 } from 'lucide-react';
@@ -238,13 +234,17 @@ const NPCS = [
   { name: 'Ticket Sam', role: 'Revenue', tx: -6, ty: 3, color: '#fbbf24', marker: '$' },
 ];
 
-const HOTBAR: Array<{ key: string; icon: string; label: string; miniGameType?: 'TEAM_DRILL' | 'SCOUTING' | 'STADIUM_MATCH'; panelId?: string }> = [
-  { key: '1', icon: '🏈', label: 'Scrim', miniGameType: 'STADIUM_MATCH' },
-  { key: '2', icon: '📋', label: 'Playbook', miniGameType: 'TEAM_DRILL' },
-  { key: '3', icon: '💪', label: 'Drill', miniGameType: 'TEAM_DRILL' },
-  { key: '4', icon: '🔭', label: 'Scout', miniGameType: 'SCOUTING' },
-  { key: '5', icon: '🩹', label: 'Recovery', panelId: 'progression' },
-  { key: '6', icon: '🚌', label: 'Travel', panelId: 'transport' },
+type HotbarSlot = {
+  key: string;
+  icon: string;
+  label: string;
+  miniGameType: 'TEAM_DRILL' | 'SCOUTING' | 'STADIUM_MATCH';
+};
+
+const HOTBAR: HotbarSlot[] = [
+  { key: '1', icon: '🏟️', label: 'Match', miniGameType: 'STADIUM_MATCH' },
+  { key: '2', icon: '💪', label: 'Drill', miniGameType: 'TEAM_DRILL' },
+  { key: '3', icon: '🔭', label: 'Scout', miniGameType: 'SCOUTING' },
 ];
 
 function darker(hex: string, amount = 34) {
@@ -270,11 +270,176 @@ function Tile({ x, y, fill, stroke = '#5fa83f' }: { x: number; y: number; fill: 
 function BlockTree({ x, y }: { x: number; y: number }) {
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <ellipse cx={0} cy={7} rx={19} ry={9} fill="rgba(0,0,0,0.18)" />
-      <rect x={-4} y={-17} width={8} height={24} fill="#8b5a2b" />
-      <polygon points="0,-66 30,-35 0,-22 -30,-35" fill="#1f8f45" stroke="#176d34" />
-      <polygon points="0,-52 34,-21 0,-8 -34,-21" fill="#27ad52" stroke="#176d34" />
-      <polygon points="0,-36 28,-9 0,3 -28,-9" fill="#3bc263" stroke="#176d34" />
+      <ellipse cx={2} cy={8} rx={22} ry={11} fill="rgba(0,0,0,0.25)" />
+      <rect x={-5} y={-18} width={10} height={26} rx={2} fill="#8b5a2b" />
+      <rect x={-1} y={-18} width={3} height={25} fill="#b77943" opacity={0.55} />
+      <polygon points="0,-71 32,-37 0,-23 -32,-37" fill="#176d34" stroke="#0f5132" strokeWidth={1.5} />
+      <polygon points="0,-58 37,-24 0,-10 -37,-24" fill="#22a447" stroke="#176d34" strokeWidth={1.5} />
+      <polygon points="0,-41 31,-11 0,3 -31,-11" fill="#3bc263" stroke="#176d34" strokeWidth={1.5} />
+      <path d="M -7 -58 L 15 -39 L -5 -31 L -23 -40 Z" fill="#86efac" opacity={0.35} />
+      <path d="M -8 -40 L 16 -18 L -6 -10 L -24 -19 Z" fill="#bbf7d0" opacity={0.32} />
+    </g>
+  );
+}
+
+type DecorationKind = 'lamp' | 'bench' | 'cone' | 'flag' | 'food' | 'bus' | 'statue' | 'ad';
+
+const DECORATIONS: Array<{ kind: DecorationKind; tx: number; ty: number; color?: string; label?: string }> = [
+  { kind: 'lamp', tx: -2, ty: -1 },
+  { kind: 'lamp', tx: 2, ty: 1 },
+  { kind: 'lamp', tx: -5, ty: 2 },
+  { kind: 'lamp', tx: 5, ty: -1 },
+  { kind: 'bench', tx: -3, ty: 2 },
+  { kind: 'bench', tx: 4, ty: 2 },
+  { kind: 'cone', tx: -5, ty: -3, color: '#fb923c' },
+  { kind: 'cone', tx: -7, ty: -1, color: '#fb923c' },
+  { kind: 'flag', tx: -1, ty: -7, color: '#ef4444', label: 'HOME' },
+  { kind: 'flag', tx: 4, ty: -5, color: '#38bdf8', label: 'AWAY' },
+  { kind: 'food', tx: -8, ty: 3, color: '#f59e0b' },
+  { kind: 'food', tx: -6, ty: 5, color: '#ef4444' },
+  { kind: 'bus', tx: 7, ty: -3 },
+  { kind: 'statue', tx: 1, ty: 3 },
+  { kind: 'ad', tx: -4, ty: -5, color: '#0f172a', label: 'DYN CUP' },
+  { kind: 'ad', tx: 5, ty: 5, color: '#111827', label: 'OWNER LEAGUES' },
+];
+
+const CROWD_CLUSTERS = [
+  { tx: -2, ty: -6, color: '#60a5fa' },
+  { tx: 2, ty: -6, color: '#f87171' },
+  { tx: -1, ty: -4, color: '#fde047' },
+  { tx: 6, ty: 2, color: '#34d399' },
+  { tx: -7, ty: 2, color: '#fb7185' },
+  { tx: 1, ty: 6, color: '#c084fc' },
+];
+
+function DistrictGround({ building }: { building: SportsBuilding }) {
+  const { x, y } = iso(building.tx, building.ty);
+  const large = building.kind === 'stadium' || building.kind === 'field';
+  return (
+    <g transform={`translate(${x}, ${y})`} opacity={0.9}>
+      <ellipse cx={0} cy={8} rx={large ? 150 : 82} ry={large ? 62 : 36} fill={building.color} opacity={0.14} />
+      <ellipse cx={0} cy={8} rx={large ? 126 : 64} ry={large ? 50 : 28} fill="none" stroke={building.accent} strokeWidth={2} strokeDasharray="10 8" opacity={0.45} />
+      {building.kind === 'garage' && (
+        <g opacity={0.72}>
+          {[-42, -21, 0, 21, 42].map((lx) => <line key={lx} x1={lx} y1={36} x2={lx + 24} y2={10} stroke="#e2e8f0" strokeWidth={2} />)}
+        </g>
+      )}
+      {building.kind === 'shop' && (
+        <g opacity={0.85}>
+          {[-38, -14, 10, 34].map((lx, idx) => <rect key={lx} x={lx} y={18} width={18} height={10} rx={2} fill={idx % 2 ? '#fef3c7' : '#ef4444'} />)}
+        </g>
+      )}
+    </g>
+  );
+}
+
+function Decoration({ item }: { item: (typeof DECORATIONS)[number] }) {
+  const { x, y } = iso(item.tx, item.ty);
+  if (item.kind === 'lamp') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={7} rx={12} ry={5} fill="rgba(0,0,0,0.18)" />
+        <rect x={-2} y={-38} width={4} height={44} fill="#334155" />
+        <circle cx={0} cy={-43} r={9} fill="#fde68a" opacity={0.95} filter="url(#warmGlow)" />
+      </g>
+    );
+  }
+  if (item.kind === 'bench') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={7} rx={20} ry={7} fill="rgba(0,0,0,0.16)" />
+        <rect x={-22} y={-8} width={44} height={8} rx={2} fill="#92400e" />
+        <rect x={-18} y={-20} width={36} height={8} rx={2} fill="#b45309" />
+        <rect x={-18} y={0} width={4} height={12} fill="#475569" />
+        <rect x={14} y={0} width={4} height={12} fill="#475569" />
+      </g>
+    );
+  }
+  if (item.kind === 'cone') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={4} rx={12} ry={5} fill="rgba(0,0,0,0.18)" />
+        <path d="M -10 4 L 0 -28 L 10 4 Z" fill={item.color || '#fb923c'} stroke="#9a3412" />
+        <rect x={-6} y={-9} width={12} height={4} fill="#fff7ed" opacity={0.9} />
+      </g>
+    );
+  }
+  if (item.kind === 'flag') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={9} rx={16} ry={7} fill="rgba(0,0,0,0.18)" />
+        <rect x={-2} y={-60} width={4} height={68} fill="#475569" />
+        <path d="M 2 -60 L 54 -48 L 2 -36 Z" fill={item.color || '#ef4444'} stroke="#0f172a" />
+        <text x={27} y={-47} textAnchor="middle" fill="#fff" fontSize={7} fontWeight={900}>{item.label}</text>
+      </g>
+    );
+  }
+  if (item.kind === 'food') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={14} rx={28} ry={12} fill="rgba(0,0,0,0.2)" />
+        <rect x={-24} y={-22} width={48} height={34} rx={4} fill={item.color || '#f59e0b'} stroke="#7c2d12" />
+        <path d="M -26 -22 L 26 -22 L 18 -38 L -18 -38 Z" fill="#fef3c7" stroke="#7c2d12" />
+        <circle cx={-15} cy={15} r={5} fill="#111827" />
+        <circle cx={15} cy={15} r={5} fill="#111827" />
+      </g>
+    );
+  }
+  if (item.kind === 'bus') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={15} rx={42} ry={15} fill="rgba(0,0,0,0.22)" />
+        <rect x={-40} y={-26} width={80} height={40} rx={8} fill="#fbbf24" stroke="#92400e" strokeWidth={2} />
+        {[-24, 0, 24].map((lx) => <rect key={lx} x={lx - 9} y={-18} width={18} height={14} rx={2} fill="#bae6fd" />)}
+        <circle cx={-24} cy={16} r={7} fill="#111827" />
+        <circle cx={26} cy={16} r={7} fill="#111827" />
+      </g>
+    );
+  }
+  if (item.kind === 'statue') {
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <ellipse cx={0} cy={9} rx={22} ry={10} fill="rgba(0,0,0,0.18)" />
+        <rect x={-18} y={-8} width={36} height={16} rx={3} fill="#94a3b8" stroke="#475569" />
+        <path d="M -7 -8 L 0 -54 L 7 -8 Z" fill="#e2e8f0" stroke="#64748b" />
+        <circle cx={0} cy={-61} r={9} fill="#facc15" stroke="#92400e" />
+      </g>
+    );
+  }
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <ellipse cx={0} cy={12} rx={44} ry={14} fill="rgba(0,0,0,0.2)" />
+      <rect x={-4} y={-48} width={8} height={58} fill="#475569" />
+      <rect x={-58} y={-78} width={116} height={34} rx={6} fill={item.color || '#0f172a'} stroke="#facc15" strokeWidth={2} />
+      <text x={0} y={-56} textAnchor="middle" fill="#fef3c7" fontSize={11} fontWeight={900}>{item.label}</text>
+    </g>
+  );
+}
+
+function CrowdCluster({ tx, ty, color }: { tx: number; ty: number; color: string }) {
+  const { x, y } = iso(tx, ty);
+  return (
+    <g transform={`translate(${x}, ${y})`} opacity={0.95}>
+      <ellipse cx={0} cy={8} rx={24} ry={10} fill="rgba(0,0,0,0.14)" />
+      {[[-14, -10], [0, -15], [14, -8], [-4, -2], [10, 2]].map(([cx, cy], idx) => (
+        <g key={idx} transform={`translate(${cx}, ${cy})`}>
+          <circle r={5} fill="#f7c89d" stroke="#0f172a" strokeWidth={0.8} />
+          <rect x={-5} y={5} width={10} height={12} rx={2} fill={idx % 2 ? color : '#1d4ed8'} stroke="#0f172a" strokeWidth={0.8} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+function WaterfrontDetails() {
+  return (
+    <g opacity={0.58}>
+      {[-630, -420, -210, 140, 360, 590].map((x, idx) => (
+        <path key={`wave-top-${idx}`} d={`M ${x} ${-430 + (idx % 2) * 26} q 32 -18 64 0 t 64 0`} fill="none" stroke="#e0f2fe" strokeWidth={4} strokeLinecap="round" />
+      ))}
+      {[-590, -330, -70, 210, 470].map((x, idx) => (
+        <path key={`wave-bottom-${idx}`} d={`M ${x} ${356 - (idx % 2) * 24} q 30 16 60 0 t 60 0`} fill="none" stroke="#e0f2fe" strokeWidth={4} strokeLinecap="round" />
+      ))}
     </g>
   );
 }
@@ -551,23 +716,45 @@ function LeagueEconomyPanel({ gate }: { gate: LeagueGate }) {
 }
 
 function MiniMap({ player }: { player: { x: number; y: number } }) {
-  const px = 54 + player.x / 13;
-  const py = 54 + player.y / 10;
+  const toMini = (x: number, y: number) => ({
+    left: Math.max(13, Math.min(139, 76 + x / 10)),
+    top: Math.max(13, Math.min(139, 76 + y / 7)),
+  });
+  const playerPoint = toMini(player.x, player.y);
   return (
     <div className="absolute top-4 right-4 z-[6]">
-      <div className="relative w-40 h-40 rounded-full border-[5px] border-slate-800 bg-[#70bd48] shadow-2xl overflow-hidden">
-        <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.16) 1px,transparent 1px)', backgroundSize: '16px 16px' }} />
-        <div className="absolute left-1/2 top-0 bottom-0 w-2 bg-amber-700/55 -translate-x-1/2 rotate-45" />
-        <div className="absolute left-0 right-0 top-1/2 h-2 bg-amber-700/55 -translate-y-1/2 -rotate-45" />
-        {BUILDINGS.map((b) => {
-          const p = iso(b.tx, b.ty);
-          return <div key={b.id} className="absolute w-2 h-2 rounded-sm bg-slate-900" style={{ left: 72 + p.x / 10, top: 72 + p.y / 7 }} />;
-        })}
+      <div className="relative w-44 h-44 rounded-full border-[5px] border-slate-900 bg-gradient-to-b from-sky-300 to-sky-600 shadow-2xl overflow-hidden ring-2 ring-white/40">
+        <div className="absolute inset-0 opacity-45" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,.65) 0 2px, transparent 3px)', backgroundSize: '18px 18px' }} />
+        <div className="absolute inset-[18px] bg-[#69bd47] shadow-inner" style={{ clipPath: 'polygon(50% 0%, 100% 41%, 50% 100%, 0% 41%)' }} />
+        <div className="absolute left-[83px] top-[20px] h-[126px] w-3 rounded-full bg-amber-800/60 rotate-45" />
+        <div className="absolute left-[31px] top-[82px] h-3 w-[112px] rounded-full bg-amber-800/60 -rotate-45" />
+        <div className="absolute left-[76px] top-[76px] w-8 h-8 rounded-full bg-slate-200 border border-slate-500 -translate-x-1/2 -translate-y-1/2" />
         {LEAGUE_GATES.map((gate) => {
           const p = leagueGatePoint(gate);
-          return <div key={gate.id} className="absolute w-3 h-3 rounded-full border border-white" style={{ left: 72 + p.x / 10, top: 72 + p.y / 7, backgroundColor: gate.color }} />;
+          const point = toMini(p.x, p.y);
+          return (
+            <div
+              key={gate.id}
+              title={gate.label}
+              className="absolute w-4 h-4 rounded-full border-2 border-white shadow-lg -translate-x-1/2 -translate-y-1/2"
+              style={{ left: point.left, top: point.top, backgroundColor: gate.color }}
+            />
+          );
         })}
-        <div className="absolute w-3 h-3 rounded-full bg-yellow-300 border-2 border-white shadow" style={{ left: Math.max(10, Math.min(130, px)), top: Math.max(10, Math.min(130, py)) }} />
+        {BUILDINGS.map((b) => {
+          const p = iso(b.tx, b.ty);
+          const point = toMini(p.x, p.y);
+          return (
+            <div
+              key={b.id}
+              title={b.label}
+              className="absolute w-3 h-3 rounded-[3px] border border-slate-950 shadow -translate-x-1/2 -translate-y-1/2"
+              style={{ left: point.left, top: point.top, backgroundColor: b.color }}
+            />
+          );
+        })}
+        <div className="absolute w-4 h-4 rounded-full bg-yellow-300 border-2 border-white shadow-[0_0_14px_rgba(250,204,21,.95)] -translate-x-1/2 -translate-y-1/2" style={{ left: playerPoint.left, top: playerPoint.top }} />
+        <div className="absolute left-1/2 bottom-2 -translate-x-1/2 rounded-full bg-slate-950/75 px-3 py-1 text-[9px] font-black tracking-widest text-white">GRID CITY</div>
       </div>
       <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-900 border-2 border-white/80 flex items-center justify-center text-white shadow-xl">
         <Compass className="w-5 h-5" />
@@ -598,9 +785,33 @@ export default function KintaraSportsWorld() {
         const onMainRoad = Math.abs(tx) <= 1 || Math.abs(ty) <= 1 || Math.abs(tx + ty) <= 1;
         const onLeagueRoad = isLeaguePathTile(tx, ty);
         const onPlaza = Math.abs(tx) <= 2 && Math.abs(ty) <= 2;
-        const nearStadium = tx >= -3 && tx <= 3 && ty >= -8 && ty <= -4;
-        const fill = onPlaza ? '#d1d5db' : onLeagueRoad ? '#f2c078' : onMainRoad ? '#b77943' : nearStadium ? '#86efac' : (tx + ty) % 2 === 0 ? '#78c74f' : '#6fbd45';
-        const stroke = onLeagueRoad ? '#f59e0b' : onMainRoad ? '#8b5a2b' : '#5fa83f';
+        const nearStadium = tx >= -4 && tx <= 4 && ty >= -8 && ty <= -4;
+        const nearMarket = tx >= -9 && tx <= -5 && ty >= 3 && ty <= 6;
+        const nearGarage = tx >= 6 && tx <= 10 && ty >= -3 && ty <= 1;
+        const nearMedical = tx >= 5 && tx <= 9 && ty >= 3 && ty <= 6;
+        const nearTrophy = tx >= 0 && tx <= 4 && ty >= 6 && ty <= 9;
+        const nearBank = tx >= -11 && tx <= -7 && ty >= -2 && ty <= 2;
+        const turf = (tx + ty) % 2 === 0 ? '#78c74f' : '#6fbd45';
+        const fill = onPlaza
+          ? '#d1d5db'
+          : onLeagueRoad
+            ? '#f2c078'
+            : onMainRoad
+              ? '#b77943'
+              : nearStadium
+                ? '#86efac'
+                : nearMarket
+                  ? '#fef08a'
+                  : nearGarage
+                    ? '#cbd5e1'
+                    : nearMedical
+                      ? '#dcfce7'
+                      : nearTrophy
+                        ? '#fde68a'
+                        : nearBank
+                          ? '#bae6fd'
+                          : turf;
+        const stroke = onLeagueRoad ? '#f59e0b' : onMainRoad ? '#8b5a2b' : onPlaza ? '#94a3b8' : '#5fa83f';
         all.push({ key: `${tx}:${ty}`, x: p.x, y: p.y, fill, stroke });
       }
     }
@@ -792,14 +1003,7 @@ export default function KintaraSportsWorld() {
     }
   };
 
-  const playHotbarMiniGame = async (slot: (typeof HOTBAR)[number]) => {
-    if (slot.panelId) {
-      const building = BUILDINGS.find((b) => b.panelId === slot.panelId);
-      if (building) openBuilding(building);
-      return;
-    }
-    if (!slot.miniGameType) return;
-
+  const playHotbarMiniGame = async (slot: HotbarSlot) => {
     try {
       setWorldStatus(`Running ${slot.label} on the server...`);
       const data = await fetchApi('/api/mini-games/play', {
@@ -812,6 +1016,13 @@ export default function KintaraSportsWorld() {
     } catch (error) {
       setWorldStatus(error instanceof Error ? error.message : 'Mini-game failed');
     }
+  };
+
+  const refreshHud = async () => {
+    setWorldStatus('Refreshing live world, quests, and chat...');
+    const results = await Promise.allSettled([refreshWorld(), loadQuests(), loadChat()]);
+    const failed = results.filter((result) => result.status === 'rejected').length;
+    setWorldStatus(failed ? `Refresh finished with ${failed} server issue${failed === 1 ? '' : 's'}` : 'Live world refreshed');
   };
 
   const username = user?.displayName || user?.username || 'Owner';
@@ -832,12 +1043,33 @@ export default function KintaraSportsWorld() {
         aria-label="Interactive isometric sports world"
       >
         <defs>
+          <linearGradient id="waterGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#7dd3fc" />
+            <stop offset="52%" stopColor="#38bdf8" />
+            <stop offset="100%" stopColor="#0284c7" />
+          </linearGradient>
+          <radialGradient id="islandGlow" cx="50%" cy="44%" r="60%">
+            <stop offset="0%" stopColor="#bbf7d0" stopOpacity="0.38" />
+            <stop offset="100%" stopColor="#14532d" stopOpacity="0" />
+          </radialGradient>
           <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
             <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#000" floodOpacity="0.22" />
           </filter>
+          <filter id="warmGlow" x="-70%" y="-70%" width="240%" height="240%">
+            <feGaussianBlur stdDeviation="5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
+        <rect x={-760} y={-520} width={1520} height={980} fill="url(#waterGradient)" />
+        <WaterfrontDetails />
+        <ellipse cx={0} cy={-55} rx={705} ry={374} fill="url(#islandGlow)" />
+
         <g filter="url(#softShadow)">
+          <polygon points="0,-486 764,-96 0,404 -764,-96" fill="#d9f99d" opacity={0.94} stroke="#fef3c7" strokeWidth={16} />
           <polygon points="0,-470 745,-90 0,386 -745,-90" fill="#5fb844" stroke="#3f8f2f" strokeWidth={6} />
           <polygon points="0,386 745,-90 745,-40 0,440" fill="#407e33" opacity={0.7} />
           <polygon points="0,386 -745,-90 -745,-40 0,440" fill="#386f2f" opacity={0.8} />
@@ -845,6 +1077,10 @@ export default function KintaraSportsWorld() {
 
         <g>
           {tiles.map((t) => <Tile key={t.key} x={t.x} y={t.y} fill={t.fill} stroke={t.stroke} />)}
+        </g>
+
+        <g>
+          {BUILDINGS.map((building) => <DistrictGround key={`district-${building.id}`} building={building} />)}
         </g>
 
         <g>
@@ -868,6 +1104,9 @@ export default function KintaraSportsWorld() {
           const p = iso(tx, 9 - (i % 4));
           return <BlockTree key={`bottom-tree-${i}`} x={p.x} y={p.y} />;
         })}
+
+        {DECORATIONS.map((item, idx) => <Decoration key={`${item.kind}-${idx}`} item={item} />)}
+        {CROWD_CLUSTERS.map((cluster, idx) => <CrowdCluster key={`crowd-${idx}`} tx={cluster.tx} ty={cluster.ty} color={cluster.color} />)}
 
         {BUILDINGS.map((building) => <SportsBuildingView key={building.id} building={building} onClick={openBuilding} />)}
 
@@ -893,18 +1132,20 @@ export default function KintaraSportsWorld() {
         </g>
       </svg>
 
-      {/* Top-left MMO buttons */}
-      <div className="absolute top-4 left-4 z-[6] flex flex-col gap-2">
-        <div className="flex gap-2">
-          {['☰', '↻', '⚙'].map((item) => (
-            <button key={item} className="w-11 h-11 rounded-full bg-slate-900/85 border border-white/30 text-white shadow-xl hover:scale-105 transition-transform font-black">
-              {item}
-            </button>
-          ))}
-        </div>
-        <div className="px-4 py-2 rounded-xl bg-slate-900/85 text-white border border-white/20 shadow-xl">
+      {/* Top-left status / single utility action */}
+      <div className="absolute top-4 left-4 z-[6] flex items-start gap-2">
+        <button
+          type="button"
+          onClick={refreshHud}
+          aria-label="Refresh live world data"
+          title="Refresh live world data"
+          className="w-11 h-11 rounded-full bg-slate-900/85 border border-white/30 text-white shadow-xl hover:scale-105 transition-transform font-black flex items-center justify-center"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
+        <div className="px-4 py-2 rounded-xl bg-slate-900/85 text-white border border-white/20 shadow-xl max-w-[340px]">
           <div className="text-xs uppercase tracking-widest text-slate-300">Grid City Club 4</div>
-          <div className="text-sm font-black">{worldStatus}</div>
+          <div className="text-sm font-black leading-snug">{worldStatus}</div>
         </div>
       </div>
 
@@ -944,23 +1185,6 @@ export default function KintaraSportsWorld() {
         <div className="px-4 pb-4 text-[11px] leading-snug text-emerald-100">
           Better user leagues attract outside teams; owners earn revenue while paying maintenance and game tax, creating repeat play and platform sinks.
         </div>
-      </div>
-
-      {/* Right action buttons */}
-      <div className="absolute right-5 top-[31rem] z-[6] hidden 2xl:grid grid-cols-2 gap-3">
-        {[
-          { icon: <Users className="w-5 h-5" />, badge: '' },
-          { icon: <Shirt className="w-5 h-5" />, badge: '3' },
-          { icon: <Dumbbell className="w-5 h-5" />, badge: '' },
-          { icon: <Trophy className="w-5 h-5" />, badge: '1' },
-          { icon: <MapPin className="w-5 h-5" />, badge: '' },
-          { icon: <MessageSquare className="w-5 h-5" />, badge: chatMessages.length ? String(Math.min(chatMessages.length, 99)) : '' },
-        ].map((button, idx) => (
-          <button key={idx} className="relative w-12 h-12 rounded-full bg-slate-900/90 border border-white/30 text-white flex items-center justify-center shadow-xl hover:scale-105 transition-transform">
-            {button.icon}
-            {button.badge && <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-red-500 border-2 border-white text-[10px] font-black flex items-center justify-center">{button.badge}</span>}
-          </button>
-        ))}
       </div>
 
       {/* Daily quests */}
@@ -1022,7 +1246,7 @@ export default function KintaraSportsWorld() {
           <button
             key={slot.key}
             onClick={() => playHotbarMiniGame(slot)}
-            title={slot.miniGameType ? `Run server-backed ${slot.label}` : `Open ${slot.label}`}
+            title={`Run server-backed ${slot.label}`}
             className={`relative w-16 h-16 rounded-2xl border-2 ${idx === 0 ? 'border-yellow-300 bg-slate-800' : 'border-white/25 bg-slate-900/90'} text-white shadow-2xl flex flex-col items-center justify-center hover:-translate-y-1 transition-transform`}
           >
             <span className="absolute left-1.5 top-1 text-[10px] text-slate-300 font-black">{slot.key}</span>

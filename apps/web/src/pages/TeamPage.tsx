@@ -50,6 +50,8 @@ export default function TeamPage() {
   const [teamEquipment, setTeamEquipment] = useState<any[]>([]);
   const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
   const [equipLoading, setEquipLoading] = useState(false);
+  const [purchasingEquipmentId, setPurchasingEquipmentId] = useState<string | null>(null);
+  const [equipmentMessage, setEquipmentMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { config: tierConfig } = useLeagueTierConfig();
 
   // Load sponsorships and equipment when tab changes
@@ -142,6 +144,37 @@ export default function TeamPage() {
       console.error('Failed to load equipment:', err);
     } finally {
       setEquipLoading(false);
+    }
+  };
+
+  const purchaseEquipment = async (equipmentTypeId: string) => {
+    if (!selectedTeam || purchasingEquipmentId) return;
+    setPurchasingEquipmentId(equipmentTypeId);
+    setEquipmentMessage(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/equipment/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ teamId: selectedTeam.id, equipmentTypeId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEquipmentMessage({ type: 'error', text: data.message || `Purchase failed (${res.status})` });
+        return;
+      }
+      setEquipmentMessage({ type: 'success', text: data.message || 'Equipment purchased' });
+      if (data.data?.wallet) refreshWallet();
+      await loadEquipment();
+      setTimeout(() => setEquipmentMessage(null), 4000);
+    } catch (err) {
+      console.error('Failed to purchase equipment:', err);
+      setEquipmentMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } finally {
+      setPurchasingEquipmentId(null);
     }
   };
 
@@ -347,6 +380,7 @@ export default function TeamPage() {
   };
 
   const loading = teamsLoading;
+  const ownedEquipmentTypeIds = new Set(teamEquipment.map((eq: any) => eq.equipmentTypeId));
 
   if (loading) {
     return (
@@ -987,6 +1021,12 @@ export default function TeamPage() {
                       <h3 className="text-lg font-bold text-white">Equipment</h3>
                     </div>
 
+                    {equipmentMessage && (
+                      <div className={`rounded-xl border p-3 text-sm ${equipmentMessage.type === 'success' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-red-400/30 bg-red-400/10 text-red-200'}`}>
+                        {equipmentMessage.text}
+                      </div>
+                    )}
+
                     {equipLoading && (
                       <div className="flex items-center justify-center py-12">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E94560]" />
@@ -1020,21 +1060,35 @@ export default function TeamPage() {
                       <div className="space-y-3">
                         <h4 className="text-sm font-bold text-white/40 uppercase tracking-wider">Available</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {equipmentTypes.map((type: any) => (
-                            <div key={type.id} className="glass-card p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-medium text-white">{type.name}</div>
-                                <div className="text-xs text-white/30">{type.category}</div>
+                          {equipmentTypes.map((type: any) => {
+                            const isOwned = ownedEquipmentTypeIds.has(type.id);
+                            const cashCost = type.baseCostCash ?? 0;
+                            const dynCost = type.baseCostGrid ?? 0;
+                            const canAfford = (wallet.cash ?? 0) >= cashCost && (wallet.dynTokens ?? 0) >= dynCost;
+                            const isPurchasing = purchasingEquipmentId === type.id;
+                            return (
+                              <div key={type.id} className={`glass-card p-4 ${isOwned ? 'border-emerald-400/20' : ''}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="font-medium text-white">{type.name}</div>
+                                  <div className="text-xs text-white/30">{type.category}</div>
+                                </div>
+                                <div className="text-sm text-white/40 mb-3">{type.description}</div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-sm text-[#FFD700]">
+                                    {cashCost.toLocaleString()} CASH{dynCost > 0 ? ` + ${dynCost.toLocaleString()} DYN` : ''}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => purchaseEquipment(type.id)}
+                                    disabled={isOwned || !canAfford || isPurchasing || !!purchasingEquipmentId}
+                                    className="px-3 py-1.5 bg-[#E94560] text-white rounded-lg text-xs font-medium hover:bg-[#E94560]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {isOwned ? 'Owned' : isPurchasing ? 'Buying...' : canAfford ? 'Purchase' : 'Need Funds'}
+                                  </button>
+                                </div>
                               </div>
-                              <div className="text-sm text-white/40 mb-3">{type.description}</div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-[#FFD700]">{type.baseCostCash.toLocaleString()} CASH</span>
-                                <button className="px-3 py-1.5 bg-[#E94560] text-white rounded-lg text-xs font-medium hover:bg-[#E94560]/80 transition-colors">
-                                  Purchase
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
