@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { creditCurrency, debitCurrency } from '../economy/currency.service';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
 
 const BURN_PCT = 0.05; // 5% burned (static)
@@ -146,41 +146,26 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
   }
 
   return prisma.$transaction(async (tx: any) => {
-    // Deduct from buyer
-    const updatedBuyerWallet = await tx.wallet.update({
-      where: { userId: buyerId },
-      data: currency === 'DYN'
-        ? { dynTokens: { decrement: price } }
-        : { solBalance: { decrement: price } },
-    });
-
-    await recordCurrencyLedger(tx, {
+    // Deduct from buyer. Marketplace transfers are token movements, not
+    // lifetime earned/spent for the luck system.
+    await debitCurrency(tx, {
       userId: buyerId,
       currency,
-      amount: -price,
-      balanceAfter: currency === 'DYN' ? updatedBuyerWallet.dynTokens : Math.round(updatedBuyerWallet.solBalance),
+      amount: price,
       reason: 'MARKETPLACE_TEAM_PURCHASE',
-      sourceType: 'TEAM_MARKETPLACE',
+      sourceType: 'MARKETPLACE_TRANSFER',
       sourceId: listingId,
       metadata: { teamId: listing.teamId, sellerId: listing.sellerId, price, currency },
     });
 
     // Pay seller (net of tax/burn) — AI sales credit the game owner wallet, player resales credit the seller
     if (listing.sellerReceives > 0) {
-      const sellerWallet = await tx.wallet.update({
-        where: { userId: listing.sellerId },
-        data: currency === 'DYN'
-          ? { dynTokens: { increment: listing.sellerReceives } }
-          : { solBalance: { increment: listing.sellerReceives } },
-      });
-
-      await recordCurrencyLedger(tx, {
+      await creditCurrency(tx, {
         userId: listing.sellerId,
         currency,
         amount: listing.sellerReceives,
-        balanceAfter: currency === 'DYN' ? sellerWallet.dynTokens : Math.round(sellerWallet.solBalance),
         reason: listing.team.isAI ? 'AI_TEAM_PRIMARY_SALE' : 'MARKETPLACE_TEAM_SALE',
-        sourceType: 'TEAM_MARKETPLACE',
+        sourceType: 'MARKETPLACE_TRANSFER',
         sourceId: listingId,
         metadata: { teamId: listing.teamId, buyerId, price: listing.sellerReceives, currency, isAI: listing.team.isAI },
       });

@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { SeededRNG } from '../../utils/rng';
 import { processTreasuryInflow } from '../treasury/treasury.service';
+import { creditCurrency, debitCurrency } from '../economy/currency.service';
 
 // ─── Game Constants ───
 const QUARTER_LENGTH = 900; // 15 minutes in seconds
@@ -587,6 +588,22 @@ export async function completeGame(matchId: string) {
     let statToImprove: 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical' = 'pace';
     const position = player.position;
 
+    // Determine whether user is home or away team owner. Luck applies to the
+    // owner's players, not the AI opponent.
+    const ownerHomeId = match.homeTeam?.ownerId;
+    const ownerAwayId = match.awayTeam?.ownerId;
+    let ownerIdForDev: string | undefined = ownerHomeId;
+    // If user is away team, home team is AI and the away owner is the user.
+    if (!ownerHomeId && ownerAwayId) ownerIdForDev = ownerAwayId;
+    let luckBoost = 0;
+    if (ownerIdForDev) {
+      const ownerWallet = await prisma.wallet.findUnique({ where: { userId: ownerIdForDev } });
+      if (ownerWallet) {
+        const { luckModifier } = await import('../luck/luck.service');
+        luckBoost = luckModifier(ownerWallet.luckScore, 0.10); // up to +10% gain chance/amount
+      }
+    }
+
     if (position === 'QB') statToImprove = stats.td > 0 ? 'passing' : 'physical';
     else if (position === 'RB') statToImprove = stats.yards > 50 ? 'pace' : 'physical';
     else if (position === 'WR') statToImprove = stats.td > 0 ? 'shooting' : 'pace';
@@ -607,6 +624,11 @@ export async function completeGame(matchId: string) {
     } else if (stats.plays >= 5) {
       amount = 1;
       reason = 'PLAYED_WELL';
+    }
+
+    // Luck can add an extra +1 gain when close to threshold
+    if (amount > 0 && rng.next() < luckBoost) {
+      amount += 1;
     }
 
     const currentStat = player[statToImprove] || 50;
@@ -652,12 +674,15 @@ export async function completeGame(matchId: string) {
     leaseFee: number;
     homeTeamRevenue: number;
     entryFee: number;
+    entryFeePaid: number;
     totalVenueRevenue: number;
     venueOwnerId: string | null;
   } | null = null;
 
   await prisma.$transaction(async (tx: any) => {
-    await tx.match.update({
+    // Ensure match is still COMPLETED inside the transaction; also load it so
+    // we have the final score after any simulated plays.
+    const completedMatch = await tx.match.update({
       where: { id: matchId },
       data: {
         status: 'COMPLETED',
@@ -665,12 +690,20 @@ export async function completeGame(matchId: string) {
         completedAt: new Date(),
       },
     });
+    // If the game was already COMPLETED by a previous request, return early
+    // without re-recording ledger entries or re-counting standings.
+    if (match.status === 'COMPLETED' || completedMatch.status === 'COMPLETED') {
+      return { match: completedMatch, gameRevenue: null };
+    }
 
-    const homeWins = match.homeScore > match.awayScore ? 1 : 0;
-    const homeLosses = match.homeScore < match.awayScore ? 1 : 0;
-    const awayWins = match.awayScore > match.homeScore ? 1 : 0;
-    const awayLosses = match.awayScore < match.homeScore ? 1 : 0;
-    const isDraw = match.homeScore === match.awayScore ? 1 : 0;
+    const finalHomeScore = completedMatch.homeScore;
+    const finalAwayScore = completedMatch.awayScore;
+
+    const homeWins = finalHomeScore > finalAwayScore ? 1 : 0;
+    const homeLosses = finalHomeScore < finalAwayScore ? 1 : 0;
+    const awayWins = finalAwayScore > finalHomeScore ? 1 : 0;
+    const awayLosses = finalAwayScore < finalHomeScore ? 1 : 0;
+    const isDraw = finalHomeScore === finalAwayScore ? 1 : 0;
     const homePoints = homeWins * 3 + isDraw * 1;
     const awayPoints = awayWins * 3 + isDraw * 1;
 
@@ -680,8 +713,8 @@ export async function completeGame(matchId: string) {
         wins: { increment: homeWins },
         draws: { increment: isDraw },
         losses: { increment: homeLosses },
-        pointsFor: { increment: match.homeScore },
-        pointsAgainst: { increment: match.awayScore },
+        pointsFor: { increment: finalHomeScore },
+        pointsAgainst: { increment: finalAwayScore },
         points: { increment: homePoints },
       },
     });
@@ -692,8 +725,8 @@ export async function completeGame(matchId: string) {
         wins: { increment: awayWins },
         draws: { increment: isDraw },
         losses: { increment: awayLosses },
-        pointsFor: { increment: match.awayScore },
-        pointsAgainst: { increment: match.homeScore },
+        pointsFor: { increment: finalAwayScore },
+        pointsAgainst: { increment: finalHomeScore },
         points: { increment: awayPoints },
       },
     });
@@ -709,9 +742,26 @@ export async function completeGame(matchId: string) {
         include: { owner: true },
       });
 
-      // Calculate attendance (50-90% based on prestige)
-      const attendanceRate = 0.5 + (homeVenue.prestige / 100) * 0.4;
-      const attendance = Math.round(homeVenue.capacity * attendanceRate);
+      // Load both owners' luck to apply to match revenue (small bonus)
+      const { getLuckBreakdown, luckModifier } = await import('../luck/luck.service');
+      let homeLuckMod = 0;
+      let awayLuckMod = 0;
+      if (homeTeam?.ownerId) {
+        const homeLuck = await getLuckBreakdown(homeTeam.ownerId);
+        homeLuckMod = luckModifier(homeLuck.luckScore, 0.05);
+      }
+      const awayTeam = await tx.team.findUnique({
+        where: { id: match.awayTeamId },
+        include: { owner: true },
+      });
+      if (awayTeam?.ownerId) {
+        const awayLuck = await getLuckBreakdown(awayTeam.ownerId);
+        awayLuckMod = luckModifier(awayLuck.luckScore, 0.05);
+      }
+
+      // Calculate attendance (50-90% based on prestige), boosted by home luck
+      const attendanceRate = 0.5 + (homeVenue.prestige / 100) * 0.4 + homeLuckMod * 0.2;
+      const attendance = Math.round(homeVenue.capacity * Math.min(attendanceRate, 0.99));
       
       // Ticket revenue
       const ticketRevenue = attendance * homeVenue.ticketPrice;
@@ -719,37 +769,56 @@ export async function completeGame(matchId: string) {
       // If venue owner is the home team owner, no lease fee (they own it)
       const isOwnVenue = homeVenue.ownerId === homeTeam?.ownerId;
       const leaseFee = isOwnVenue ? 0 : Math.round(ticketRevenue * homeVenue.leaseRate);
-      const homeTeamRevenue = ticketRevenue - leaseFee;
+      const homeTeamRevenue = Math.round((ticketRevenue - leaseFee) * (1 + homeLuckMod));
       
-      // Visiting team entry fee (fixed cost based on venue tier)
+      // Visiting team entry fee (fixed cost based on venue tier), reduced by away luck
       const entryFeeTierMult: Record<string, number> = {
         PARK_FIELD: 1, COMMUNITY: 2, SMALL_STADIUM: 3, REGIONAL: 5, PRO: 8, ELITE: 12,
       };
-      const entryFee = 1000 * (entryFeeTierMult[homeVenue.tier] || 1);
+      const baseEntryFee = 1000 * (entryFeeTierMult[homeVenue.tier] || 1);
+      const entryFee = Math.max(0, Math.round(baseEntryFee * (1 - awayLuckMod)));
       
+      let entryFeePaid = 0;
+
       // Home team gets ticket revenue minus lease fee
       if (homeTeamRevenue > 0 && homeTeam?.ownerId) {
-        await tx.wallet.update({
-          where: { userId: homeTeam.ownerId },
-          data: { cash: { increment: homeTeamRevenue } },
+        await creditCurrency(tx, {
+          userId: homeTeam.ownerId,
+          currency: 'CASH',
+          amount: homeTeamRevenue,
+          reason: 'GAME_TICKET_REVENUE',
+          sourceType: 'PLAY_GAME',
+          sourceId: matchId,
+          metadata: { matchId, teamId: match.homeTeamId, venueId: homeVenue.id, attendance, ticketRevenue, leaseFee },
         });
       }
       
-      // Visiting team pays entry fee
+      // Visiting team pays entry fee. Partial collection prevents match completion from
+      // hard-failing if a user has gone broke, while keeping the ledger honest.
       const awayTeam = await tx.team.findUnique({
         where: { id: match.awayTeamId },
         include: { owner: true },
       });
-      if (awayTeam?.ownerId) {
-        await tx.wallet.update({
-          where: { userId: awayTeam.ownerId },
-          data: { cash: { decrement: entryFee } },
+      if (awayTeam?.ownerId && entryFee > 0) {
+        const debit = await debitCurrency(tx, {
+          userId: awayTeam.ownerId,
+          currency: 'CASH',
+          amount: entryFee,
+          allowPartial: true,
+          reason: 'GAME_VISITING_TEAM_ENTRY_FEE',
+          sourceType: 'PLAY_GAME',
+          sourceId: matchId,
+          metadata: { matchId, teamId: match.awayTeamId, venueId: homeVenue.id, requestedEntryFee: entryFee },
         });
+        entryFeePaid = debit.amount;
       }
+
+      // AI teams do not have a wallet, but if they have an ownerId treat them as a real team
+      // with an infinite bank. Otherwise they pay no entry fee.
       
-      // Venue owner gets lease fee + entry fee
+      // Venue owner gets lease fee + actually collected entry fee
       const venueOwnerId = homeVenue.ownerId;
-      const totalVenueRevenue = leaseFee + entryFee;
+      const totalVenueRevenue = leaseFee + entryFeePaid;
 
       // Record revenue data for return
       gameRevenue = {
@@ -758,25 +827,46 @@ export async function completeGame(matchId: string) {
         leaseFee,
         homeTeamRevenue,
         entryFee,
+        entryFeePaid,
         totalVenueRevenue,
         venueOwnerId: venueOwnerId || null,
       };
 
-      if (venueOwnerId) {
+      if (venueOwnerId && totalVenueRevenue > 0) {
         // Player-owned: credit to their wallet
-        await tx.wallet.update({
-          where: { userId: venueOwnerId },
-          data: { cash: { increment: totalVenueRevenue } },
+        await creditCurrency(tx, {
+          userId: venueOwnerId,
+          currency: 'CASH',
+          amount: totalVenueRevenue,
+          reason: 'GAME_VENUE_REVENUE',
+          sourceType: 'PLAY_GAME',
+          sourceId: matchId,
+          metadata: { matchId, venueId: homeVenue.id, leaseFee, entryFeePaid, requestedEntryFee: entryFee },
         });
-      } else {
+      } else if (totalVenueRevenue > 0) {
         // No owner: process as treasury inflow
-        await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', matchId);
+        await processTreasuryInflow(tx, 'CASH', totalVenueRevenue, 'GAME_DAY_REVENUE', matchId, 'PLAY_GAME', {
+          matchId,
+          venueId: homeVenue.id,
+          leaseFee,
+          entryFeePaid,
+          requestedEntryFee: entryFee,
+        });
       }
     }
   });
 
+  // Return the completed match from the DB so callers get final scores & gamePhase
+  const completedMatch = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      homeTeam: { include: { owner: { select: { id: true, username: true } } } },
+      awayTeam: { include: { owner: { select: { id: true, username: true } } } },
+    },
+  });
+
   return {
-    match,
+    match: completedMatch || match,
     developmentLogs,
     playerStats,
     gameRevenue,

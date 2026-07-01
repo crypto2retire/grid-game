@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { creditCurrency } from '../economy/currency.service';
 import { logger } from '../../config/logger';
 
 const router = Router();
@@ -213,15 +213,10 @@ router.post(
 
     for (const reward of pendingRewards) {
       await prisma.$transaction(async (tx: any) => {
-        const wallet = await tx.wallet.update({
-          where: { userId: reward.ownerId },
-          data: { cash: { increment: reward.rewardAmount } },
-        });
-        await recordCurrencyLedger(tx, {
+        await creditCurrency(tx, {
           userId: reward.ownerId,
           currency: 'CASH',
           amount: reward.rewardAmount,
-          balanceAfter: wallet.cash,
           reason: 'LEADERBOARD_REWARD',
           sourceType: 'LEADERBOARD_SNAPSHOT',
           sourceId: reward.snapshotId,

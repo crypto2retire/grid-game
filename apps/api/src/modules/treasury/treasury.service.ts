@@ -2,19 +2,29 @@ import { prisma } from '../../config/database';
 
 // ─── Treasury & Burn Management ───
 
+function normalizeTreasuryCurrency(currency: string): string {
+  const normalized = String(currency || '').trim().toUpperCase();
+  return normalized === 'GRID' ? 'DYN' : normalized;
+}
+
+function treasuryIdForCurrency(currency: string): string {
+  return `treasury-${normalizeTreasuryCurrency(currency).toLowerCase()}`;
+}
+
 /**
  * Get treasury balance for a specific currency.
  */
-export async function getTreasuryBalance(currency: string) {
+export async function getTreasuryBalance(currencyInput: string) {
+  const currency = normalizeTreasuryCurrency(currencyInput);
   const treasury = await prisma.gameTreasury.findUnique({
-    where: { id: `treasury-${currency.toLowerCase()}` },
+    where: { currency },
   });
 
   if (!treasury) {
     // Create if not exists
     return prisma.gameTreasury.create({
       data: {
-        id: `treasury-${currency.toLowerCase()}`,
+        id: treasuryIdForCurrency(currency),
         currency,
         balance: 0,
         totalInflows: 0,
@@ -33,23 +43,25 @@ export async function getTreasuryBalance(currency: string) {
  */
 export async function processTreasuryInflow(
   tx: any,
-  currency: string,
+  currencyInput: string,
   amount: number,
   reason: string,
-  sourceId?: string
+  sourceId?: string,
+  sourceType?: string,
+  metadata: Record<string, unknown> = {},
 ) {
   if (amount <= 0) return null;
 
-  const treasuryId = `treasury-${currency.toLowerCase()}`;
+  const currency = normalizeTreasuryCurrency(currencyInput);
 
   const treasury = await tx.gameTreasury.upsert({
-    where: { id: treasuryId },
+    where: { currency },
     update: {
       balance: { increment: amount },
       totalInflows: { increment: amount },
     },
     create: {
-      id: treasuryId,
+      id: treasuryIdForCurrency(currency),
       currency,
       balance: amount,
       totalInflows: amount,
@@ -65,8 +77,9 @@ export async function processTreasuryInflow(
       amount,
       currency,
       reason,
+      sourceType,
       sourceId,
-      metadata: { sourceId, reason },
+      metadata: { ...metadata, sourceId, sourceType, reason },
     },
   });
 
@@ -78,23 +91,25 @@ export async function processTreasuryInflow(
  */
 export async function processTreasuryOutflow(
   tx: any,
-  currency: string,
+  currencyInput: string,
   amount: number,
   reason: string,
-  sourceId?: string
+  sourceId?: string,
+  sourceType?: string,
+  metadata: Record<string, unknown> = {},
 ) {
   if (amount <= 0) return null;
 
-  const treasuryId = `treasury-${currency.toLowerCase()}`;
+  const currency = normalizeTreasuryCurrency(currencyInput);
 
   const treasury = await tx.gameTreasury.upsert({
-    where: { id: treasuryId },
+    where: { currency },
     update: {
       balance: { decrement: amount },
       totalOutflows: { increment: amount },
     },
     create: {
-      id: treasuryId,
+      id: treasuryIdForCurrency(currency),
       currency,
       balance: -amount,
       totalInflows: 0,
@@ -110,8 +125,9 @@ export async function processTreasuryOutflow(
       amount: -amount,
       currency,
       reason,
+      sourceType,
       sourceId,
-      metadata: { sourceId, reason },
+      metadata: { ...metadata, sourceId, sourceType, reason },
     },
   });
 
@@ -123,22 +139,24 @@ export async function processTreasuryOutflow(
  */
 export async function processBurn(
   tx: any,
-  currency: string,
+  currencyInput: string,
   amount: number,
   reason: string,
-  sourceId?: string
+  sourceId?: string,
+  sourceType?: string,
+  metadata: Record<string, unknown> = {},
 ) {
   if (amount <= 0) return null;
 
-  const treasuryId = `treasury-${currency.toLowerCase()}`;
+  const currency = normalizeTreasuryCurrency(currencyInput);
 
   const treasury = await tx.gameTreasury.upsert({
-    where: { id: treasuryId },
+    where: { currency },
     update: {
       totalBurned: { increment: amount },
     },
     create: {
-      id: treasuryId,
+      id: treasuryIdForCurrency(currency),
       currency,
       balance: 0,
       totalInflows: 0,
@@ -154,8 +172,9 @@ export async function processBurn(
       amount: -amount,
       currency,
       reason,
+      sourceType,
       sourceId,
-      metadata: { sourceId, reason, burn: true },
+      metadata: { ...metadata, sourceId, sourceType, reason, burn: true },
     },
   });
 
@@ -184,6 +203,7 @@ export async function distributeTreasuryRewards(
 
   // Distribute to each team
   const results = [];
+  const { creditCurrency } = await import('../economy/currency.service');
   for (const { teamId, amount } of distribution) {
     const team = await tx.team.findUnique({
       where: { id: teamId },
@@ -192,24 +212,14 @@ export async function distributeTreasuryRewards(
 
     if (!team || !team.owner?.wallet) continue;
 
-    const updatedWallet = await tx.wallet.update({
-      where: { userId: team.ownerId },
-      data: {
-        [currency === 'CASH' ? 'cash' : 'dynTokens']: { increment: amount },
-      },
-    });
-
-    await tx.currencyLedger.create({
-      data: {
-        userId: team.ownerId,
-        currency,
-        amount,
-        balanceAfter: currency === 'CASH' ? updatedWallet.cash : updatedWallet.dynTokens,
-        reason: 'LEAGUE_REWARD',
-        sourceType: 'TREASURY',
-        sourceId: teamId,
-        metadata: { teamId, amount },
-      },
+    await creditCurrency(tx, {
+      userId: team.ownerId,
+      currency,
+      amount,
+      reason: 'LEAGUE_REWARD',
+      sourceType: 'TREASURY',
+      sourceId: teamId,
+      metadata: { teamId, amount },
     });
 
     results.push({ teamId, amount, ownerId: team.ownerId });

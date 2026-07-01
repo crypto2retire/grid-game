@@ -8,37 +8,38 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  username      String   @unique
-  password      String
-  displayName   String?
-  avatar        String?
-  role          Role     @default(USER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  username    String   @unique
+  password    String
+  displayName String?
+  avatar      String?
+  role        Role     @default(USER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  teams         Team[]
-  wallet        Wallet?
-  marketplaceListings MarketplaceListing[]
-  matchParticipants   MatchParticipant[]
-  offers        MarketplaceOffer[]
-  currencyLedger CurrencyLedger[]
-  solanaPurchases SolanaPurchase[]
-  userStakes      UserStake[]
-  hasPaidPurchase Boolean @default(false)
-  teamMarketplaceListings TeamMarketplaceListing[]
-  marketplaceItemListings MarketplaceItemListing[]
-  chatMessages ChatMessage[]
-  worldAvatarPresence WorldAvatarPresence?
-  dailyQuestProgress DailyQuestProgress[]
-  miniGameAttempts MiniGameAttempt[]
-  
+  teams                     Team[]
+  wallet                    Wallet?
+  marketplaceListings       MarketplaceListing[]
+  matchParticipants         MatchParticipant[]
+  offers                    MarketplaceOffer[]
+  currencyLedger            CurrencyLedger[]
+  solanaPurchases           SolanaPurchase[]
+  userStakes                UserStake[]
+  hasPaidPurchase           Boolean                    @default(false)
+  teamMarketplaceListings   TeamMarketplaceListing[]
+  marketplaceItemListings   MarketplaceItemListing[]
+  chatMessages              ChatMessage[]
+  worldAvatarPresence       WorldAvatarPresence?
+  dailyQuestProgress        DailyQuestProgress[]
+  miniGameAttempts          MiniGameAttempt[]
+  commissionerContributions CommissionerContribution[]
+
   // ─── League Management ───
-  createdLeagues  League[] @relation("CreatedLeagues")
-  sentInvitations LeagueInvitation[] @relation("SentInvitations")
-  receivedInvitations LeagueInvitation[] @relation("ReceivedInvitations")
-  leagueApplications LeagueApplication[]
+  createdLeagues      League[]            @relation("CreatedLeagues")
+  sentInvitations     LeagueInvitation[]  @relation("SentInvitations")
+  receivedInvitations LeagueInvitation[]  @relation("ReceivedInvitations")
+  leagueApplications  LeagueApplication[]
 
   @@index([email])
   @@index([username])
@@ -103,21 +104,21 @@ model DailyQuest {
 }
 
 model DailyQuestProgress {
-  id            String   @id @default(uuid())
+  id            String     @id @default(uuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   questId       String
   quest         DailyQuest @relation(fields: [questId], references: [id], onDelete: Cascade)
   dateKey       String
-  progress      Int      @default(0)
-  completed     Boolean  @default(false)
-  claimed       Boolean  @default(false)
-  rewardGranted Boolean  @default(false)
+  progress      Int        @default(0)
+  completed     Boolean    @default(false)
+  claimed       Boolean    @default(false)
+  rewardGranted Boolean    @default(false)
   completedAt   DateTime?
   claimedAt     DateTime?
-  metadata      Json     @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  metadata      Json       @default("{}")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@unique([userId, questId, dateKey])
   @@index([userId, dateKey])
@@ -140,34 +141,116 @@ model MiniGameAttempt {
   @@index([userId, createdAt])
   @@index([miniGameType, createdAt])
 }
+
+model CommissionerCycle {
+  id                  String    @id @default(uuid())
+  sportId             String    @default("american-football")
+  code                String    @unique
+  title               String
+  theme               String    @default("Community Sports Commission")
+  phase               String    @default("FUNDING") // FUNDING | RESTOCK | LIVE | COMPLETED
+  status              String    @default("ACTIVE") // ACTIVE | PAUSED | COMPLETED
+  fundingCurrency     String    @default("DYN")
+  fundingGoal         Float     @default(25000)
+  fundingRaised       Float     @default(0)
+  rewardPool          Float     @default(0)
+  startsAt            DateTime  @default(now())
+  fundingEndsAt       DateTime?
+  restockAt           DateTime?
+  inventoryReleasedAt DateTime?
+  economyMeters       Json      @default("{}")
+  metadata            Json      @default("{}")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  inventory     CommissionerInventory[]
+  contributions CommissionerContribution[]
+
+  @@index([sportId, status, phase])
+  @@index([code])
+}
+
+model CommissionerInventory {
+  id                  String            @id @default(uuid())
+  cycleId             String
+  cycle               CommissionerCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  sku                 String
+  name                String
+  description         String            @default("")
+  category            String            @default("LEAGUE_ASSET")
+  currency            String            @default("DYN")
+  price               Float
+  quantityTotal       Int
+  quantityRemaining   Int
+  phase               String            @default("LOCKED") // LOCKED | RESTOCK | LIVE | SOLD_OUT
+  restockBatch        Int               @default(1)
+  unlockFundingAmount Float             @default(0)
+  effects             Json              @default("{}")
+  metadata            Json              @default("{}")
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  contributions CommissionerContribution[]
+
+  @@unique([cycleId, sku])
+  @@index([cycleId, phase, active])
+  @@index([category])
+}
+
+model CommissionerContribution {
+  id            String                 @id @default(uuid())
+  cycleId       String
+  cycle         CommissionerCycle      @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  inventoryId   String?
+  inventory     CommissionerInventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  userId        String
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String                 @default("FUNDING") // FUNDING | PURCHASE | REWARD
+  currency      String                 @default("DYN")
+  amount        Float
+  dynEquivalent Float                  @default(0)
+  rewardCash    Float                  @default(0)
+  rewardDyn     Float                  @default(0)
+  share         Float                  @default(0)
+  status        String                 @default("COMPLETED")
+  metadata      Json                   @default("{}")
+  createdAt     DateTime               @default(now())
+
+  @@index([cycleId, createdAt])
+  @@index([userId, createdAt])
+  @@index([inventoryId])
+  @@index([type])
+}
+
 // ─── Rewards Pool System ───
 
 model RewardsPool {
-  id                    String   @id @default("main")
-  totalStaked           Int      @default(0)
-  rewardRatePerDay      Float    @default(0.005) // 0.5% daily base rate
-  totalRewardsDistributed Int    @default(0)
-  totalRewardsFunded    Int      @default(0)
-  lastDistributionAt    DateTime @default(now())
-  active                Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                      String   @id @default("main")
+  totalStaked             Int      @default(0)
+  rewardRatePerDay        Float    @default(0.005) // 0.5% daily base rate
+  totalRewardsDistributed Int      @default(0)
+  totalRewardsFunded      Int      @default(0)
+  lastDistributionAt      DateTime @default(now())
+  active                  Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  userStakes            UserStake[]
-  rewardDistributions   RewardDistribution[]
+  userStakes          UserStake[]
+  rewardDistributions RewardDistribution[]
 }
 
 model UserStake {
-  id                String   @id @default(uuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  poolId            String   @default("main")
-  pool              RewardsPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
-  amount            Int
-  stakedAt          DateTime @default(now())
-  lastClaimedAt     DateTime @default(now())
-  totalClaimed      Int      @default(0)
-  status            String   @default("ACTIVE") // ACTIVE | UNSTAKING
+  id                 String      @id @default(uuid())
+  userId             String
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  poolId             String      @default("main")
+  pool               RewardsPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  amount             Int
+  stakedAt           DateTime    @default(now())
+  lastClaimedAt      DateTime    @default(now())
+  totalClaimed       Int         @default(0)
+  status             String      @default("ACTIVE") // ACTIVE | UNSTAKING
   unstakeRequestedAt DateTime?
 
   @@index([userId])
@@ -176,58 +259,64 @@ model UserStake {
 }
 
 model RewardDistribution {
-  id            String   @id @default(uuid())
-  poolId        String   @default("main")
+  id            String      @id @default(uuid())
+  poolId        String      @default("main")
   pool          RewardsPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
   amount        Int
-  reason        String   @default("DAILY_REWARD")
-  distributedAt DateTime @default(now())
+  reason        String      @default("DAILY_REWARD")
+  distributedAt DateTime    @default(now())
 
   @@index([poolId])
   @@index([distributedAt])
 }
 
 model Wallet {
-  id            String   @id @default(uuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id])
-  cash          Int      @default(50000)
-  dynTokens     Int      @default(0)
-  solBalance    Float    @default(0) // SOL balance for whale purchases
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id])
+  cash                 Int      @default(50000)
+  dynTokens            Int      @default(0)
+  solBalance           Float    @default(0) // SOL balance for whale purchases
+  // ─── Token-holding luck system ───
+  lifetimeDynEarned    Int      @default(0) // DYN ever received from gameplay/rewards/purchases
+  lifetimeDynPurchased Int      @default(0) // DYN bought with SOL/CASH
+  lifetimeDynSold      Int      @default(0) // DYN sold or spent in sinks
+  luckScore            Float    @default(0) // 0-100 visible luck rating
+  luckTier             String   @default("NONE") // NONE | BRONZE | SILVER | GOLD | PLATINUM | DIAMOND
+  updatedAt            DateTime @updatedAt
+  createdAt            DateTime @default(now())
 }
 
 model League {
-  id          String   @id @default(uuid())
-  sportId     String   @default("american-football")
-  name        String
-  tier        String
-  level       Int      @default(1)
-  minOverall  Int      @default(50)
-  maxOverall  Int      @default(99)
-  
-  // ─── Island & Ownership ───
-  creatorId   String?  // User who created this league (null = game default)
-  creator     User?    @relation("CreatedLeagues", fields: [creatorId], references: [id], onDelete: SetNull)
-  islandId    String?  @unique
-  island      Island?  @relation(fields: [islandId], references: [id], onDelete: SetNull)
-  
-  // ─── Entry Settings ───
-  visibility  String   @default("PUBLIC") // PUBLIC | PRIVATE | RATING_BASED
-  entryFee    Int      @default(0) // GRID cost to join
-  maxTeams    Int      @default(12)
-  minTeamRating Int    @default(0) // For RATING_BASED leagues
-  isDefault   Boolean  @default(false) // Game-created default league
-  status      String   @default("ACTIVE") // ACTIVE | INACTIVE | ARCHIVED
-  
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String @id @default(uuid())
+  sportId    String @default("american-football")
+  name       String
+  tier       String
+  level      Int    @default(1)
+  minOverall Int    @default(50)
+  maxOverall Int    @default(99)
 
-  memberships TeamLeagueMembership[]
+  // ─── Island & Ownership ───
+  creatorId String? // User who created this league (null = game default)
+  creator   User?   @relation("CreatedLeagues", fields: [creatorId], references: [id], onDelete: SetNull)
+  islandId  String? @unique
+  island    Island? @relation(fields: [islandId], references: [id], onDelete: SetNull)
+
+  // ─── Entry Settings ───
+  visibility    String  @default("PUBLIC") // PUBLIC | PRIVATE | RATING_BASED
+  entryFee      Int     @default(0) // GRID cost to join
+  maxTeams      Int     @default(12)
+  minTeamRating Int     @default(0) // For RATING_BASED leagues
+  isDefault     Boolean @default(false) // Game-created default league
+  status        String  @default("ACTIVE") // ACTIVE | INACTIVE | ARCHIVED
+
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships  TeamLeagueMembership[]
   sponsorships Sponsorship[]
-  invitations LeagueInvitation[]
+  invitations  LeagueInvitation[]
   applications LeagueApplication[]
 
   @@index([sportId, tier])
@@ -237,47 +326,47 @@ model League {
 }
 
 model Island {
-  id          String   @id @default(uuid())
-  name        String
-  type        String   @default("LEAGUE") // HUB | LEAGUE
-  
+  id   String @id @default(uuid())
+  name String
+  type String @default("LEAGUE") // HUB | LEAGUE
+
   // ─── World Map Position ───
-  x           Float    @default(0)
-  y           Float    @default(0)
-  size        Float    @default(1.0) // Scale factor for island size
-  
+  x    Float @default(0)
+  y    Float @default(0)
+  size Float @default(1.0) // Scale factor for island size
+
   // ─── Visual ───
-  theme       String   @default("grass") // grass | desert | snow | tropical | industrial
-  color       String   @default("#4ade80")
-  icon        String?  // emoji or icon name
-  
+  theme String  @default("grass") // grass | desert | snow | tropical | industrial
+  color String  @default("#4ade80")
+  icon  String? // emoji or icon name
+
   // ─── Capacity & Stats ───
-  teamCount   Int      @default(0)
-  maxTeams    Int      @default(12)
-  prestige    Int      @default(10)
-  
+  teamCount Int @default(0)
+  maxTeams  Int @default(12)
+  prestige  Int @default(10)
+
   // ─── Relations ───
-  league      League?
-  
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  league League?
+
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([type])
   @@index([x, y])
 }
 
 model LeagueInvitation {
-  id          String   @id @default(uuid())
-  leagueId    String
-  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  inviterId   String
-  inviter     User     @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
-  inviteeId   String
-  invitee     User     @relation("ReceivedInvitations", fields: [inviteeId], references: [id], onDelete: Cascade)
-  status      String   @default("PENDING") // PENDING | ACCEPTED | DECLINED | EXPIRED
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime?
+  id        String    @id @default(uuid())
+  leagueId  String
+  league    League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  inviterId String
+  inviter   User      @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeId String
+  invitee   User      @relation("ReceivedInvitations", fields: [inviteeId], references: [id], onDelete: Cascade)
+  status    String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | EXPIRED
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
 
   @@unique([leagueId, inviteeId, status])
   @@index([leagueId, status])
@@ -285,16 +374,16 @@ model LeagueInvitation {
 }
 
 model LeagueApplication {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   leagueId    String
-  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  league      League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   message     String?
-  status      String   @default("PENDING") // PENDING | ACCEPTED | REJECTED
-  createdAt   DateTime @default(now())
+  status      String    @default("PENDING") // PENDING | ACCEPTED | REJECTED
+  createdAt   DateTime  @default(now())
   respondedAt DateTime?
 
   @@unique([leagueId, teamId])
@@ -303,20 +392,20 @@ model LeagueApplication {
 }
 
 model GameSettings {
-  id              String   @id @default("main")
-  gameEpochStart  DateTime @default("2026-01-01T00:00:00Z")
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default("main")
+  gameEpochStart DateTime @default("2026-01-01T00:00:00Z")
+  updatedAt      DateTime @updatedAt
 }
 
 model TeamLeagueMembership {
-  id        String   @id @default(uuid())
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  leagueId  String
-  league    League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  season    String   @default("beta")
-  status    String   @default("ACTIVE")
-  joinedAt  DateTime @default(now())
+  id       String   @id @default(uuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  leagueId String
+  league   League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season   String   @default("beta")
+  status   String   @default("ACTIVE")
+  joinedAt DateTime @default(now())
 
   @@unique([teamId, leagueId, season])
   @@index([teamId])
@@ -324,28 +413,28 @@ model TeamLeagueMembership {
 }
 
 model Venue {
-  id          String   @id @default(uuid())
-  teamId      String?  @unique
-  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  ownerId     String?
-  sportId     String   @default("american-football")
-  name        String
-  tier        String   @default("PARK_FIELD")
-  capacity    Int      @default(250)
-  ticketPrice Int      @default(8)
-  condition   Int      @default(70)
-  prestige    Int      @default(10)
-  leaseRate   Float    @default(0.10) // % of ticket revenue paid to venue owner
+  id            String    @id @default(uuid())
+  teamId        String?   @unique
+  team          Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  ownerId       String?
+  sportId       String    @default("american-football")
+  name          String
+  tier          String    @default("PARK_FIELD")
+  capacity      Int       @default(250)
+  ticketPrice   Int       @default(8)
+  condition     Int       @default(70)
+  prestige      Int       @default(10)
+  leaseRate     Float     @default(0.10) // % of ticket revenue paid to venue owner
   purchasePrice Int?
-  solPrice      Float?   // SOL price (discounted vs CASH equivalent)
+  solPrice      Float? // SOL price (discounted vs CASH equivalent)
   // ─── P2P Marketplace ───
-  isForSale   Boolean  @default(false)
-  salePrice   Int?
-  saleCurrency String @default("CASH") // CASH | GRID | SOL
-  saleListedAt DateTime?
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isForSale     Boolean   @default(false)
+  salePrice     Int?
+  saleCurrency  String    @default("CASH") // CASH | GRID | SOL
+  saleListedAt  DateTime?
+  metadata      Json      @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   upgrades StadiumUpgrade[]
 
@@ -367,25 +456,25 @@ model StadiumUpgrade {
 }
 
 model TransportationAsset {
-  id             String   @id @default(uuid())
-  teamId         String?
-  team           Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  ownerId        String?
-  tier           String   @default("CARPOOL")
-  name           String
-  operatingCost  Int      @default(100)
-  fatigueReduction Int    @default(0)
-  prestige       Int      @default(0)
-  purchasePrice  Int?
-  solPrice       Float?   // SOL price (discounted vs CASH equivalent)
+  id               String    @id @default(uuid())
+  teamId           String?
+  team             Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  ownerId          String?
+  tier             String    @default("CARPOOL")
+  name             String
+  operatingCost    Int       @default(100)
+  fatigueReduction Int       @default(0)
+  prestige         Int       @default(0)
+  purchasePrice    Int?
+  solPrice         Float? // SOL price (discounted vs CASH equivalent)
   // ─── P2P Marketplace ───
-  isForSale   Boolean  @default(false)
-  salePrice   Int?
-  saleCurrency String @default("CASH") // CASH | GRID | SOL
-  saleListedAt DateTime?
-  metadata       Json     @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isForSale        Boolean   @default(false)
+  salePrice        Int?
+  saleCurrency     String    @default("CASH") // CASH | GRID | SOL
+  saleListedAt     DateTime?
+  metadata         Json      @default("{}")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([teamId])
   @@index([ownerId])
@@ -393,95 +482,95 @@ model TransportationAsset {
 }
 
 model Sponsorship {
-  id        String   @id @default(uuid())
-  teamId    String?
-  team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  leagueId  String?
-  league    League?  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  sponsorName String
-  amountPerGame Int  @default(0)
-  amountPerSeason Int @default(0)
-  bonusRules Json    @default("{}")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  teamId          String?
+  team            Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  leagueId        String?
+  league          League?  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  sponsorName     String
+  amountPerGame   Int      @default(0)
+  amountPerSeason Int      @default(0)
+  bonusRules      Json     @default("{}")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
   @@index([teamId])
   @@index([leagueId])
 }
 
 model TeamFinanceSnapshot {
-  id          String   @id @default(uuid())
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  matchId     String?
-  category    String
-  revenue     Int      @default(0)
-  expense     Int      @default(0)
-  net         Int      @default(0)
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  matchId   String?
+  category  String
+  revenue   Int      @default(0)
+  expense   Int      @default(0)
+  net       Int      @default(0)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
 
   @@index([teamId, createdAt])
   @@index([matchId])
 }
 
 model Team {
-  id            String   @id @default(uuid())
-  name          String
-  sportId       String   @default("american-football")
-  ownerId       String
-  owner         User     @relation(fields: [ownerId], references: [id])
+  id      String @id @default(uuid())
+  name    String
+  sportId String @default("american-football")
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
 
   // ─── Team Tier & Purchase Info ───
-  tier          String   @default("STATE_COLLEGE") // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
-  isFree        Boolean  @default(false)
-  purchasePrice Int      @default(0)
-  solPrice      Float?   // SOL price (discounted vs CASH equivalent)
+  tier             String    @default("STATE_COLLEGE") // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
+  isFree           Boolean   @default(false)
+  purchasePrice    Int       @default(0)
+  solPrice         Float? // SOL price (discounted vs CASH equivalent)
   purchaseCurrency String? // GRID | SOL | FREE
-  purchasedAt   DateTime @default(now())
-  seasonsPlayed Int      @default(0)
+  purchasedAt      DateTime  @default(now())
+  seasonsPlayed    Int       @default(0)
   // ─── Marketplace Listing ───
-  isForSale     Boolean  @default(false)
-  salePrice     Int      @default(0)
-  saleCurrency  String   @default("GRID") // GRID | SOL
-  saleListedAt  DateTime?
+  isForSale        Boolean   @default(false)
+  salePrice        Int       @default(0)
+  saleCurrency     String    @default("GRID") // GRID | SOL
+  saleListedAt     DateTime?
   // ─── AI Team Fields ───
-  isAI          Boolean  @default(false)
-  aiDifficulty  String   @default("rookie") // rookie | veteran | elite | legend
-  aiStrategy    String   @default("balanced") // balanced | runHeavy | passHeavy | aggressive | conservative
+  isAI             Boolean   @default(false)
+  aiDifficulty     String    @default("rookie") // rookie | veteran | elite | legend
+  aiStrategy       String    @default("balanced") // balanced | runHeavy | passHeavy | aggressive | conservative
 
   // ─── Original Game Catalog Source ───
-  catalogId     String?
+  catalogId String?
 
-  formation     String   @default("4-3-3")
-  style         String   @default("balanced")
-  pressing      String   @default("medium")
-  mentality     String   @default("balanced")
-  tactics       Json     @default("{}")
+  formation String @default("4-3-3")
+  style     String @default("balanced")
+  pressing  String @default("medium")
+  mentality String @default("balanced")
+  tactics   Json   @default("{}")
 
-  teamPlayers   TeamPlayer[]
-  matchesHome   Match[]  @relation("HomeTeam")
-  matchesAway   Match[]  @relation("AwayTeam")
-  leagueMemberships TeamLeagueMembership[]
-  leagueApplications LeagueApplication[]
-  venue Venue?
-  transportationAssets TransportationAsset[]
-  sponsorships Sponsorship[]
-  financeSnapshots TeamFinanceSnapshot[]
-  playerTrainings PlayerTraining[]
-  teamEquipments TeamEquipment[]
+  teamPlayers             TeamPlayer[]
+  matchesHome             Match[]                  @relation("HomeTeam")
+  matchesAway             Match[]                  @relation("AwayTeam")
+  leagueMemberships       TeamLeagueMembership[]
+  leagueApplications      LeagueApplication[]
+  venue                   Venue?
+  transportationAssets    TransportationAsset[]
+  sponsorships            Sponsorship[]
+  financeSnapshots        TeamFinanceSnapshot[]
+  playerTrainings         PlayerTraining[]
+  teamEquipments          TeamEquipment[]
   teamMarketplaceListings TeamMarketplaceListing[]
 
-  wins          Int      @default(0)
-  draws         Int      @default(0)
-  losses        Int      @default(0)
-  pointsFor     Int      @default(0) @map("goalsFor")
-  pointsAgainst Int      @default(0) @map("goalsAgainst")
-  points        Int      @default(0)
-  record        Json     @default("{}")
+  wins          Int  @default(0)
+  draws         Int  @default(0)
+  losses        Int  @default(0)
+  pointsFor     Int  @default(0) @map("goalsFor")
+  pointsAgainst Int  @default(0) @map("goalsAgainst")
+  points        Int  @default(0)
+  record        Json @default("{}")
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([ownerId])
   @@index([sportId])
@@ -492,46 +581,46 @@ model Team {
 }
 
 model Player {
-  id            String   @id @default(uuid())
-  name          String
-  sportId       String   @default("american-football")
-  position      String
-  nationality   String
-  age           Int
-  health        Int      @default(100)
-  injuryStatus  String?  // e.g., "HEALTHY", "DAY_TO_DAY", "WEEK_TO_WEEK", "SEASON_ENDING"
-  injuryType    String?
-  injuryWeeks   Int      @default(0)
+  id           String  @id @default(uuid())
+  name         String
+  sportId      String  @default("american-football")
+  position     String
+  nationality  String
+  age          Int
+  health       Int     @default(100)
+  injuryStatus String? // e.g., "HEALTHY", "DAY_TO_DAY", "WEEK_TO_WEEK", "SEASON_ENDING"
+  injuryType   String?
+  injuryWeeks  Int     @default(0)
 
-  pace          Int
-  shooting      Int
-  passing       Int
-  dribbling     Int
-  defending     Int
-  physical      Int
-  goalkeeping   Int?
-  attributes    Json     @default("{}")
+  pace        Int
+  shooting    Int
+  passing     Int
+  dribbling   Int
+  defending   Int
+  physical    Int
+  goalkeeping Int?
+  attributes  Json @default("{}")
 
-  overall       Int
-  form          Int      @default(50)
-  fatigue       Int      @default(0)
-  morale        Int      @default(50)
+  overall Int
+  form    Int @default(50)
+  fatigue Int @default(0)
+  morale  Int @default(50)
 
-  rarity        Rarity   @default(COMMON)
+  rarity Rarity @default(COMMON)
 
-  basePrice     Int      @default(0)
-  demandMultiplier Float @default(1.0)
-  lastSoldPrice Int?
-  priceUpdatedAt DateTime @default(now())
+  basePrice        Int      @default(0)
+  demandMultiplier Float    @default(1.0)
+  lastSoldPrice    Int?
+  priceUpdatedAt   DateTime @default(now())
 
-  teamPlayers   TeamPlayer[]
-  matchStats    PlayerMatchStats[]
-  seasonStats   PlayerSeasonStats[]
+  teamPlayers         TeamPlayer[]
+  matchStats          PlayerMatchStats[]
+  seasonStats         PlayerSeasonStats[]
   marketplaceListings MarketplaceListing[]
-  playerTrainings PlayerTraining[]
-  playerItems   PlayerItem[]
+  playerTrainings     PlayerTraining[]
+  playerItems         PlayerItem[]
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([rarity])
   @@index([overall])
@@ -540,12 +629,12 @@ model Player {
 }
 
 model TeamPlayer {
-  id          String   @id @default(uuid())
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  playerId    String
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  isStarter   Boolean  @default(false)
+  id        String  @id @default(uuid())
+  teamId    String
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  isStarter Boolean @default(false)
 
   @@unique([teamId, playerId])
   @@index([teamId])
@@ -553,53 +642,53 @@ model TeamPlayer {
 }
 
 model Match {
-  id            String       @id @default(uuid())
-  sportId       String       @default("american-football")
-  status        MatchStatus  @default(SCHEDULED)
+  id      String      @id @default(uuid())
+  sportId String      @default("american-football")
+  status  MatchStatus @default(SCHEDULED)
 
-  homeTeamId    String
-  homeTeam      Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeamId    String
-  awayTeam      Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeTeamId String
+  homeTeam   Team   @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId String
+  awayTeam   Team   @relation("AwayTeam", fields: [awayTeamId], references: [id])
 
-  homeScore     Int          @default(0)
-  awayScore     Int          @default(0)
+  homeScore Int @default(0)
+  awayScore Int @default(0)
 
-  homeTactics   Json?
-  awayTactics   Json?
-  metadata      Json         @default("{}")
+  homeTactics Json?
+  awayTactics Json?
+  metadata    Json  @default("{}")
 
   // ─── Playable Match State ───
-  isPlayable    Boolean      @default(false)
-  gamePhase     String       @default("SCHEDULED") // SCHEDULED | PREGAME | IN_PROGRESS | COMPLETED
-  currentQuarter Int         @default(1)
-  gameClock     Int          @default(900) // seconds remaining in quarter (15 min = 900s)
-  possessionTeamId String?   // which team has the ball
-  ballPosition  Int          @default(25) // yard line (0-100, 0=own goal, 50=midfield, 100=opponent goal)
-  down          Int          @default(1) // 1-4
-  yardsToGo     Int          @default(10)
-  offensiveLineup Json?       // user's chosen offensive starters
-  defensiveLineup Json?       // user's chosen defensive starters
-  offensiveStyle String?     @default("balanced") // balanced | runHeavy | passHeavy
-  defensiveStyle String?      @default("balanced") // balanced | aggressive | conservative
-  playHistory   Json?         @default("[]")
-  lastPlayResult Json?       // result of the last play submitted
-  userTeamId    String?       // which team the user is controlling (if any)
+  isPlayable       Boolean @default(false)
+  gamePhase        String  @default("SCHEDULED") // SCHEDULED | PREGAME | IN_PROGRESS | COMPLETED
+  currentQuarter   Int     @default(1)
+  gameClock        Int     @default(900) // seconds remaining in quarter (15 min = 900s)
+  possessionTeamId String? // which team has the ball
+  ballPosition     Int     @default(25) // yard line (0-100, 0=own goal, 50=midfield, 100=opponent goal)
+  down             Int     @default(1) // 1-4
+  yardsToGo        Int     @default(10)
+  offensiveLineup  Json? // user's chosen offensive starters
+  defensiveLineup  Json? // user's chosen defensive starters
+  offensiveStyle   String? @default("balanced") // balanced | runHeavy | passHeavy
+  defensiveStyle   String? @default("balanced") // balanced | aggressive | conservative
+  playHistory      Json?   @default("[]")
+  lastPlayResult   Json? // result of the last play submitted
+  userTeamId       String? // which team the user is controlling (if any)
 
-  seed          String?
-  seedHash      String?
+  seed     String?
+  seedHash String?
 
-  events        MatchEvent[]
-  playerStats   PlayerMatchStats[]
-  participants  MatchParticipant[]
-  matchPlays    MatchPlay[]
+  events          MatchEvent[]
+  playerStats     PlayerMatchStats[]
+  participants    MatchParticipant[]
+  matchPlays      MatchPlay[]
   developmentLogs PlayerDevelopmentLog[]
 
-  scheduledAt   DateTime
-  startedAt     DateTime?
-  completedAt   DateTime?
+  scheduledAt DateTime
+  startedAt   DateTime?
+  completedAt DateTime?
 
-  createdAt     DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([status])
   @@index([sportId])
@@ -610,75 +699,74 @@ model Match {
 }
 
 model MatchEvent {
-  id          String   @id @default(uuid())
-  matchId     String
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  id      String @id @default(uuid())
+  matchId String
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
-  timestamp   Int      // Game clock in seconds
-  tick        Int      // Simulation tick
-  type        String   // GOAL, SHOT, SAVE, TACKLE, PASS, FOUL, CORNER, SUB, INJURY, CARD, etc.
+  timestamp Int // Game clock in seconds
+  tick      Int // Simulation tick
+  type      String // GOAL, SHOT, SAVE, TACKLE, PASS, FOUL, CORNER, SUB, INJURY, CARD, etc.
 
-  actorId     String?
-  targetId    String?
-  metadata    Json?
+  actorId  String?
+  targetId String?
+  metadata Json?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([matchId, tick])
   @@index([matchId, type])
 }
 
 model PlayerMatchStats {
-  id            String   @id @default(uuid())
-  matchId       String
-  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  playerId      String
-  player        Player   @relation(fields: [playerId], references: [id])
-  teamId        String
+  id       String @id @default(uuid())
+  matchId  String
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+  teamId   String
 
-  goals         Int      @default(0)
-  assists       Int      @default(0)
-  shots         Int      @default(0)
-  shotsOnTarget Int      @default(0)
-  passes        Int      @default(0)
-  passAccuracy  Int      @default(0)
-  tackles       Int      @default(0)
-  saves         Int      @default(0)
-  distance      Int      @default(0)
-  rating        Float    @default(6.0)
-  stats         Json     @default("{}")
+  goals         Int   @default(0)
+  assists       Int   @default(0)
+  shots         Int   @default(0)
+  shotsOnTarget Int   @default(0)
+  passes        Int   @default(0)
+  passAccuracy  Int   @default(0)
+  tackles       Int   @default(0)
+  saves         Int   @default(0)
+  distance      Int   @default(0)
+  rating        Float @default(6.0)
+  stats         Json  @default("{}")
 
   @@unique([matchId, playerId])
   @@index([matchId])
   @@index([playerId])
 }
 
-
 model PlayerSeasonStats {
-  id              String   @id @default(uuid())
-  playerId        String
-  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  sportId         String   @default("american-football")
-  season          String   @default("beta")
+  id       String @id @default(uuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  sportId  String @default("american-football")
+  season   String @default("beta")
 
-  gamesPlayed     Int      @default(0)
-  starts          Int      @default(0)
-  touchdowns      Int      @default(0)
-  passingTouchdowns Int    @default(0)
-  fieldGoals      Int      @default(0)
-  yards           Int      @default(0)
-  plays           Int      @default(0)
-  assists         Int      @default(0)
-  tackles         Int      @default(0)
-  stops           Int      @default(0)
-  turnoversForced Int      @default(0)
-  ratingTotal     Float    @default(0)
-  ratingAverage   Float    @default(6.0)
-  mvpScore        Float    @default(0)
-  stats           Json     @default("{}")
+  gamesPlayed       Int   @default(0)
+  starts            Int   @default(0)
+  touchdowns        Int   @default(0)
+  passingTouchdowns Int   @default(0)
+  fieldGoals        Int   @default(0)
+  yards             Int   @default(0)
+  plays             Int   @default(0)
+  assists           Int   @default(0)
+  tackles           Int   @default(0)
+  stops             Int   @default(0)
+  turnoversForced   Int   @default(0)
+  ratingTotal       Float @default(0)
+  ratingAverage     Float @default(6.0)
+  mvpScore          Float @default(0)
+  stats             Json  @default("{}")
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([playerId, sportId, season])
   @@index([sportId, season, mvpScore])
@@ -689,14 +777,14 @@ model PlayerSeasonStats {
 }
 
 model MatchParticipant {
-  id          String   @id @default(uuid())
-  matchId     String
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  side        String   // HOME or AWAY
-  cashWon     Int      @default(0)
-  xpGained    Int      @default(0)
+  id       String @id @default(uuid())
+  matchId  String
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  side     String // HOME or AWAY
+  cashWon  Int    @default(0)
+  xpGained Int    @default(0)
 
   @@unique([matchId, userId])
   @@index([matchId])
@@ -704,18 +792,18 @@ model MatchParticipant {
 }
 
 model MarketplaceListing {
-  id          String        @id @default(uuid())
-  sportId     String        @default("american-football")
-  sellerId    String
-  seller      User          @relation(fields: [sellerId], references: [id])
-  playerId    String
-  player      Player        @relation(fields: [playerId], references: [id])
-  price       Int
-  status      ListingStatus @default(ACTIVE)
-  createdAt   DateTime      @default(now())
-  soldAt      DateTime?
+  id        String        @id @default(uuid())
+  sportId   String        @default("american-football")
+  sellerId  String
+  seller    User          @relation(fields: [sellerId], references: [id])
+  playerId  String
+  player    Player        @relation(fields: [playerId], references: [id])
+  price     Int
+  status    ListingStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  soldAt    DateTime?
 
-  offers      MarketplaceOffer[]
+  offers MarketplaceOffer[]
 
   @@index([status])
   @@index([sportId])
@@ -724,14 +812,14 @@ model MarketplaceListing {
 }
 
 model MarketplaceOffer {
-  id          String   @id @default(uuid())
+  id          String             @id @default(uuid())
   listingId   String
   listing     MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
   buyerId     String
-  buyer       User     @relation(fields: [buyerId], references: [id])
+  buyer       User               @relation(fields: [buyerId], references: [id])
   price       Int
-  status      OfferStatus @default(PENDING)
-  createdAt   DateTime @default(now())
+  status      OfferStatus        @default(PENDING)
+  createdAt   DateTime           @default(now())
   respondedAt DateTime?
 
   @@index([listingId])
@@ -739,19 +827,18 @@ model MarketplaceOffer {
   @@index([status])
 }
 
-
 model CurrencyLedger {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  currency      String
-  amount        Int
-  balanceAfter  Int?
-  reason        String
-  sourceType    String?
-  sourceId      String?
-  metadata      Json     @default("{}")
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency     String
+  amount       Float
+  balanceAfter Float?
+  reason       String
+  sourceType   String?
+  sourceId     String?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
 
   @@index([userId, createdAt])
   @@index([currency])
@@ -797,40 +884,40 @@ enum ListingStatus {
 // ─── Training System ───
 
 model TrainingPackage {
-  id          String   @id @default(uuid())
-  name        String
-  description String
-  focusType   String   // POSITION_GROUP | INDIVIDUAL | OFFENSE | DEFENSE | ALL
-  targetPosition String? // For POSITION_GROUP focus (QB, RB, etc.)
-  durationDays Int     @default(7)
-  costGrid    Int      @default(0)
-  costCash    Int      @default(0)
-  statBoosts  Json     @default("{}")
-  maxUsesPerPlayer Int @default(3)
-  cooldownHours Int   @default(24)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id               String   @id @default(uuid())
+  name             String
+  description      String
+  focusType        String // POSITION_GROUP | INDIVIDUAL | OFFENSE | DEFENSE | ALL
+  targetPosition   String? // For POSITION_GROUP focus (QB, RB, etc.)
+  durationDays     Int      @default(7)
+  costGrid         Int      @default(0)
+  costCash         Int      @default(0)
+  statBoosts       Json     @default("{}")
+  maxUsesPerPlayer Int      @default(3)
+  cooldownHours    Int      @default(24)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
-  trainings   PlayerTraining[]
+  trainings PlayerTraining[]
 
   @@index([focusType])
   @@index([active])
 }
 
 model PlayerTraining {
-  id                String   @id @default(uuid())
+  id                String          @id @default(uuid())
   playerId          String
-  player            Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player            Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
   teamId            String
-  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team              Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
   trainingPackageId String
   trainingPackage   TrainingPackage @relation(fields: [trainingPackageId], references: [id], onDelete: Cascade)
-  status            String   @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
-  startedAt         DateTime @default(now())
-  completedAt     DateTime?
-  statImprovements  Json     @default("{}")
-  costGrid          Int      @default(0)
-  costCash          Int      @default(0)
+  status            String          @default("ACTIVE") // ACTIVE | COMPLETED | CANCELLED
+  startedAt         DateTime        @default(now())
+  completedAt       DateTime?
+  statImprovements  Json            @default("{}")
+  costGrid          Int             @default(0)
+  costCash          Int             @default(0)
 
   @@index([playerId])
   @@index([teamId])
@@ -841,17 +928,17 @@ model PlayerTraining {
 // ─── Equipment System ───
 
 model EquipmentType {
-  id          String   @id @default(uuid())
-  name        String
-  category    String   // TRAINING | FACILITY | MEDICAL | ANALYSIS
-  tier        Int      @default(1)
-  description String
-  baseCostGrid Int     @default(0)
-  baseCostCash Int     @default(0)
-  effects     Json     @default("{}")
+  id            String   @id @default(uuid())
+  name          String
+  category      String // TRAINING | FACILITY | MEDICAL | ANALYSIS
+  tier          Int      @default(1)
+  description   String
+  baseCostGrid  Int      @default(0)
+  baseCostCash  Int      @default(0)
+  effects       Json     @default("{}")
   upgradeFromId String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
   teamEquipments TeamEquipment[]
 
@@ -861,14 +948,14 @@ model EquipmentType {
 }
 
 model TeamEquipment {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   teamId          String
-  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team            Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   equipmentTypeId String
   equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id], onDelete: Cascade)
-  level           Int      @default(1)
-  purchasedAt     DateTime @default(now())
-  activeEffects   Json     @default("{}")
+  level           Int           @default(1)
+  purchasedAt     DateTime      @default(now())
+  activeEffects   Json          @default("{}")
 
   @@index([teamId])
   @@index([equipmentTypeId])
@@ -877,22 +964,22 @@ model TeamEquipment {
 // ─── Wearable Item System ───
 
 model Item {
-  id            String   @id @default(uuid())
-  name          String
-  slot          String   // helmet | pads | gloves | shoes | accessory
-  rarity        String   // common | rare | epic | legendary
-  tier          Int      @default(1)
-  statBoosts    Json     @default("{}")
-  durability    Int      @default(100)
-  baseCostCash  Int      @default(0)
-  baseCostGrid  Int      @default(0)
-  isStarter     Boolean  @default(false)
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  name         String
+  slot         String // helmet | pads | gloves | shoes | accessory
+  rarity       String // common | rare | epic | legendary
+  tier         Int      @default(1)
+  statBoosts   Json     @default("{}")
+  durability   Int      @default(100)
+  baseCostCash Int      @default(0)
+  baseCostGrid Int      @default(0)
+  isStarter    Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
-  playerItems   PlayerItem[]
-  marketItem    MarketItem?
-  saleHistory   ItemSaleHistory[]
+  playerItems PlayerItem[]
+  marketItem  MarketItem?
+  saleHistory ItemSaleHistory[]
 
   @@index([slot])
   @@index([rarity])
@@ -901,16 +988,16 @@ model Item {
 }
 
 model PlayerItem {
-  id            String   @id @default(uuid())
-  playerId      String
-  player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  itemId        String
-  item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  equipped      Boolean  @default(false)
-  durability    Int      @default(100)
-  acquiredAt    DateTime @default(now())
-  acquiredFrom  String   @default("STARTER") // STARTER | MARKET | MARKETPLACE
-  listings      MarketplaceItemListing[]
+  id           String                   @id @default(uuid())
+  playerId     String
+  player       Player                   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  itemId       String
+  item         Item                     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  equipped     Boolean                  @default(false)
+  durability   Int                      @default(100)
+  acquiredAt   DateTime                 @default(now())
+  acquiredFrom String                   @default("STARTER") // STARTER | MARKET | MARKETPLACE
+  listings     MarketplaceItemListing[]
 
   @@index([playerId])
   @@index([itemId])
@@ -918,40 +1005,40 @@ model PlayerItem {
 }
 
 model MarketItem {
-  id                String   @id @default(uuid())
-  itemId            String   @unique
-  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  marketPriceCash   Int
-  marketPriceGrid   Int      @default(0)
-  isAvailable       Boolean  @default(true)
+  id                   String   @id @default(uuid())
+  itemId               String   @unique
+  item                 Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  marketPriceCash      Int
+  marketPriceGrid      Int      @default(0)
+  isAvailable          Boolean  @default(true)
   lastMarketplacePrice Int?
-  updatedAt         DateTime @updatedAt
+  updatedAt            DateTime @updatedAt
 }
 
 model ItemSaleHistory {
-  id          String   @id @default(uuid())
-  itemId      String
-  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  price       Int
-  currency    String   @default("CASH") // CASH | GRID
-  sellerId    String?
-  buyerId     String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  price     Int
+  currency  String   @default("CASH") // CASH | GRID
+  sellerId  String?
+  buyerId   String?
+  createdAt DateTime @default(now())
 
   @@index([itemId])
   @@index([createdAt])
 }
 
 model MarketplaceItemListing {
-  id          String        @id @default(uuid())
-  sellerId    String
-  seller      User          @relation(fields: [sellerId], references: [id])
+  id           String        @id @default(uuid())
+  sellerId     String
+  seller       User          @relation(fields: [sellerId], references: [id])
   playerItemId String
-  playerItem  PlayerItem    @relation(fields: [playerItemId], references: [id], onDelete: Cascade)
-  price       Int
-  status      ListingStatus @default(ACTIVE)
-  createdAt   DateTime      @default(now())
-  soldAt      DateTime?
+  playerItem   PlayerItem    @relation(fields: [playerItemId], references: [id], onDelete: Cascade)
+  price        Int
+  status       ListingStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  soldAt       DateTime?
 
   @@index([status])
   @@index([sellerId])
@@ -962,30 +1049,31 @@ model MarketplaceItemListing {
 
 model GameTreasury {
   id            String   @id @default(uuid())
-  currency      String   // GRID | CASH | SOL
-  balance       Int      @default(0)
-  totalInflows  Int      @default(0)
-  totalOutflows Int      @default(0)
-  totalBurned   Int      @default(0)
+  currency      String // GRID | CASH | SOL
+  balance       Float    @default(0)
+  totalInflows  Float    @default(0)
+  totalOutflows Float    @default(0)
+  totalBurned   Float    @default(0)
   lastUpdatedAt DateTime @updatedAt
 
-  transactions  TreasuryTransaction[]
+  transactions TreasuryTransaction[]
 
+  @@unique([currency])
   @@index([currency])
 }
 
 model TreasuryTransaction {
-  id            String   @id @default(uuid())
-  treasuryId    String
-  treasury      GameTreasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
-  type          String   // INFLOW | OUTFLOW | BURN
-  amount        Int
-  currency      String
-  reason        String
-  sourceType    String?
-  sourceId      String?
-  metadata      Json     @default("{}")
-  createdAt     DateTime @default(now())
+  id         String       @id @default(uuid())
+  treasuryId String
+  treasury   GameTreasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+  type       String // INFLOW | OUTFLOW | BURN
+  amount     Float
+  currency   String
+  reason     String
+  sourceType String?
+  sourceId   String?
+  metadata   Json         @default("{}")
+  createdAt  DateTime     @default(now())
 
   @@index([treasuryId])
   @@index([type])
@@ -996,12 +1084,12 @@ model TreasuryTransaction {
 
 model TokenRevenue {
   id        String   @id @default(uuid())
-  source    String   // e.g., "PUMPFUN_TRADING_FEES", "RAYDIUM_FEES"
-  currency  String   // "SOL" or token symbol
-  amount    Float    // raw amount
-  usdValue  Float?   // estimated USD at time of recording
-  volume    Float?   // total volume that generated this fee
-  feePct    Float    // fee percentage applied
+  source    String // e.g., "PUMPFUN_TRADING_FEES", "RAYDIUM_FEES"
+  currency  String // "SOL" or token symbol
+  amount    Float // raw amount
+  usdValue  Float? // estimated USD at time of recording
+  volume    Float? // total volume that generated this fee
+  feePct    Float // fee percentage applied
   metadata  Json     @default("{}")
   createdAt DateTime @default(now())
 
@@ -1010,25 +1098,25 @@ model TokenRevenue {
 }
 
 model TokenPriceHistory {
-  id        String   @id @default(uuid())
-  token     String   // token symbol or address
-  priceUsd  Float
-  marketCap Float?
-  volume24h Float?
-  source    String   @default("pumpfun")
+  id         String   @id @default(uuid())
+  token      String // token symbol or address
+  priceUsd   Float
+  marketCap  Float?
+  volume24h  Float?
+  source     String   @default("pumpfun")
   recordedAt DateTime @default(now())
 
   @@index([token, recordedAt])
 }
 
 model TokenTreasury {
-  id           String   @id @default(uuid())
-  token        String   // token symbol or address
-  balance      Float    @default(0)
-  totalMinted  Float    @default(0)
-  totalBurned  Float    @default(0)
-  totalFeesEarned Float @default(0)
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  token           String // token symbol or address
+  balance         Float    @default(0)
+  totalMinted     Float    @default(0)
+  totalBurned     Float    @default(0)
+  totalFeesEarned Float    @default(0)
+  updatedAt       DateTime @updatedAt
 
   @@unique([token])
 }
@@ -1036,17 +1124,17 @@ model TokenTreasury {
 // ─── Solana Whale Purchase System ───
 
 model SolanaPurchase {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type            String   // TEAM | STADIUM | FACILITY | EQUIPMENT | TRANSPORT
-  itemId          String
-  itemName        String
-  purchasePriceSol Float   @default(0)
-  isInitialSale   Boolean  @default(true)
-  resaleTaxPaid   Float    @default(0)
-  sellerId        String?
-  createdAt       DateTime @default(now())
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             String // TEAM | STADIUM | FACILITY | EQUIPMENT | TRANSPORT
+  itemId           String
+  itemName         String
+  purchasePriceSol Float    @default(0)
+  isInitialSale    Boolean  @default(true)
+  resaleTaxPaid    Float    @default(0)
+  sellerId         String?
+  createdAt        DateTime @default(now())
 
   @@index([userId])
   @@index([type])
@@ -1056,28 +1144,28 @@ model SolanaPurchase {
 // ─── Team Catalog (Initial Sale from Game) ───
 
 model TeamCatalog {
-  id            String   @id @default(uuid())
-  sportId       String   @default("american-football")
-  name          String
-  description   String   @default("")
-  tier          String   // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
+  id              String   @id @default(uuid())
+  sportId         String   @default("american-football")
+  name            String
+  description     String   @default("")
+  tier            String // STATE_COLLEGE | MID_COLLEGE | TOP_COLLEGE | REGIONAL_PRO | PRO_ENTRY | PRO_ELITE
   // ─── Pricing (Dual: GRID premium, SOL discount) ───
-  gridPrice     Int      @default(0)
-  solPrice      Float    @default(0) // SOL amount
+  gridPrice       Int      @default(0)
+  solPrice        Float    @default(0) // SOL amount
   // ─── Team Composition ───
-  playerCount   Int      @default(22)
-  minOverall    Int      @default(65)
-  maxOverall    Int      @default(75)
+  playerCount     Int      @default(22)
+  minOverall      Int      @default(65)
+  maxOverall      Int      @default(75)
   // ─── Included Stadium ───
-  stadiumTier   String   @default("PARK_FIELD") // PARK_FIELD | COMMUNITY | SMALL_STADIUM | REGIONAL | PRO | ELITE
-  stadiumCapacity Int    @default(5000)
+  stadiumTier     String   @default("PARK_FIELD") // PARK_FIELD | COMMUNITY | SMALL_STADIUM | REGIONAL | PRO | ELITE
+  stadiumCapacity Int      @default(5000)
   // ─── Requirements ───
-  requiresSeasons Int    @default(0) // Seasons required at previous tier
-  requiresWinPct Float  @default(0.0) // Min win % to advance
-  active        Boolean  @default(true)
-  soldCount     Int      @default(0)
-  maxSupply     Int?     // NULL = unlimited, otherwise limited edition
-  createdAt     DateTime @default(now())
+  requiresSeasons Int      @default(0) // Seasons required at previous tier
+  requiresWinPct  Float    @default(0.0) // Min win % to advance
+  active          Boolean  @default(true)
+  soldCount       Int      @default(0)
+  maxSupply       Int? // NULL = unlimited, otherwise limited edition
+  createdAt       DateTime @default(now())
 
   @@index([sportId, tier])
   @@index([active])
@@ -1086,21 +1174,21 @@ model TeamCatalog {
 // ─── Team Marketplace (Player-to-Player) ───
 
 model TeamMarketplaceListing {
-  id          String        @id @default(uuid())
-  sportId     String        @default("american-football")
-  sellerId    String
-  seller      User          @relation(fields: [sellerId], references: [id])
-  teamId      String
-  team        Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  price       Int
-  currency    String        @default("GRID") // GRID | SOL
-  status      String        @default("ACTIVE") // ACTIVE | SOLD | CANCELLED | EXPIRED
-  foundationTaxPaid Int    @default(0)
-  burnAmount  Int          @default(0)
-  sellerReceives Int       @default(0)
-  daysHeld    Int          @default(0) // days seller owned the team before listing
-  createdAt   DateTime    @default(now())
-  soldAt      DateTime?
+  id                String    @id @default(uuid())
+  sportId           String    @default("american-football")
+  sellerId          String
+  seller            User      @relation(fields: [sellerId], references: [id])
+  teamId            String
+  team              Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  price             Int
+  currency          String    @default("GRID") // GRID | SOL
+  status            String    @default("ACTIVE") // ACTIVE | SOLD | CANCELLED | EXPIRED
+  foundationTaxPaid Int       @default(0)
+  burnAmount        Int       @default(0)
+  sellerReceives    Int       @default(0)
+  daysHeld          Int       @default(0) // days seller owned the team before listing
+  createdAt         DateTime  @default(now())
+  soldAt            DateTime?
 
   @@index([status])
   @@index([sportId])
@@ -1111,23 +1199,23 @@ model TeamMarketplaceListing {
 // ─── Playable Match Plays ───
 
 model MatchPlay {
-  id          String   @id @default(uuid())
-  matchId     String
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  quarter     Int
-  gameClock   Int      // seconds remaining in quarter when play started
-  down        Int
-  yardsToGo   Int
-  ballPosition Int     // yard line
-  playType    String   // RUN_LEFT | RUN_MIDDLE | RUN_RIGHT | QB_DRAW | SHORT_PASS | MEDIUM_PASS | DEEP_BALL | SCREEN | PUNT | FIELD_GOAL
-  direction   String?  // LEFT | MIDDLE | RIGHT | TARGET_PLAYER_ID
-  result      String   // GAIN | LOSS | TOUCHDOWN | TURNOVER | INCOMPLETE | SACK | FIELD_GOAL | PUNT | INTERCEPTION | FUMBLE
-  yardsGained Int      @default(0)
-  playerId    String?  // primary player involved (ball carrier or QB)
-  targetId    String?  // receiver for passes, rusher for sacks
-  description String   // human-readable play description
-  animationData Json?  // data for frontend animation
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  matchId       String
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  quarter       Int
+  gameClock     Int // seconds remaining in quarter when play started
+  down          Int
+  yardsToGo     Int
+  ballPosition  Int // yard line
+  playType      String // RUN_LEFT | RUN_MIDDLE | RUN_RIGHT | QB_DRAW | SHORT_PASS | MEDIUM_PASS | DEEP_BALL | SCREEN | PUNT | FIELD_GOAL
+  direction     String? // LEFT | MIDDLE | RIGHT | TARGET_PLAYER_ID
+  result        String // GAIN | LOSS | TOUCHDOWN | TURNOVER | INCOMPLETE | SACK | FIELD_GOAL | PUNT | INTERCEPTION | FUMBLE
+  yardsGained   Int      @default(0)
+  playerId      String? // primary player involved (ball carrier or QB)
+  targetId      String? // receiver for passes, rusher for sacks
+  description   String // human-readable play description
+  animationData Json? // data for frontend animation
+  createdAt     DateTime @default(now())
 
   @@index([matchId, quarter])
   @@index([matchId, createdAt])
@@ -1136,14 +1224,14 @@ model MatchPlay {
 // ─── Player Development from Games ───
 
 model PlayerDevelopmentLog {
-  id          String   @id @default(uuid())
-  playerId    String
-  matchId     String
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  statGained  String   // pace | shooting | passing | dribbling | defending | physical | overall
-  amount      Int      // how much the stat increased
-  reason      String   // PLAYED_WELL | BIG_PLAY | CLUTCH_PERFORMANCE | BREAKOUT_GAME
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  playerId   String
+  matchId    String
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  statGained String // pace | shooting | passing | dribbling | defending | physical | overall
+  amount     Int // how much the stat increased
+  reason     String // PLAYED_WELL | BIG_PLAY | CLUTCH_PERFORMANCE | BREAKOUT_GAME
+  createdAt  DateTime @default(now())
 
   @@index([playerId, matchId])
   @@index([playerId, createdAt])
@@ -1152,31 +1240,31 @@ model PlayerDevelopmentLog {
 // ─── Leaderboard Snapshots (weekly/seasonal) ───
 
 model LeaderboardSnapshot {
-  id          String   @id @default(uuid())
-  sportId     String   @default("american-football")
-  season      String   @default("beta")
-  week        Int      // week number within the season
-  snapshotAt  DateTime @default(now())
-  entries     Json     // [{ rank, teamId, teamName, ownerId, ownerName, wins, draws, losses, points, goalsFor, goalsAgainst }]
-  totalTeams  Int
+  id         String   @id @default(uuid())
+  sportId    String   @default("american-football")
+  season     String   @default("beta")
+  week       Int // week number within the season
+  snapshotAt DateTime @default(now())
+  entries    Json // [{ rank, teamId, teamName, ownerId, ownerName, wins, draws, losses, points, goalsFor, goalsAgainst }]
+  totalTeams Int
 
-  rewards     LeaderboardReward[]
+  rewards LeaderboardReward[]
 
   @@index([sportId, season, week])
   @@index([sportId, snapshotAt])
 }
 
 model LeaderboardReward {
-  id            String   @id @default(uuid())
-  snapshotId    String
-  snapshot      LeaderboardSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  rank          Int      // 1st, 2nd, 3rd, etc.
-  teamId        String
-  ownerId       String
-  rewardAmount  Int      // CASH awarded
-  currency      String   @default("CASH")
-  status        String   @default("PENDING") // PENDING | PAID
-  paidAt        DateTime?
+  id           String              @id @default(uuid())
+  snapshotId   String
+  snapshot     LeaderboardSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  rank         Int // 1st, 2nd, 3rd, etc.
+  teamId       String
+  ownerId      String
+  rewardAmount Int // CASH awarded
+  currency     String              @default("CASH")
+  status       String              @default("PENDING") // PENDING | PAID
+  paidAt       DateTime?
 
   @@index([snapshotId])
   @@index([ownerId])

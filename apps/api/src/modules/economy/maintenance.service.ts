@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { recordCurrencyLedger } from './ledger';
+import { debitCurrency } from './currency.service';
 import { logger } from '../../config/logger';
 
 // ─── Stadium / Venue Maintenance ───
@@ -184,15 +184,10 @@ export async function processWeeklyMaintenance(): Promise<{
 
     await prisma.$transaction(async (tx: any) => {
       if (canAfford) {
-        const walletAfter = await tx.wallet.update({
-          where: { userId: team.ownerId },
-          data: { cash: { decrement: grandTotal } },
-        });
-        await recordCurrencyLedger(tx, {
+        await debitCurrency(tx, {
           userId: team.ownerId,
           currency: 'CASH',
-          amount: -grandTotal,
-          balanceAfter: walletAfter.cash,
+          amount: grandTotal,
           reason: 'WEEKLY_MAINTENANCE',
           sourceType: 'MAINTENANCE',
           sourceId: team.id,
@@ -200,15 +195,11 @@ export async function processWeeklyMaintenance(): Promise<{
         });
       } else if (ownerWallet) {
         // Can't afford — deduct what they have
-        await tx.wallet.update({
-          where: { userId: team.ownerId },
-          data: { cash: 0 },
-        });
-        await recordCurrencyLedger(tx, {
+        await debitCurrency(tx, {
           userId: team.ownerId,
           currency: 'CASH',
-          amount: -(ownerWallet.cash),
-          balanceAfter: 0,
+          amount: grandTotal,
+          allowPartial: true,
           reason: 'WEEKLY_MAINTENANCE_PARTIAL',
           sourceType: 'MAINTENANCE',
           sourceId: team.id,

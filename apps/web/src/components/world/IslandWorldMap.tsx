@@ -16,7 +16,6 @@ import TrainingPage from '../../pages/TrainingPage';
 import EquipmentPage from '../../pages/EquipmentPage';
 import LeagueIslandPage from '../../pages/LeagueIslandPage';
 import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
-import WorldMapPage from '../../pages/WorldMapPage';
 import {
   MessageSquare, X, MapPin, Users, Compass, Hand
 } from 'lucide-react';
@@ -138,7 +137,7 @@ const BUILDINGS: WorldBuilding[] = [
   { id: 'hof', label: 'Hall of Fame', islandId: 'hub', x: 180, y: -80, w: 75, h: 58, d: 38, color: '#2a1a0a', accent: '#fbbf24', variant: 'generic', panelWidth: 700, panelHeight: 550, getContent: () => <LeaderboardPage /> },
   { id: 'bank', label: 'Bank', islandId: 'hub', x: 180, y: 60, w: 70, h: 55, d: 35, color: '#3f2e0f', accent: '#eab308', variant: 'bank', panelWidth: 600, panelHeight: 500, getContent: () => <WalletPage /> },
   { id: 'locker', label: 'Locker', islandId: 'hub', x: 60, y: 80, w: 70, h: 50, d: 35, color: '#1a1a2e', accent: '#64748b', variant: 'generic', panelWidth: 800, panelHeight: 600, getContent: () => <EquipmentPage /> },
-  { id: 'travel', label: 'Travel', islandId: 'hub', x: -60, y: 80, w: 70, h: 50, d: 35, color: '#0c2e4e', accent: '#06b6d4', variant: 'generic', panelWidth: 900, panelHeight: 600, getContent: () => <WorldMapPage /> },
+  { id: 'travel', label: 'Travel', islandId: 'hub', x: -60, y: 80, w: 70, h: 50, d: 35, color: '#0c2e4e', accent: '#06b6d4', variant: 'generic', panelWidth: 900, panelHeight: 600, getContent: () => <CityPage /> },
 
   // League stadiums (admin/market buildings on league islands)
   { id: 'stm-state', label: 'State Stadium', islandId: 'state', x: 0, y: 0, w: 90, h: 70, d: 45, color: '#1a2e1a', accent: '#22c55e', variant: 'stadium', panelWidth: 900, panelHeight: 650, getContent: () => <LeagueIslandPage islandId="island-state-001" leagueId="league-state-001" /> },

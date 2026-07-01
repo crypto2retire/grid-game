@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { Response } from 'express';
+import { debitCurrency, processCurrencySink } from '../economy/currency.service';
 
 const router = Router();
 
@@ -72,23 +73,22 @@ router.post(
     const input = schema.parse(req.body);
     const userId = req.user!.id;
 
-    // Check wallet for league creation fee (progressive: 50k DYN for 1st, 100k for 2nd, etc.)
+    // League creation fee: first league is free for new users, then progressive
+    // DYN cost. This keeps the feature accessible while making repeat/spam league
+    // creation cost DYN. Fee is waived if the user has zero DYN and has never
+    // created a league.
     const createdCount = await prisma.league.count({ where: { creatorId: userId } });
-    const creationFee = 50000 * Math.pow(2, createdCount);
-
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) throw new AppError(400, 'Wallet not found');
-    if (wallet.dynTokens < creationFee) {
-      throw new AppError(400, `Need ${creationFee.toLocaleString()} DYN to create a league. You have ${wallet.dynTokens.toLocaleString()}.`);
+
+    const firstFree = createdCount === 0 && wallet.dynTokens === 0;
+    const dynCreationFee = firstFree ? 0 : 50000 * Math.pow(2, createdCount);
+
+    if (!firstFree && wallet.dynTokens < dynCreationFee) {
+      throw new AppError(400, `Need ${dynCreationFee.toLocaleString()} DYN to create a league. You have ${wallet.dynTokens.toLocaleString()}.`);
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
-      // Deduct fee
-      await tx.wallet.update({
-        where: { userId },
-        data: { dynTokens: { decrement: creationFee } },
-      });
-
       // Create island
       const island = await tx.island.create({
         data: {
@@ -118,13 +118,35 @@ router.post(
         },
       });
 
-      return { league, island, fee: creationFee };
+      let debit = { wallet: wallet } as any;
+      let sink = null;
+      if (dynCreationFee > 0) {
+        debit = await debitCurrency(tx, {
+          userId,
+          currency: 'DYN',
+          amount: dynCreationFee,
+          reason: 'LEAGUE_CREATION_FEE',
+          sourceType: 'LEAGUE',
+          sourceId: league.id,
+          metadata: { leagueName: input.name, sportId: input.sportId, createdCount, free: firstFree },
+        });
+        sink = await processCurrencySink(tx, 'DYN', debit.amount, 'LEAGUE_CREATION_FEE', 'LEAGUE', league.id, {
+          leagueName: input.name,
+          sportId: input.sportId,
+          createdCount,
+          free: firstFree,
+        });
+      }
+
+      return { league, island, fee: dynCreationFee, free: firstFree, wallet: debit.wallet, ...(sink ? { ...sink } : {}) };
     });
 
     res.status(201).json({
       status: 'success',
       data: result,
-      message: `Created ${input.name} for ${creationFee.toLocaleString()} DYN`,
+      message: result.free
+        ? `Created ${input.name} — your first league is free!`
+        : `Created ${input.name} for ${dynCreationFee.toLocaleString()} DYN`,
     });
   })
 );
@@ -162,16 +184,12 @@ router.post(
       }
     }
 
-    // Check entry fee
+    // Check entry fee before attempting membership write
     if ((league as any).entryFee > 0) {
       const wallet = await prisma.wallet.findUnique({ where: { userId } });
       if (!wallet || wallet.dynTokens < (league as any).entryFee) {
         throw new AppError(400, `Need ${(league as any).entryFee.toLocaleString()} DYN entry fee`);
       }
-      await prisma.wallet.update({
-        where: { userId },
-        data: { dynTokens: { decrement: (league as any).entryFee } },
-      });
     }
 
     // Check if already in league
@@ -180,22 +198,43 @@ router.post(
     });
     if (existing) throw new AppError(400, 'Already in this league');
 
-    const membership = await prisma.teamLeagueMembership.create({
-      data: {
-        teamId: team.id,
-        leagueId: req.params.id as string,
-        season: 'beta',
-        status: 'ACTIVE',
-      },
-    });
+    const membership = await prisma.$transaction(async (tx: any) => {
+      if ((league as any).entryFee > 0) {
+        const debit = await debitCurrency(tx, {
+          userId,
+          currency: 'DYN',
+          amount: (league as any).entryFee,
+          reason: 'LEAGUE_ENTRY_FEE',
+          sourceType: 'LEAGUE',
+          sourceId: req.params.id as string,
+          metadata: { leagueId: req.params.id as string, teamId: team.id, leagueName: league.name },
+        });
+        await processCurrencySink(tx, 'DYN', debit.amount, 'LEAGUE_ENTRY_FEE', 'LEAGUE', req.params.id as string, {
+          leagueId: req.params.id as string,
+          teamId: team.id,
+          leagueName: league.name,
+        });
+      }
 
-    // Update island team count
-    if ((league as any).islandId) {
-      await prisma.island.update({
-        where: { id: (league as any).islandId },
-        data: { teamCount: { increment: 1 } },
+      const createdMembership = await tx.teamLeagueMembership.create({
+        data: {
+          teamId: team.id,
+          leagueId: req.params.id as string,
+          season: 'beta',
+          status: 'ACTIVE',
+        },
       });
-    }
+
+      // Update island team count
+      if ((league as any).islandId) {
+        await tx.island.update({
+          where: { id: (league as any).islandId },
+          data: { teamCount: { increment: 1 } },
+        });
+      }
+
+      return createdMembership;
+    });
 
     res.json({ status: 'success', data: membership });
   })

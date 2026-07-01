@@ -4,7 +4,8 @@ import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { env } from '../../config/env';
-import { recordCurrencyLedger } from './ledger';
+import { creditCurrency, exchangeCurrency } from './currency.service';
+import { getLuckBreakdown } from '../luck/luck.service';
 
 const router = Router();
 
@@ -20,7 +21,8 @@ router.get(
       throw new AppError(404, 'Wallet not found');
     }
 
-    res.json({ status: 'success', data: wallet });
+    const luck = await getLuckBreakdown(req.user!.id);
+    res.json({ status: 'success', data: { ...wallet, luck } });
   })
 );
 
@@ -56,18 +58,13 @@ router.post(
     }
 
     const updated = await prisma.$transaction(async (tx: any) => {
-      const walletAfter = await tx.wallet.update({
-        where: { userId },
-        data: { cash: { increment: input.amount } },
-      });
-      await recordCurrencyLedger(tx, {
+      const { wallet: walletAfter } = await creditCurrency(tx, {
         userId,
         currency: 'CASH',
         amount: input.amount,
-        balanceAfter: walletAfter.cash,
         reason: 'TEST_TOPUP',
         sourceType: 'WALLET_TOPUP',
-        sourceId: walletAfter.id,
+        sourceId: wallet.id,
         metadata: { testOnly: true },
       });
       return walletAfter;
@@ -95,18 +92,13 @@ router.post(
     }
 
     const updated = await prisma.$transaction(async (tx: any) => {
-      const walletAfter = await tx.wallet.update({
-        where: { userId },
-        data: { dynTokens: { increment: input.amount } },
-      });
-      await recordCurrencyLedger(tx, {
+      const { wallet: walletAfter } = await creditCurrency(tx, {
         userId,
         currency: 'DYN',
         amount: input.amount,
-        balanceAfter: walletAfter.dynTokens,
         reason: 'TEST_TOPUP',
         sourceType: 'WALLET_TOPUP',
-        sourceId: walletAfter.id,
+        sourceId: wallet.id,
         metadata: { testOnly: true },
       });
       return walletAfter;
@@ -156,29 +148,12 @@ router.post(
     }
 
     const updated = await prisma.$transaction(async (tx: any) => {
-      const walletAfter = await tx.wallet.update({
-        where: { userId },
-        data: {
-          cash: { decrement: input.amount },
-          dynTokens: { increment: gridReceived },
-        },
-      });
-
-      await recordCurrencyLedger(tx, {
+      const { wallet: walletAfter } = await exchangeCurrency(tx, {
         userId,
-        currency: 'CASH',
-        amount: -input.amount,
-        balanceAfter: walletAfter.cash,
-        reason: 'GOLD_TO_DYN_EXCHANGE',
-        sourceType: 'EXCHANGE',
-        metadata: { exchangedAmount: input.amount, gridReceived },
-      });
-
-      await recordCurrencyLedger(tx, {
-        userId,
-        currency: 'DYN',
-        amount: gridReceived,
-        balanceAfter: walletAfter.dynTokens,
+        fromCurrency: 'CASH',
+        toCurrency: 'DYN',
+        fromAmount: input.amount,
+        toAmount: gridReceived,
         reason: 'GOLD_TO_DYN_EXCHANGE',
         sourceType: 'EXCHANGE',
         metadata: { exchangedAmount: input.amount, gridReceived },

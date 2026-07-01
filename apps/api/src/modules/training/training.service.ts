@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { debitCurrency } from '../economy/currency.service';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
 
 // ─── Training Package Catalog ───
@@ -203,42 +203,36 @@ export async function startTraining(input: TrainingInput) {
 
   return prisma.$transaction(async (tx: any) => {
     // Deduct payment
-    const updatedWallet = await tx.wallet.update({
-      where: { userId },
-      data: {
-        dynTokens: { decrement: package_.costGrid },
-        cash: { decrement: package_.costCash },
-      },
-    });
+    let updatedWallet = wallet;
 
     // Record ledger
     if (package_.costGrid > 0) {
-      await recordCurrencyLedger(tx, {
+      const debit = await debitCurrency(tx, {
         userId,
         currency: 'DYN',
-        amount: -package_.costGrid,
-        balanceAfter: updatedWallet.dynTokens,
+        amount: package_.costGrid,
         reason: 'TRAINING_PACKAGE',
         sourceType: 'TRAINING',
         sourceId: packageId,
         metadata: { teamId, focusType: package_.focusType },
       });
+      updatedWallet = debit.wallet;
       // 90% to treasury, 10% burned
       await processTreasuryInflow(tx, 'DYN', Math.round(package_.costGrid * 0.9), 'TRAINING_PURCHASE', packageId);
       await processBurn(tx, 'DYN', Math.round(package_.costGrid * 0.1), 'TRAINING_PURCHASE', packageId);
     }
 
     if (package_.costCash > 0) {
-      await recordCurrencyLedger(tx, {
+      const debit = await debitCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: -package_.costCash,
-        balanceAfter: updatedWallet.cash,
+        amount: package_.costCash,
         reason: 'TRAINING_PACKAGE',
         sourceType: 'TRAINING',
         sourceId: packageId,
         metadata: { teamId, focusType: package_.focusType },
       });
+      updatedWallet = debit.wallet;
       // Cash also goes to treasury (no burn for cash)
       await processTreasuryInflow(tx, 'CASH', package_.costCash, 'TRAINING_PURCHASE', packageId);
     }

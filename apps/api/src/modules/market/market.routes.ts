@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { processTreasuryInflow } from '../../modules/treasury/treasury.service';
+import { debitCurrency } from '../economy/currency.service';
 
 const router = Router();
 
@@ -101,25 +102,14 @@ router.post(
 
     const result = await prisma.$transaction(async (tx: any) => {
       // Deduct from wallet
-      const updatedWallet = await tx.wallet.update({
-        where: { userId },
-        data: input.currency === 'DYN'
-          ? { dynTokens: { decrement: price } }
-          : { cash: { decrement: price } },
-      });
-
-      // Record ledger entry
-      await tx.currencyLedger.create({
-        data: {
-          userId,
-          currency: input.currency,
-          amount: -price,
-          balanceAfter: input.currency === 'DYN' ? updatedWallet.dynTokens : updatedWallet.cash,
-          reason: 'MARKET_PURCHASE',
-          sourceType: 'ITEM',
-          sourceId: input.itemId,
-          metadata: { itemName: marketItem.item.name, playerId: input.playerId },
-        },
+      const { wallet: updatedWallet } = await debitCurrency(tx, {
+        userId,
+        currency: input.currency,
+        amount: price,
+        reason: 'MARKET_PURCHASE',
+        sourceType: 'ITEM',
+        sourceId: input.itemId,
+        metadata: { itemName: marketItem.item.name, playerId: input.playerId },
       });
 
       // Send to treasury

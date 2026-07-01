@@ -46,6 +46,8 @@ import { initializeSocketHandlers } from './websocket/socket.handlers';
 import { PrismaClient } from '@prisma/client';
 import { marketRouter } from './modules/market/market.routes';
 import { marketplaceItemsRouter } from './modules/marketplace-items/marketplace-items.routes';
+import { commissionerRouter } from './modules/commissioner/commissioner.routes';
+import { luckRouter } from './modules/luck/luck.routes';
 import { seedItems } from './modules/market/seed';
 import { logger } from './config/logger';
 
@@ -381,6 +383,8 @@ app.use('/api/islands', islandRouter);
 app.use('/api/leagues', leagueRouter);
 app.use('/api/market', marketRouter);
 app.use('/api/marketplace-items', marketplaceItemsRouter);
+app.use('/api/commissioner', commissionerRouter);
+app.use('/api/luck', luckRouter);
 
 // Health check — Render expects this for the healthCheckPath
 app.get('/api/health', (_req, res) => {

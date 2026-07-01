@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { creditCurrency, debitCurrency } from '../economy/currency.service';
 
 const COOLDOWN_HOURS = 24;
 
@@ -83,16 +83,10 @@ export async function stakeGrid(userId: string, amount: number) {
 
   return prisma.$transaction(async (tx: any) => {
     // Deduct from wallet
-    const updatedWallet = await tx.wallet.update({
-      where: { userId },
-      data: { dynTokens: { decrement: amount } },
-    });
-
-    await recordCurrencyLedger(tx, {
+    await debitCurrency(tx, {
       userId,
       currency: 'DYN',
-      amount: -amount,
-      balanceAfter: updatedWallet.dynTokens,
+      amount,
       reason: 'STAKE_DEPOSIT',
       sourceType: 'STAKING',
       sourceId: 'main',
@@ -122,16 +116,10 @@ export async function stakeGrid(userId: string, amount: number) {
       });
 
       if (claimable > 0) {
-        await tx.wallet.update({
-          where: { userId },
-          data: { dynTokens: { increment: claimable } },
-        });
-
-        await recordCurrencyLedger(tx, {
+        await creditCurrency(tx, {
           userId,
           currency: 'DYN',
           amount: claimable,
-          balanceAfter: updatedWallet.dynTokens + claimable,
           reason: 'STAKE_REWARD',
           sourceType: 'STAKING',
           sourceId: 'main',
@@ -190,16 +178,10 @@ export async function claimRewards(userId: string) {
     });
 
     // Add to wallet
-    const wallet = await tx.wallet.update({
-      where: { userId },
-      data: { dynTokens: { increment: claimable } },
-    });
-
-    await recordCurrencyLedger(tx, {
+    await creditCurrency(tx, {
       userId,
       currency: 'DYN',
       amount: claimable,
-      balanceAfter: wallet.dynTokens,
       reason: 'STAKE_REWARD',
       sourceType: 'STAKING',
       sourceId: 'main',
@@ -275,16 +257,10 @@ export async function completeUnstake(userId: string) {
 
     // Return stake + rewards to wallet
     const totalReturn = stake.amount + claimable;
-    const wallet = await tx.wallet.update({
-      where: { userId },
-      data: { dynTokens: { increment: totalReturn } },
-    });
-
-    await recordCurrencyLedger(tx, {
+    await creditCurrency(tx, {
       userId,
       currency: 'DYN',
       amount: totalReturn,
-      balanceAfter: wallet.dynTokens,
       reason: 'STAKE_WITHDRAWAL',
       sourceType: 'STAKING',
       sourceId: 'main',

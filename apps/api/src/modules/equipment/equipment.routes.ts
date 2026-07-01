@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
+import { debitCurrency } from '../economy/currency.service';
 
 const router = Router();
 
@@ -93,39 +94,32 @@ router.post(
     }
 
     const result = await prisma.$transaction(async (tx: any) => {
-      const updatedWallet = await tx.wallet.update({
-        where: { userId },
-        data: {
-          dynTokens: { decrement: equipmentType.baseCostGrid },
-          cash: { decrement: equipmentType.baseCostCash },
-        },
-      });
-
-      await tx.currencyLedger.create({
-        data: {
+      let updatedWallet = wallet;
+      if (equipmentType.baseCostGrid > 0) {
+        const debit = await debitCurrency(tx, {
           userId,
           currency: 'DYN',
-          amount: -equipmentType.baseCostGrid,
-          balanceAfter: updatedWallet.dynTokens,
+          amount: equipmentType.baseCostGrid,
           reason: 'EQUIPMENT_PURCHASE',
           sourceType: 'EQUIPMENT',
           sourceId: input.equipmentTypeId,
           metadata: { teamId: input.teamId, equipmentName: equipmentType.name },
-        },
-      });
+        });
+        updatedWallet = debit.wallet;
+      }
 
-      await tx.currencyLedger.create({
-        data: {
+      if (equipmentType.baseCostCash > 0) {
+        const debit = await debitCurrency(tx, {
           userId,
           currency: 'CASH',
-          amount: -equipmentType.baseCostCash,
-          balanceAfter: updatedWallet.cash,
+          amount: equipmentType.baseCostCash,
           reason: 'EQUIPMENT_PURCHASE',
           sourceType: 'EQUIPMENT',
           sourceId: input.equipmentTypeId,
           metadata: { teamId: input.teamId, equipmentName: equipmentType.name },
-        },
-      });
+        });
+        updatedWallet = debit.wallet;
+      }
 
       const teamEquipment = await tx.teamEquipment.create({
         data: {

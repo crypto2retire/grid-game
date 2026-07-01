@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database';
+import { debitCurrency } from '../economy/currency.service';
 import {
   LEAGUE_TIERS,
   type LeagueTier,
@@ -253,22 +254,14 @@ export async function promoteTeam(teamId: string) {
 
   return prisma.$transaction(async (tx: any) => {
     // Deduct promotion fee
-    const walletAfter = await tx.wallet.update({
-      where: { userId: team.ownerId },
-      data: { cash: { decrement: req.requiredCash } },
-    });
-
-    await tx.currencyLedger.create({
-      data: {
-        userId: team.ownerId,
-        currency: 'CASH',
-        amount: -req.requiredCash,
-        balanceAfter: walletAfter.cash,
-        reason: 'LEAGUE_PROMOTION_FEE',
-        sourceType: 'TEAM',
-        sourceId: teamId,
-        metadata: { fromTier: eligibility.currentTier, toTier: eligibility.nextTier },
-      },
+    const { wallet: walletAfter } = await debitCurrency(tx, {
+      userId: team.ownerId,
+      currency: 'CASH',
+      amount: req.requiredCash,
+      reason: 'LEAGUE_PROMOTION_FEE',
+      sourceType: 'TEAM',
+      sourceId: teamId,
+      metadata: { fromTier: eligibility.currentTier, toTier: eligibility.nextTier },
     });
 
     // Deactivate current league membership

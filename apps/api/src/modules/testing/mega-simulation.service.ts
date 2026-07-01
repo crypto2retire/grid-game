@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
+import { creditCurrency, debitCurrency, exchangeCurrency, settleMarketplaceSale } from '../economy/currency.service';
 import { env } from '../../config/env';
 import { generateAndCreatePlayerTx } from '../players/player.generator';
 
@@ -457,21 +458,37 @@ async function simulateTraining(user: SimUser, team: SimTeam, packages: any[], m
     const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
     if (!wallet) continue;
 
-    const costGrid = (pkg.costGrid || 0) * (1 + normalRandom(0, 0.1));
-    const costCash = (pkg.costCash || 0) * (1 + normalRandom(0, 0.1));
+    const costGrid = Math.max(0, Math.round((pkg.costGrid || 0) * (1 + normalRandom(0, 0.1))));
+    const costCash = Math.max(0, Math.round((pkg.costCash || 0) * (1 + normalRandom(0, 0.1))));
 
-    if (wallet.dynTokens >= costGrid) {
-      await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { decrement: costGrid } } });
-      const treasuryAmount = costGrid * 0.9;
-      const burnAmount = costGrid * 0.1;
+    if (wallet.dynTokens >= costGrid && costGrid > 0) {
+      await debitCurrency(prisma, {
+        userId: user.id,
+        currency: 'DYN',
+        amount: costGrid,
+        reason: 'SIM_TRAINING_DYN',
+        sourceType: 'MEGA_SIMULATION_TRAINING',
+        sourceId: pkg.id,
+        metadata: { packageId: pkg.id, week },
+      });
+      const treasuryAmount = Math.round(costGrid * 0.9);
+      const burnAmount = costGrid - treasuryAmount;
       await processTreasuryInflow(prisma, 'DYN', treasuryAmount, 'training_grid', pkg.id);
       await processBurn(prisma, 'DYN', burnAmount, 'training_grid', user.id);
       fees.trainingGridToTreasury += treasuryAmount;
       fees.trainingGridBurned += burnAmount;
       metrics.trainingGridSpent += costGrid;
       metrics.totalGridSpent += costGrid;
-    } else if (wallet.cash >= costCash) {
-      await prisma.wallet.update({ where: { userId: user.id }, data: { cash: { decrement: costCash } } });
+    } else if (wallet.cash >= costCash && costCash > 0) {
+      await debitCurrency(prisma, {
+        userId: user.id,
+        currency: 'CASH',
+        amount: costCash,
+        reason: 'SIM_TRAINING_CASH',
+        sourceType: 'MEGA_SIMULATION_TRAINING',
+        sourceId: pkg.id,
+        metadata: { packageId: pkg.id, week },
+      });
       await processTreasuryInflow(prisma, 'CASH', costCash, 'training_cash', pkg.id);
       fees.trainingCashToTreasury += costCash;
       metrics.trainingCashSpent += costCash;
@@ -509,17 +526,33 @@ async function simulateEquipment(user: SimUser, team: SimTeam, equipmentTypes: a
   const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
   if (!wallet) return;
 
-  const costGrid = (eqType.baseCostGrid || 0) * (1 + normalRandom(0, 0.15));
-  const costCash = (eqType.baseCostCash || 0) * (1 + normalRandom(0, 0.15));
+  const costGrid = Math.max(0, Math.round((eqType.baseCostGrid || 0) * (1 + normalRandom(0, 0.15))));
+  const costCash = Math.max(0, Math.round((eqType.baseCostCash || 0) * (1 + normalRandom(0, 0.15))));
 
-  if (wallet.dynTokens >= costGrid) {
-    await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { decrement: costGrid } } });
+  if (wallet.dynTokens >= costGrid && costGrid > 0) {
+    await debitCurrency(prisma, {
+      userId: user.id,
+      currency: 'DYN',
+      amount: costGrid,
+      reason: 'SIM_EQUIPMENT_DYN',
+      sourceType: 'MEGA_SIMULATION_EQUIPMENT',
+      sourceId: eqType.id,
+      metadata: { equipmentTypeId: eqType.id },
+    });
     await processTreasuryInflow(prisma, 'DYN', costGrid, 'equipment_grid', eqType.id);
     fees.equipmentGridToTreasury += costGrid;
     metrics.equipmentGridSpent += costGrid;
     metrics.totalGridSpent += costGrid;
-  } else if (wallet.cash >= costCash) {
-    await prisma.wallet.update({ where: { userId: user.id }, data: { cash: { decrement: costCash } } });
+  } else if (wallet.cash >= costCash && costCash > 0) {
+    await debitCurrency(prisma, {
+      userId: user.id,
+      currency: 'CASH',
+      amount: costCash,
+      reason: 'SIM_EQUIPMENT_CASH',
+      sourceType: 'MEGA_SIMULATION_EQUIPMENT',
+      sourceId: eqType.id,
+      metadata: { equipmentTypeId: eqType.id },
+    });
     await processTreasuryInflow(prisma, 'CASH', costCash, 'equipment_cash', eqType.id);
     fees.equipmentCashToTreasury += costCash;
     metrics.equipmentCashSpent += costCash;
@@ -550,7 +583,15 @@ async function simulateMatch(homeTeam: SimTeam, awayTeam: SimTeam, homeUser: Sim
     if (homeUser) {
       const wallet = await prisma.wallet.findUnique({ where: { userId: homeUser.id } });
       if (wallet && wallet.cash >= gameEntryFee) {
-        await prisma.wallet.update({ where: { userId: homeUser.id }, data: { cash: { decrement: gameEntryFee } } });
+        await debitCurrency(prisma, {
+          userId: homeUser.id,
+          currency: 'CASH',
+          amount: gameEntryFee,
+          reason: 'SIM_GAME_ENTRY_FEE',
+          sourceType: 'MEGA_SIMULATION_MATCH',
+          sourceId: homeTeam.id,
+          metadata: { season, week, teamId: homeTeam.id },
+        });
         await processTreasuryInflow(prisma, 'CASH', gameEntryFee, 'game_entry', homeTeam.id);
       }
     }
@@ -562,7 +603,15 @@ async function simulateMatch(homeTeam: SimTeam, awayTeam: SimTeam, homeUser: Sim
       if (homeTeam.ownerId !== 'ai-system-owner-001') {
         const ownerWallet = await prisma.wallet.findUnique({ where: { userId: homeTeam.ownerId } });
         if (ownerWallet) {
-          await prisma.wallet.update({ where: { userId: homeTeam.ownerId }, data: { cash: { increment: leaseFee } } });
+          await creditCurrency(prisma, {
+            userId: homeTeam.ownerId,
+            currency: 'CASH',
+            amount: Math.round(leaseFee),
+            reason: 'SIM_VENUE_LEASE_REVENUE',
+            sourceType: 'MEGA_SIMULATION_MATCH',
+            sourceId: homeVenue.id,
+            metadata: { season, week, teamId: homeTeam.id, ticketRevenue, leaseRate: homeVenue.leaseRate || 0.10 },
+          });
         }
       } else {
         await processTreasuryInflow(prisma, 'CASH', leaseFee, 'venue_lease', homeVenue.id);
@@ -626,8 +675,17 @@ async function simulateMatch(homeTeam: SimTeam, awayTeam: SimTeam, homeUser: Sim
       for (const sponsor of homeTeam.sponsorships) {
         if (sponsor.active) {
           const sponsorPay = sponsor.amountPerGame + (sponsor.amountPerSeason / 52);
+          const sponsorPayRounded = Math.round(sponsorPay);
           fees.sponsorRevenue += sponsorPay;
-          await prisma.wallet.update({ where: { userId: homeTeam.ownerId }, data: { cash: { increment: sponsorPay } } }).catch(() => {});
+          await creditCurrency(prisma, {
+            userId: homeTeam.ownerId,
+            currency: 'CASH',
+            amount: sponsorPayRounded,
+            reason: 'SIM_SPONSOR_REVENUE',
+            sourceType: 'MEGA_SIMULATION_SPONSOR',
+            sourceId: sponsor.id,
+            metadata: { season, week, teamId: homeTeam.id, sponsorName: sponsor.name, sponsorPay },
+          }).catch(() => {});
         }
       }
     }
@@ -666,12 +724,17 @@ async function simulatePlayerMarketplace(user: SimUser, userTeams: SimTeam[], al
     const buyerTeam = randomPick(otherTeams);
     const buyerWallet = await prisma.wallet.findUnique({ where: { userId: buyerTeam.ownerId } });
     if (buyerWallet && buyerWallet.dynTokens >= listingPrice) {
-      await prisma.wallet.update({ where: { userId: buyerTeam.ownerId }, data: { dynTokens: { decrement: listingPrice } } });
-      await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { increment: listingPrice * 0.95 } } });
-      const tax = listingPrice * 0.05;
-      await processTreasuryInflow(prisma, 'DYN', tax * 0.9, 'player_marketplace_tax', listingId);
-      await processBurn(prisma, 'DYN', tax * 0.1, 'player_marketplace_tax', listingId);
-      fees.playerMarketplaceTax += tax * 0.9;
+      const settlement = await settleMarketplaceSale(prisma, {
+        buyerId: buyerTeam.ownerId,
+        sellerId: user.id,
+        currency: 'DYN',
+        price: listingPrice,
+        reasonPrefix: 'SIM_PLAYER',
+        sourceType: 'MEGA_SIMULATION_PLAYER_MARKETPLACE',
+        sourceId: listingId,
+        metadata: { playerId: player.id, sellerTeamId: team.id, buyerTeamId: buyerTeam.id },
+      });
+      fees.playerMarketplaceTax += settlement.treasuryAmount;
       fees.playerMarketplaceVolume += listingPrice;
       metrics.playerSales++;
       metrics.totalGridSpent += listingPrice;
@@ -708,13 +771,18 @@ async function simulateTeamMarketplace(user: SimUser, userTeams: SimTeam[], allT
     const buyerTeam = randomPick(otherUsers);
     const buyerWallet = await prisma.wallet.findUnique({ where: { userId: buyerTeam.ownerId } });
     if (buyerWallet && buyerWallet.dynTokens >= listingPrice) {
-      await prisma.wallet.update({ where: { userId: buyerTeam.ownerId }, data: { dynTokens: { decrement: listingPrice } } });
-      await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { increment: listingPrice * 0.95 } } });
-      const tax = listingPrice * 0.05;
-      await processTreasuryInflow(prisma, 'DYN', tax * 0.9, 'team_marketplace_tax', listingId);
-      await processBurn(prisma, 'DYN', tax * 0.1, 'team_marketplace_tax', listingId);
-      fees.teamMarketplaceTax += tax * 0.9;
-      fees.teamMarketplaceBurn += tax * 0.1;
+      const settlement = await settleMarketplaceSale(prisma, {
+        buyerId: buyerTeam.ownerId,
+        sellerId: user.id,
+        currency: 'DYN',
+        price: listingPrice,
+        reasonPrefix: 'SIM_TEAM',
+        sourceType: 'MEGA_SIMULATION_TEAM_MARKETPLACE',
+        sourceId: listingId,
+        metadata: { teamId: team.id, buyerTeamId: buyerTeam.id },
+      });
+      fees.teamMarketplaceTax += settlement.treasuryAmount;
+      fees.teamMarketplaceBurn += settlement.burnAmount;
       metrics.teamSales++;
       metrics.totalGridSpent += listingPrice;
       team.ownerId = buyerTeam.ownerId;
@@ -736,8 +804,16 @@ async function simulateVenuePurchase(user: SimUser, userTeams: SimTeam[], metric
 
   const venueSolPrice = team.venue.solPrice || 0;
   if (wallet.solBalance >= venueSolPrice && venueSolPrice > 0) {
-    await prisma.wallet.update({ where: { userId: user.id }, data: { solBalance: { decrement: venueSolPrice } } });
-    await processTreasuryInflow(prisma, 'DYN', venueSolPrice * 1000, 'venue_sol_purchase', team.id);
+    await debitCurrency(prisma, {
+      userId: user.id,
+      currency: 'SOL',
+      amount: venueSolPrice,
+      reason: 'SIM_VENUE_SOL_PURCHASE',
+      sourceType: 'MEGA_SIMULATION_VENUE',
+      sourceId: team.id,
+      metadata: { venueId: team.venue.id, venueSolPrice, dynEquivalent: venueSolPrice * 1000 },
+    });
+    await processTreasuryInflow(prisma, 'DYN', Math.round(venueSolPrice * 1000), 'venue_sol_purchase', team.id);
     fees.solPurchases += venueSolPrice;
     fees.solTreasuryInflow += venueSolPrice * 1000;
     metrics.venueSolPurchases += venueSolPrice;
@@ -762,8 +838,16 @@ async function simulateTransportPurchase(user: SimUser, userTeams: SimTeam[], me
 
   const transportSolPrice = team.transport.solPrice || 0;
   if (wallet.solBalance >= transportSolPrice && transportSolPrice > 0) {
-    await prisma.wallet.update({ where: { userId: user.id }, data: { solBalance: { decrement: transportSolPrice } } });
-    await processTreasuryInflow(prisma, 'DYN', transportSolPrice * 1000, 'transport_sol_purchase', team.id);
+    await debitCurrency(prisma, {
+      userId: user.id,
+      currency: 'SOL',
+      amount: transportSolPrice,
+      reason: 'SIM_TRANSPORT_SOL_PURCHASE',
+      sourceType: 'MEGA_SIMULATION_TRANSPORT',
+      sourceId: team.id,
+      metadata: { transportId: team.transport.id, transportSolPrice, dynEquivalent: transportSolPrice * 1000 },
+    });
+    await processTreasuryInflow(prisma, 'DYN', Math.round(transportSolPrice * 1000), 'transport_sol_purchase', team.id);
     fees.solPurchases += transportSolPrice;
     fees.solTreasuryInflow += transportSolPrice * 1000;
     metrics.transportSolPurchases += transportSolPrice;
@@ -787,12 +871,28 @@ async function simulateStaking(user: SimUser, metrics: SeasonMetrics, fees: FeeT
   const pool = await prisma.rewardsPool.findFirst({ where: { active: true } });
   if (!pool) return;
 
-  await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { decrement: stakeAmount } } });
+  await debitCurrency(prisma, {
+    userId: user.id,
+    currency: 'DYN',
+    amount: stakeAmount,
+    reason: 'SIM_STAKE_DEPOSIT',
+    sourceType: 'MEGA_SIMULATION_STAKING',
+    sourceId: pool.id,
+    metadata: { poolId: pool.id },
+  });
   await prisma.rewardsPool.update({ where: { id: pool.id }, data: { totalStaked: { increment: stakeAmount } } });
 
   const rewardRate = pool.rewardRatePerDay || 0.005;
-  const weeklyReward = stakeAmount * rewardRate * 7;
-  await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { increment: weeklyReward } } });
+  const weeklyReward = Math.round(stakeAmount * rewardRate * 7);
+  await creditCurrency(prisma, {
+    userId: user.id,
+    currency: 'DYN',
+    amount: weeklyReward,
+    reason: 'SIM_STAKE_REWARD',
+    sourceType: 'MEGA_SIMULATION_STAKING',
+    sourceId: pool.id,
+    metadata: { poolId: pool.id, rewardRate, stakeAmount },
+  });
   await prisma.rewardsPool.update({ where: { id: pool.id }, data: { totalRewardsDistributed: { increment: weeklyReward } } });
 
   fees.stakingRewards += weeklyReward;
@@ -818,7 +918,17 @@ async function simulateGridExchange(user: SimUser, metrics: SeasonMetrics, fees:
     const amount = randomInt(100, 5000);
     if (wallet.cash >= amount) {
       const gridReceived = Math.floor(amount / rate * (1 - fee));
-      await prisma.wallet.update({ where: { userId: user.id }, data: { cash: { decrement: amount }, dynTokens: { increment: gridReceived } } });
+      await exchangeCurrency(prisma, {
+        userId: user.id,
+        fromCurrency: 'CASH',
+        toCurrency: 'DYN',
+        fromAmount: amount,
+        toAmount: gridReceived,
+        reason: 'SIM_CASH_TO_DYN_EXCHANGE',
+        sourceType: 'MEGA_SIMULATION_EXCHANGE',
+        sourceId: user.id,
+        metadata: { rate, fee, grossAmount: amount, received: gridReceived },
+      });
       fees.gridExchangeFees += amount * fee;
       metrics.gridExchanges++;
       metrics.gridExchanged += gridReceived;
@@ -828,7 +938,17 @@ async function simulateGridExchange(user: SimUser, metrics: SeasonMetrics, fees:
     const amount = randomInt(100, 5000);
     if (wallet.dynTokens >= amount) {
       const cashReceived = Math.floor(amount * rate * (1 - fee));
-      await prisma.wallet.update({ where: { userId: user.id }, data: { dynTokens: { decrement: amount }, cash: { increment: cashReceived } } });
+      await exchangeCurrency(prisma, {
+        userId: user.id,
+        fromCurrency: 'DYN',
+        toCurrency: 'CASH',
+        fromAmount: amount,
+        toAmount: cashReceived,
+        reason: 'SIM_DYN_TO_CASH_EXCHANGE',
+        sourceType: 'MEGA_SIMULATION_EXCHANGE',
+        sourceId: user.id,
+        metadata: { rate, fee, grossAmount: amount, received: cashReceived },
+      });
       fees.gridExchangeFees += amount * fee;
       metrics.gridExchanges++;
       metrics.gridExchanged += amount;
@@ -868,7 +988,15 @@ async function processWeeklyCosts(teams: SimTeam[], fees: FeeTracker): Promise<v
     if (ownerWallet) {
       const totalCost = weeklyWages + venueMaint + transportOp + leagueDues;
       if (ownerWallet.cash >= totalCost) {
-        await prisma.wallet.update({ where: { userId: team.ownerId }, data: { cash: { decrement: totalCost } } });
+        await debitCurrency(prisma, {
+          userId: team.ownerId,
+          currency: 'CASH',
+          amount: Math.round(totalCost),
+          reason: 'SIM_WEEKLY_OPERATING_COSTS',
+          sourceType: 'MEGA_SIMULATION_WEEKLY_COSTS',
+          sourceId: team.id,
+          metadata: { teamId: team.id, weeklyWages, venueMaint, transportOp, leagueDues },
+        });
       }
     }
   }

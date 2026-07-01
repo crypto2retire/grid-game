@@ -3,6 +3,7 @@ import { runMatchSimulation } from '../matches/simulator';
 import { applyPostGameProgression, agePlayers } from '../matches/progression';
 import { calculateGameEconomics } from '../economy/gameEconomics';
 import { processTreasuryInflow } from '../treasury/treasury.service';
+import { creditCurrency, debitCurrency, setWalletBalances } from '../economy/currency.service';
 import { generateAIPlayers } from '../ai-teams/ai-teams.service';
 import { env } from '../../config/env';
 
@@ -190,10 +191,9 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
             where: { id: venue.id },
             data: { ownerId: team.ownerId, leaseRate: 0 },
           });
-          await tx.gameTreasury.upsert({
-            where: { currency: 'SOL' },
-            create: { currency: 'SOL', balance: venue.solPrice, totalInflows: venue.solPrice },
-            update: { balance: { increment: venue.solPrice }, totalInflows: { increment: venue.solPrice } },
+          await processTreasuryInflow(tx, 'SOL', venue.solPrice, 'SIM_VENUE_SOL_PURCHASE', venue.id, 'TEST_SEASON', {
+            teamId: team.id,
+            ownerId: team.ownerId,
           });
         });
         totalSolRevenue += venue.solPrice;
@@ -217,10 +217,9 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
             where: { id: transport.id },
             data: { ownerId: team.ownerId },
           });
-          await tx.gameTreasury.upsert({
-            where: { currency: 'SOL' },
-            create: { currency: 'SOL', balance: transport.solPrice, totalInflows: transport.solPrice },
-            update: { balance: { increment: transport.solPrice }, totalInflows: { increment: transport.solPrice } },
+          await processTreasuryInflow(tx, 'SOL', transport.solPrice, 'SIM_TRANSPORT_SOL_PURCHASE', transport.id, 'TEST_SEASON', {
+            teamId: team.id,
+            ownerId: team.ownerId,
           });
         });
         totalSolRevenue += transport.solPrice;
@@ -442,9 +441,14 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
             - (homeEcon.breakdown['Merchandise'] || 0)
             - (homeEcon.breakdown['Sponsor Revenue'] || 0);
           if (leagueRevenue > 0) {
-            await tx.wallet.update({
-              where: { userId: gameOwnerId },
-              data: { cash: { increment: leagueRevenue } },
+            await creditCurrency(tx, {
+              userId: gameOwnerId,
+              currency: 'CASH',
+              amount: Math.round(leagueRevenue),
+              reason: 'SIM_LEAGUE_REVENUE',
+              sourceType: 'TEST_SEASON_MATCH',
+              sourceId: dbMatch.id,
+              metadata: { homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, leagueRevenue },
             });
             totalGameOwnerRevenue += leagueRevenue;
           }
@@ -775,13 +779,30 @@ export async function resetTestSeason() {
 
 export async function resetEconomy() {
   const aiOwnerId = 'ai-system-owner-001';
-  await prisma.wallet.updateMany({
-    where: { userId: aiOwnerId },
-    data: { cash: 0, dynTokens: 0, solBalance: 0 },
-  });
-  await prisma.wallet.updateMany({
-    where: { userId: { not: aiOwnerId } },
-    data: { cash: 1000, dynTokens: 0 },
+  await prisma.$transaction(async (tx: any) => {
+    const wallets = await tx.wallet.findMany({ select: { userId: true } });
+    for (const wallet of wallets) {
+      if (wallet.userId === aiOwnerId) {
+        await setWalletBalances(tx, {
+          userId: wallet.userId,
+          cash: 0,
+          dynTokens: 0,
+          solBalance: 0,
+          reason: 'TEST_ECONOMY_RESET',
+          sourceType: 'TESTING_SERVICE',
+          sourceId: 'resetEconomy',
+        });
+      } else {
+        await setWalletBalances(tx, {
+          userId: wallet.userId,
+          cash: 1000,
+          dynTokens: 0,
+          reason: 'TEST_ECONOMY_RESET',
+          sourceType: 'TESTING_SERVICE',
+          sourceId: 'resetEconomy',
+        });
+      }
+    }
   });
   await prisma.gameTreasury.updateMany({
     where: { currency: 'CASH' },
@@ -833,9 +854,15 @@ export async function processWeeklyOperatingCosts() {
     costs.push({ type: 'PLAYER_WAGES', amount: totalWages, playerCount });
 
     const canAfford = ownerWallet.cash >= totalCost;
-    await prisma.wallet.update({
-      where: { userId: team.ownerId },
-      data: { cash: canAfford ? { decrement: totalCost } : 0 },
+    const debitResult = await debitCurrency(prisma, {
+      userId: team.ownerId,
+      currency: 'CASH',
+      amount: totalCost,
+      reason: 'TEST_WEEKLY_OPERATING_COSTS',
+      sourceType: 'TESTING_SERVICE_WEEKLY_COSTS',
+      sourceId: team.id,
+      allowPartial: !canAfford,
+      metadata: { teamId: team.id, costs, canAfford },
     });
 
     if (!canAfford) {
@@ -845,7 +872,7 @@ export async function processWeeklyOperatingCosts() {
     results.push({
       teamId: team.id, teamName: team.name,
       totalCost, costs,
-      walletAfter: canAfford ? ownerWallet.cash - totalCost : 0,
+      walletAfter: ownerWallet.cash - debitResult.amount,
     });
   }
 
@@ -1253,11 +1280,18 @@ async function simulateSingleSeason(
               if (useSol && wallet.solBalance >= price) {
                 await prisma.$transaction(async (tx: any) => {
                   await tx.venue.update({ where: { id: team.venue.id }, data: { ownerId: user.id, leaseRate: 0 } });
-                  await tx.wallet.update({ where: { id: user.walletId }, data: { solBalance: { decrement: price } } });
-                  await tx.gameTreasury.upsert({
-                    where: { id: 'treasury-sol' },
-                    create: { id: 'treasury-sol', currency: 'SOL', balance: price, totalInflows: price, totalOutflows: 0, totalBurned: 0 },
-                    update: { balance: { increment: price }, totalInflows: { increment: price } },
+                  await debitCurrency(tx, {
+                    userId: user.id,
+                    currency: 'SOL',
+                    amount: price,
+                    reason: 'TEST_VENUE_SOL_PURCHASE',
+                    sourceType: 'MEGA_TEST_SEASON',
+                    sourceId: team.venue.id,
+                    metadata: { teamId: team.id, venueId: team.venue.id },
+                  });
+                  await processTreasuryInflow(tx, 'SOL', price, 'TEST_VENUE_SOL_PURCHASE', team.venue.id, 'MEGA_TEST_SEASON', {
+                    teamId: team.id,
+                    userId: user.id,
                   });
                 });
                 totalSolSpent += price;
@@ -1266,7 +1300,15 @@ async function simulateSingleSeason(
               } else if (!useSol && wallet.cash >= price) {
                 await prisma.$transaction(async (tx: any) => {
                   await tx.venue.update({ where: { id: team.venue.id }, data: { ownerId: user.id, leaseRate: 0 } });
-                  await tx.wallet.update({ where: { id: user.walletId }, data: { cash: { decrement: price } } });
+                  await debitCurrency(tx, {
+                    userId: user.id,
+                    currency: 'CASH',
+                    amount: price,
+                    reason: 'TEST_VENUE_CASH_PURCHASE',
+                    sourceType: 'MEGA_TEST_SEASON',
+                    sourceId: team.venue.id,
+                    metadata: { teamId: team.id, venueId: team.venue.id },
+                  });
                 });
                 totalCashSpent += price;
                 venuePurchases++;
@@ -1292,11 +1334,18 @@ async function simulateSingleSeason(
               if (useSol && wallet.solBalance >= price) {
                 await prisma.$transaction(async (tx: any) => {
                   await tx.transportationAsset.update({ where: { id: transport.id }, data: { ownerId: user.id } });
-                  await tx.wallet.update({ where: { id: user.walletId }, data: { solBalance: { decrement: price } } });
-                  await tx.gameTreasury.upsert({
-                    where: { id: 'treasury-sol' },
-                    create: { id: 'treasury-sol', currency: 'SOL', balance: price, totalInflows: price, totalOutflows: 0, totalBurned: 0 },
-                    update: { balance: { increment: price }, totalInflows: { increment: price } },
+                  await debitCurrency(tx, {
+                    userId: user.id,
+                    currency: 'SOL',
+                    amount: price,
+                    reason: 'TEST_TRANSPORT_SOL_PURCHASE',
+                    sourceType: 'MEGA_TEST_SEASON',
+                    sourceId: transport.id,
+                    metadata: { teamId: team.id, transportId: transport.id },
+                  });
+                  await processTreasuryInflow(tx, 'SOL', price, 'TEST_TRANSPORT_SOL_PURCHASE', transport.id, 'MEGA_TEST_SEASON', {
+                    teamId: team.id,
+                    userId: user.id,
                   });
                 });
                 totalSolSpent += price;
@@ -1305,7 +1354,15 @@ async function simulateSingleSeason(
               } else if (!useSol && wallet.cash >= price) {
                 await prisma.$transaction(async (tx: any) => {
                   await tx.transportationAsset.update({ where: { id: transport.id }, data: { ownerId: user.id } });
-                  await tx.wallet.update({ where: { id: user.walletId }, data: { cash: { decrement: price } } });
+                  await debitCurrency(tx, {
+                    userId: user.id,
+                    currency: 'CASH',
+                    amount: price,
+                    reason: 'TEST_TRANSPORT_CASH_PURCHASE',
+                    sourceType: 'MEGA_TEST_SEASON',
+                    sourceId: transport.id,
+                    metadata: { teamId: team.id, transportId: transport.id },
+                  });
                 });
                 totalCashSpent += price;
                 transportPurchases++;

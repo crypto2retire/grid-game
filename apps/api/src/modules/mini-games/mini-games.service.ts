@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { creditCurrency, debitCurrency, processCurrencySink } from '../economy/currency.service';
+import { processTreasuryOutflow } from '../treasury/treasury.service';
 import { ensureDefaultDailyQuests, recordDailyQuestProgress } from '../daily-quests/daily-quests.service';
 
 export type MiniGameType = 'TEAM_DRILL' | 'SCOUTING' | 'STADIUM_MATCH';
@@ -12,7 +13,15 @@ interface MiniGameConfig {
   costCash: number;
   difficulty: number;
   description: string;
+  cooldownSeconds: number;
+  dailyCap: number;
+  fatiguePerAttempt: number;
+  baseLossChance: number;
+  maxRewardCash: number;
+  dailyRewardBudget: number;
 }
+
+const MINI_GAME_TOTAL_DAILY_CAP = 10;
 
 const MINI_GAMES: Record<MiniGameType, MiniGameConfig> = {
   TEAM_DRILL: {
@@ -21,7 +30,13 @@ const MINI_GAMES: Record<MiniGameType, MiniGameConfig> = {
     category: 'TEAM_DRILL',
     costCash: 50,
     difficulty: 55,
-    description: 'Server-resolved football drill. Strong rosters score higher and may earn a small stat bump.',
+    cooldownSeconds: 120,
+    dailyCap: 6,
+    fatiguePerAttempt: 7,
+    baseLossChance: 0.18,
+    maxRewardCash: 90,
+    dailyRewardBudget: 450,
+    description: 'Server-resolved football drill. Strong rosters can earn small stat bumps, but fatigue and cooldowns stop grinding.',
   },
   SCOUTING: {
     type: 'SCOUTING',
@@ -29,7 +44,13 @@ const MINI_GAMES: Record<MiniGameType, MiniGameConfig> = {
     category: 'SCOUTING',
     costCash: 80,
     difficulty: 58,
-    description: 'Read athletic signals, uncover a prospect profile, and advance scouting quests.',
+    cooldownSeconds: 180,
+    dailyCap: 5,
+    fatiguePerAttempt: 8,
+    baseLossChance: 0.20,
+    maxRewardCash: 140,
+    dailyRewardBudget: 500,
+    description: 'Read athletic signals, uncover a prospect profile, and advance scouting quests with capped reward-pool payouts.',
   },
   STADIUM_MATCH: {
     type: 'STADIUM_MATCH',
@@ -37,7 +58,13 @@ const MINI_GAMES: Record<MiniGameType, MiniGameConfig> = {
     category: 'STADIUM_MATCH',
     costCash: 250,
     difficulty: 63,
-    description: 'A four-drive scrimmage with server-generated plays, attendance, revenue, and stadium wear.',
+    cooldownSeconds: 300,
+    dailyCap: 3,
+    fatiguePerAttempt: 12,
+    baseLossChance: 0.24,
+    maxRewardCash: 420,
+    dailyRewardBudget: 900,
+    description: 'A four-drive scrimmage with server-generated plays, attendance, revenue, stadium wear, and limited daily reward budget.',
   },
 };
 
@@ -45,6 +72,10 @@ const STATS = ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physica
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
+}
+
+function startOfUtcDay(now = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 function normalizeMiniGameType(value: string): MiniGameType {
@@ -56,13 +87,22 @@ function normalizeMiniGameType(value: string): MiniGameType {
   throw new AppError(400, 'Unknown mini-game type');
 }
 
-function scoreFromRoster(rosterAverage: number, difficulty: number): number {
-  const skillSignal = rosterAverage - difficulty;
+function scoreFromRoster(rosterAverage: number, difficulty: number, fatigue: number): number {
+  const skillSignal = rosterAverage - difficulty - fatigue * 0.25;
   const variance = Math.round(Math.random() * 34 - 10);
   return clamp(Math.round(62 + skillSignal * 0.9 + variance), 15, 100);
 }
 
-function outcomeFromScore(score: number): string {
+function resolveAttemptOutcome(config: MiniGameConfig, score: number, fatigue: number) {
+  const skillProtection = Math.max(0, score - 60) * 0.004;
+  const fatiguePressure = fatigue * 0.006;
+  const lossChance = clamp(config.baseLossChance + fatiguePressure - skillProtection, 0.05, 0.78);
+  const success = Math.random() >= lossChance;
+  return { success, lossChance };
+}
+
+function outcomeFromScore(score: number, success: boolean): string {
+  if (!success) return 'LOSS';
   if (score >= 90) return 'LEGENDARY';
   if (score >= 78) return 'GREAT';
   if (score >= 62) return 'SOLID';
@@ -70,25 +110,31 @@ function outcomeFromScore(score: number): string {
   return 'ROUGH';
 }
 
-function cashReward(type: MiniGameType, score: number): number {
-  if (type === 'STADIUM_MATCH') return Math.round(500 + score * 16);
-  if (type === 'TEAM_DRILL') return Math.round(150 + score * 7);
-  return Math.round(120 + score * 5);
+function cashReward(config: MiniGameConfig, score: number, success: boolean, fatigue: number): number {
+  if (!success) return 0;
+  const performanceMultiplier = 0.35 + (score / 100) * 0.95 - fatigue * 0.004;
+  return clamp(Math.round(config.costCash * performanceMultiplier), 0, config.maxRewardCash);
 }
 
-function generateScrimmage(score: number) {
+function secondsRemaining(lastAttempt: { createdAt: Date } | null, cooldownSeconds: number, now: Date): number {
+  if (!lastAttempt) return 0;
+  const elapsedSeconds = Math.floor((now.getTime() - new Date(lastAttempt.createdAt).getTime()) / 1000);
+  return Math.max(0, cooldownSeconds - elapsedSeconds);
+}
+
+function generateScrimmage(score: number, success: boolean) {
   const driveCount = 4;
   let homeScore = 0;
-  let awayScore = 0;
+  let awayScore = success ? 0 : 7;
   const drives = Array.from({ length: driveCount }, (_unused, index) => {
     const chance = score + Math.random() * 30 - 15;
     let result = 'PUNT';
     let points = 0;
-    if (chance > 88) { result = 'TOUCHDOWN'; points = 7; }
-    else if (chance > 70) { result = 'FIELD_GOAL'; points = 3; }
-    else if (chance < 35) { result = 'TURNOVER'; }
+    if (success && chance > 88) { result = 'TOUCHDOWN'; points = 7; }
+    else if (success && chance > 70) { result = 'FIELD_GOAL'; points = 3; }
+    else if (chance < 42) { result = 'TURNOVER'; }
     homeScore += points;
-    if (Math.random() > 0.64) awayScore += Math.random() > 0.55 ? 7 : 3;
+    if (Math.random() > (success ? 0.66 : 0.48)) awayScore += Math.random() > 0.55 ? 7 : 3;
     return {
       drive: index + 1,
       result,
@@ -100,14 +146,14 @@ function generateScrimmage(score: number) {
   return { homeScore, awayScore, drives };
 }
 
-function generateProspect(score: number) {
+function generateProspect(score: number, success: boolean) {
   const positions = ['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'CB', 'S'];
   const traits = ['high-motor', 'quick release', 'elite burst', 'sure hands', 'coverage instincts', 'film-room leader'];
   return {
     position: positions[Math.floor(Math.random() * positions.length)],
-    projectedOverall: clamp(Math.round(score * 0.72 + 22 + Math.random() * 10), 45, 99),
-    trait: traits[Math.floor(Math.random() * traits.length)],
-    confidence: clamp(Math.round(48 + score * 0.45), 50, 96),
+    projectedOverall: success ? clamp(Math.round(score * 0.72 + 22 + Math.random() * 10), 45, 99) : clamp(Math.round(score * 0.55 + 18), 38, 72),
+    trait: success ? traits[Math.floor(Math.random() * traits.length)] : 'uncertain signal',
+    confidence: success ? clamp(Math.round(48 + score * 0.45), 50, 96) : clamp(Math.round(25 + score * 0.25), 25, 55),
   };
 }
 
@@ -134,6 +180,8 @@ export function getMiniGameCatalog() {
     label: game.label,
     category: game.category,
     costCash: game.costCash,
+    cooldownSeconds: game.cooldownSeconds,
+    dailyCap: game.dailyCap,
     description: game.description,
   }));
 }
@@ -141,9 +189,15 @@ export function getMiniGameCatalog() {
 export async function playMiniGame(userId: string, rawType: string) {
   const miniGameType = normalizeMiniGameType(rawType);
   const config = MINI_GAMES[miniGameType];
-  const [team, wallet] = await Promise.all([
+  const now = new Date();
+  const dayStart = startOfUtcDay(now);
+
+  const [team, wallet, typeAttemptsToday, totalAttemptsToday, lastAttempt] = await Promise.all([
     getPrimaryTeam(userId),
     prisma.wallet.findUnique({ where: { userId } }),
+    prisma.miniGameAttempt.count({ where: { userId, miniGameType, createdAt: { gte: dayStart } } }),
+    prisma.miniGameAttempt.count({ where: { userId, createdAt: { gte: dayStart } } }),
+    prisma.miniGameAttempt.findFirst({ where: { userId, miniGameType }, orderBy: { createdAt: 'desc' } }),
   ]);
 
   if (!team) {
@@ -156,53 +210,103 @@ export async function playMiniGame(userId: string, rawType: string) {
     throw new AppError(400, `Need ${config.costCash.toLocaleString()} CASH for this mini-game.`);
   }
 
+  const cooldownRemaining = secondsRemaining(lastAttempt, config.cooldownSeconds, now);
+  if (cooldownRemaining > 0) {
+    throw new AppError(429, `${config.label} is cooling down. Try again in ${cooldownRemaining} seconds.`);
+  }
+  if (typeAttemptsToday >= config.dailyCap) {
+    throw new AppError(429, `${config.label} daily cap reached (${config.dailyCap}/day).`);
+  }
+  if (totalAttemptsToday >= MINI_GAME_TOTAL_DAILY_CAP) {
+    throw new AppError(429, `Daily sports mini-game cap reached (${MINI_GAME_TOTAL_DAILY_CAP}/day).`);
+  }
+
   await ensureDefaultDailyQuests();
 
   const avg = rosterAverage(team);
-  const score = scoreFromRoster(avg, config.difficulty);
-  const outcome = outcomeFromScore(score);
-  const rewardCash = cashReward(miniGameType, score);
-  const metadata: Record<string, unknown> = {
+  const fatigue = clamp(typeAttemptsToday * config.fatiguePerAttempt + totalAttemptsToday * 2, 0, 80);
+  const score = scoreFromRoster(avg, config.difficulty, fatigue);
+  const { success, lossChance } = resolveAttemptOutcome(config, score, fatigue);
+  const outcome = outcomeFromScore(score, success);
+  const proposedRewardCash = cashReward(config, score, success, fatigue);
+  const baseMetadata: Record<string, unknown> = {
     teamId: team.id,
     teamName: team.name,
     rosterAverage: Math.round(avg),
     costCash: config.costCash,
+    cooldownSeconds: config.cooldownSeconds,
+    dailyCap: config.dailyCap,
+    typeAttemptsTodayBefore: typeAttemptsToday,
+    totalAttemptsTodayBefore: totalAttemptsToday,
+    fatigue,
+    lossChance: Number(lossChance.toFixed(3)),
+    success,
+    proposedRewardCash,
   };
 
   let development: Record<string, unknown> | null = null;
   if (miniGameType === 'TEAM_DRILL') {
     const players = team.teamPlayers.map((tp: any) => tp.player);
     const player = players[Math.floor(Math.random() * players.length)];
-    if (player && score >= 62) {
+    if (success && player && score >= 62) {
       const stat = STATS[Math.floor(Math.random() * STATS.length)];
       development = { playerId: player.id, playerName: player.name, stat, amount: score >= 85 ? 2 : 1 };
-      metadata.development = development;
+      baseMetadata.development = development;
     }
   }
 
   if (miniGameType === 'SCOUTING') {
-    metadata.prospect = generateProspect(score);
+    baseMetadata.prospect = generateProspect(score, success);
   }
 
   if (miniGameType === 'STADIUM_MATCH') {
-    metadata.scrimmage = generateScrimmage(score);
-    metadata.attendance = clamp(Math.round((team.venue?.capacity ?? 5000) * (0.12 + score / 500)), 100, team.venue?.capacity ?? 5000);
-    metadata.stadiumWear = score > 80 ? 1 : 2;
+    baseMetadata.scrimmage = generateScrimmage(score, success);
+    baseMetadata.attendance = clamp(Math.round((team.venue?.capacity ?? 5000) * (0.08 + score / 650)), 50, team.venue?.capacity ?? 5000);
+    baseMetadata.stadiumWear = success && score > 80 ? 1 : 2;
   }
 
   return prisma.$transaction(async (tx: any) => {
-    let walletAfter = await tx.wallet.update({
-      where: { userId },
-      data: { cash: { decrement: config.costCash } },
+    const currentTypeAttemptsToday = await tx.miniGameAttempt.count({ where: { userId, miniGameType, createdAt: { gte: dayStart } } });
+    const currentTotalAttemptsToday = await tx.miniGameAttempt.count({ where: { userId, createdAt: { gte: dayStart } } });
+    const currentLastAttempt = await tx.miniGameAttempt.findFirst({ where: { userId, miniGameType }, orderBy: { createdAt: 'desc' } });
+    const currentCooldownRemaining = secondsRemaining(currentLastAttempt, config.cooldownSeconds, now);
+
+    if (currentCooldownRemaining > 0) {
+      throw new AppError(429, `${config.label} is cooling down. Try again in ${currentCooldownRemaining} seconds.`);
+    }
+    if (currentTypeAttemptsToday >= config.dailyCap) {
+      throw new AppError(429, `${config.label} daily cap reached (${config.dailyCap}/day).`);
+    }
+    if (currentTotalAttemptsToday >= MINI_GAME_TOTAL_DAILY_CAP) {
+      throw new AppError(429, `Daily sports mini-game cap reached (${MINI_GAME_TOTAL_DAILY_CAP}/day).`);
+    }
+
+    const attempt = await tx.miniGameAttempt.create({
+      data: {
+        userId,
+        miniGameType,
+        score,
+        outcome,
+        rewardCash: 0,
+        rewardDyn: 0,
+        questProgress: [],
+        metadata: { ...baseMetadata, settlement: 'PENDING' },
+      },
     });
-    await recordCurrencyLedger(tx, {
+
+    let walletAfter = (await debitCurrency(tx, {
       userId,
       currency: 'CASH',
-      amount: -config.costCash,
-      balanceAfter: walletAfter.cash,
+      amount: config.costCash,
       reason: 'MINI_GAME_ENTRY',
       sourceType: 'MINI_GAME',
-      metadata: { miniGameType },
+      sourceId: attempt.id,
+      metadata: { miniGameType, score, outcome },
+    })).wallet;
+    await processCurrencySink(tx, 'CASH', config.costCash, 'MINI_GAME_ENTRY', 'MINI_GAME', attempt.id, {
+      miniGameType,
+      score,
+      outcome,
     });
 
     if (development) {
@@ -221,49 +325,74 @@ export async function playMiniGame(userId: string, rawType: string) {
     if (miniGameType === 'STADIUM_MATCH' && team.venue) {
       await tx.venue.update({
         where: { id: team.venue.id },
-        data: { condition: { decrement: Number(metadata.stadiumWear) } },
+        data: { condition: { decrement: Number(baseMetadata.stadiumWear) } },
       });
     }
 
-    walletAfter = await tx.wallet.update({
-      where: { userId },
-      data: { cash: { increment: rewardCash } },
+    const paidToday = await tx.miniGameAttempt.aggregate({
+      where: { miniGameType, createdAt: { gte: dayStart }, id: { not: attempt.id } },
+      _sum: { rewardCash: true },
     });
-    await recordCurrencyLedger(tx, {
-      userId,
-      currency: 'CASH',
-      amount: rewardCash,
-      balanceAfter: walletAfter.cash,
-      reason: 'MINI_GAME_REWARD',
-      sourceType: 'MINI_GAME',
-      metadata: { miniGameType, score, outcome },
-    });
+    const rewardPaidToday = Number(paidToday._sum.rewardCash ?? 0);
+    const dailyRewardRemaining = Math.max(0, config.dailyRewardBudget - rewardPaidToday);
+    const treasury = await tx.gameTreasury.findUnique({ where: { currency: 'CASH' } });
+    const treasuryCashAvailable = Math.max(0, Math.floor(Number(treasury?.balance ?? 0)));
+    const rewardCash = Math.min(proposedRewardCash, dailyRewardRemaining, treasuryCashAvailable);
+
+    if (rewardCash > 0) {
+      await processTreasuryOutflow(tx, 'CASH', rewardCash, 'MINI_GAME_REWARD', attempt.id, 'MINI_GAME', {
+        miniGameType,
+        score,
+        outcome,
+        rewardPaidToday,
+        dailyRewardBudget: config.dailyRewardBudget,
+      });
+      walletAfter = (await creditCurrency(tx, {
+        userId,
+        currency: 'CASH',
+        amount: rewardCash,
+        reason: 'MINI_GAME_REWARD',
+        sourceType: 'MINI_GAME',
+        sourceId: attempt.id,
+        metadata: { miniGameType, score, outcome, proposedRewardCash },
+      })).wallet;
+    }
 
     const questProgress = await recordDailyQuestProgress(tx, userId, config.category, 1, {
       miniGameType,
       score,
       outcome,
+      rewardCash,
+      fatigue,
     });
 
-    const attempt = await tx.miniGameAttempt.create({
+    const metadata = {
+      ...baseMetadata,
+      rewardCash,
+      rewardCappedByBudget: rewardCash < proposedRewardCash,
+      rewardPaidToday,
+      dailyRewardBudget: config.dailyRewardBudget,
+      dailyRewardRemainingBeforeAttempt: dailyRewardRemaining,
+      treasuryCashAvailableBeforeReward: treasuryCashAvailable,
+      settlement: 'COMPLETE',
+    };
+
+    const updatedAttempt = await tx.miniGameAttempt.update({
+      where: { id: attempt.id },
       data: {
-        userId,
-        miniGameType,
-        score,
-        outcome,
         rewardCash,
-        rewardDyn: 0,
         questProgress,
         metadata,
       },
     });
 
     return {
-      attempt,
+      attempt: updatedAttempt,
       miniGame: { type: miniGameType, label: config.label },
       score,
       outcome,
       rewardCash,
+      proposedRewardCash,
       costCash: config.costCash,
       netCash: rewardCash - config.costCash,
       questProgress,

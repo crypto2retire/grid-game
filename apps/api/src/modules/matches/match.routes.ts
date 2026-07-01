@@ -7,7 +7,8 @@ import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { generateMatchSeed, generateSeedHash } from '../../utils/rng';
 import { runMatchSimulation, TeamState } from './simulator';
 import { routeParam } from '../../utils/routeParams';
-import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
+import { legacyAttributesFromPlayer } from '../economy/ledger';
+import { applyCurrencyDelta } from '../economy/currency.service';
 import { calculateGameEconomics } from '../economy/gameEconomics';
 import { applyPostGameProgression } from './progression';
 import { canTeamPlayToday } from '../game-time/game-time.routes';
@@ -377,15 +378,11 @@ router.post(
       // Deduct medical costs from team owners for any injuries
       for (const inj of progResult.injuries) {
         if (inj.ownerId && inj.cost > 0) {
-          const medWallet = await tx.wallet.update({
-            where: { userId: inj.ownerId },
-            data: { cash: { decrement: inj.cost } },
-          });
-          await recordCurrencyLedger(tx, {
+          await applyCurrencyDelta(tx, {
             userId: inj.ownerId,
             currency: 'CASH',
             amount: -inj.cost,
-            balanceAfter: medWallet.cash,
+            allowNegativeBalance: true,
             reason: 'MEDICAL_EXPENSE',
             sourceType: 'INJURY',
             sourceId: match.id,
@@ -420,15 +417,11 @@ router.post(
       });
 
       // Apply game-day economics — net revenue (not fixed rewards)
-      const homeWalletAfter = await tx.wallet.update({
-        where: { userId: match.homeTeam.ownerId },
-        data: { cash: { increment: homeEconomics.net } },
-      });
-      await recordCurrencyLedger(tx, {
+      await applyCurrencyDelta(tx, {
         userId: match.homeTeam.ownerId,
         currency: 'CASH',
         amount: homeEconomics.net,
-        balanceAfter: homeWalletAfter.cash,
+        allowNegativeBalance: true,
         reason: 'GAME_DAY_NET_REVENUE',
         sourceType: 'MATCH_ECONOMICS',
         sourceId: match.id,
@@ -443,15 +436,11 @@ router.post(
         },
       });
 
-      const awayWalletAfter = await tx.wallet.update({
-        where: { userId: match.awayTeam.ownerId },
-        data: { cash: { increment: awayEconomics.net } },
-      });
-      await recordCurrencyLedger(tx, {
+      await applyCurrencyDelta(tx, {
         userId: match.awayTeam.ownerId,
         currency: 'CASH',
         amount: awayEconomics.net,
-        balanceAfter: awayWalletAfter.cash,
+        allowNegativeBalance: true,
         reason: 'GAME_DAY_NET_REVENUE',
         sourceType: 'MATCH_ECONOMICS',
         sourceId: match.id,

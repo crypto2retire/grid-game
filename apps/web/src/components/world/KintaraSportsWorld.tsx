@@ -19,7 +19,6 @@ import LeaderboardPage from '../../pages/LeaderboardPage';
 import WalletPage from '../../pages/WalletPage';
 import TrainingPage from '../../pages/TrainingPage';
 import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
-import WorldMapPage from '../../pages/WorldMapPage';
 import TransportGaragePage from '../../pages/TransportGaragePage';
 import TeamPage from '../../pages/TeamPage';
 import MatchesPage from '../../pages/MatchesPage';
@@ -82,6 +81,7 @@ interface SportsBuilding {
   panelId: string;
   label: string;
   subtitle: string;
+  loop: string;
   tx: number;
   ty: number;
   color: string;
@@ -90,17 +90,17 @@ interface SportsBuilding {
 }
 
 const BUILDINGS: SportsBuilding[] = [
-  { id: 'stadium', panelId: 'stadium', label: 'Home Stadium', subtitle: 'Enter Matchday', tx: 0, ty: -6, color: '#ef4444', accent: '#991b1b', kind: 'stadium' },
-  { id: 'practice', panelId: 'matches', label: 'Practice Field', subtitle: 'Play / Schedule', tx: -6, ty: -2, color: '#22c55e', accent: '#15803d', kind: 'field' },
-  { id: 'training', panelId: 'training', label: 'Training Gym', subtitle: 'Run Drills', tx: 5, ty: -2, color: '#8b5cf6', accent: '#5b21b6', kind: 'gym' },
-  { id: 'clubhouse', panelId: 'dashboard', label: 'Clubhouse HQ', subtitle: 'Daily Office', tx: -2, ty: 1, color: '#f97316', accent: '#9a3412', kind: 'clubhouse' },
-  { id: 'team', panelId: 'team', label: 'Locker Room', subtitle: 'Manage Team', tx: 3, ty: 1, color: '#38bdf8', accent: '#0369a1', kind: 'team' },
-  { id: 'market', panelId: 'market', label: 'Sports Market', subtitle: 'Trade Assets', tx: -7, ty: 4, color: '#fbbf24', accent: '#b45309', kind: 'shop' },
-  { id: 'medical', panelId: 'progression', label: 'Medical Center', subtitle: 'Recovery', tx: 7, ty: 4, color: '#f8fafc', accent: '#ef4444', kind: 'medical' },
-  { id: 'scout', panelId: 'world', label: 'Scout Tower', subtitle: 'Find Talent', tx: -4, ty: 7, color: '#14b8a6', accent: '#0f766e', kind: 'scout' },
-  { id: 'hall', panelId: 'leaderboard', label: 'Trophy Hall', subtitle: 'Rankings', tx: 2, ty: 7, color: '#fde047', accent: '#ca8a04', kind: 'trophy' },
-  { id: 'garage', panelId: 'transport', label: 'Team Garage', subtitle: 'Travel Fleet', tx: 8, ty: -1, color: '#94a3b8', accent: '#475569', kind: 'garage' },
-  { id: 'bank', panelId: 'wallet', label: 'Sponsor Bank', subtitle: 'CASH / DYN', tx: -9, ty: 0, color: '#0ea5e9', accent: '#075985', kind: 'bank' },
+  { id: 'stadium', panelId: 'stadium', label: 'Home Stadium', subtitle: 'Tickets + Capacity', loop: 'Game-day revenue: ticket yield, stadium wear, owner upgrades', tx: 0, ty: -6, color: '#ef4444', accent: '#991b1b', kind: 'stadium' },
+  { id: 'practice', panelId: 'matches', label: 'Practice Field', subtitle: 'Match Volume', loop: 'Play games, generate fans, qualify for better leagues', tx: -6, ty: -2, color: '#22c55e', accent: '#15803d', kind: 'field' },
+  { id: 'training', panelId: 'training', label: 'Training Gym', subtitle: 'Develop Assets', loop: 'Spend to improve players, then win or sell upward', tx: 5, ty: -2, color: '#8b5cf6', accent: '#5b21b6', kind: 'gym' },
+  { id: 'clubhouse', panelId: 'dashboard', label: 'Clubhouse HQ', subtitle: 'Daily Ops', loop: 'Quests and office tasks route owners back into the economy', tx: -2, ty: 1, color: '#f97316', accent: '#9a3412', kind: 'clubhouse' },
+  { id: 'team', panelId: 'team', label: 'Locker Room', subtitle: 'Roster Value', loop: 'Manage lineup, wages, morale, and tradable player value', tx: 3, ty: 1, color: '#38bdf8', accent: '#0369a1', kind: 'team' },
+  { id: 'market', panelId: 'market', label: 'Sports Market', subtitle: 'Trade Liquidity', loop: 'Players, gear, slots, and team assets create marketplace volume', tx: -7, ty: 4, color: '#fbbf24', accent: '#b45309', kind: 'shop' },
+  { id: 'medical', panelId: 'progression', label: 'Medical Center', subtitle: 'Recovery Sink', loop: 'Injury and fatigue costs protect player value but drain currency', tx: 7, ty: 4, color: '#f8fafc', accent: '#ef4444', kind: 'medical' },
+  { id: 'commissioner', panelId: 'commissioner', label: 'Commissioner Office', subtitle: 'Fund Restocks', loop: 'Community funding unlocks limited sports infrastructure inventory', tx: -4, ty: 7, color: '#14b8a6', accent: '#0f766e', kind: 'scout' },
+  { id: 'hall', panelId: 'leaderboard', label: 'Trophy Hall', subtitle: 'Prestige Race', loop: 'Rankings create demand for training, travel, and premium leagues', tx: 2, ty: 7, color: '#fde047', accent: '#ca8a04', kind: 'trophy' },
+  { id: 'garage', panelId: 'transport', label: 'Team Garage', subtitle: 'Travel Upkeep', loop: 'Better transport reduces fatigue but adds recurring operating costs', tx: 8, ty: -1, color: '#94a3b8', accent: '#475569', kind: 'garage' },
+  { id: 'bank', panelId: 'wallet', label: 'Sponsor Bank', subtitle: 'CASH ↔ DYN', loop: 'Sponsorship, exchange, fees, treasury, and token sinks', tx: -9, ty: 0, color: '#0ea5e9', accent: '#075985', kind: 'bank' },
 ];
 
 type LeagueGateStatus = 'open' | 'locked' | 'owner';
@@ -225,6 +225,58 @@ interface ChatHudMessage {
 interface WalletSnapshot {
   cash: number;
   dynTokens: number;
+}
+
+interface EconomyMeter {
+  key: string;
+  label: string;
+  value: number;
+  target: number;
+  progress: number;
+  unit: string;
+  description?: string;
+}
+
+interface BuildingEconomyLoop {
+  buildingId: string;
+  label: string;
+  meterKey: string;
+  progress: number;
+  status: string;
+}
+
+interface CommissionerInventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  currency: string;
+  price: number;
+  priceLabel: string;
+  quantityTotal: number;
+  quantityRemaining: number;
+  phase: string;
+  unlocked: boolean;
+  soldOut: boolean;
+  unlockProgress: number;
+}
+
+interface CommissionerOverview {
+  cycle: {
+    id: string;
+    title: string;
+    phase: string;
+    fundingRaised: number;
+    fundingGoal: number;
+    rewardPool: number;
+    fundingCurrency: string;
+  };
+  inventory: CommissionerInventoryItem[];
+  meters: EconomyMeter[];
+  buildingLoops: BuildingEconomyLoop[];
+  myStats: { dynEquivalentFunded: number; purchaseCount: number; rewardDynEquivalent: number; share: number };
+  topContributors: Array<{ userId: string; username: string; dynEquivalent: number; rewardDyn: number }>;
+  recentActivity: Array<{ id: string; type: string; username: string; amount: number; currency: string; dynEquivalent: number; rewardDyn: number; inventoryName?: string; createdAt: string }>;
 }
 
 const NPCS = [
@@ -614,18 +666,22 @@ function BoxBuilding({ building }: { building: SportsBuilding }) {
   );
 }
 
-function BuildingLabel({ building }: { building: SportsBuilding }) {
+function BuildingLabel({ building, economyLoop }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop }) {
   const { x, y } = iso(building.tx, building.ty);
+  const progress = Math.max(0, Math.min(100, economyLoop?.progress ?? 0));
   return (
     <g transform={`translate(${x}, ${y + 58})`} style={{ pointerEvents: 'none' }}>
-      <rect x={-58} y={-18} width={116} height={34} rx={10} fill="rgba(15,23,42,0.85)" stroke={building.accent} />
-      <text x={0} y={-4} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={900}>{building.label}</text>
-      <text x={0} y={9} textAnchor="middle" fill="#cbd5e1" fontSize={8} fontWeight={700}>{building.subtitle}</text>
+      <rect x={-72} y={-20} width={144} height={50} rx={12} fill="rgba(15,23,42,0.88)" stroke={building.accent} />
+      <text x={0} y={-6} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={900}>{building.label}</text>
+      <text x={0} y={7} textAnchor="middle" fill="#cbd5e1" fontSize={8} fontWeight={800}>{economyLoop?.label || building.subtitle}</text>
+      <rect x={-52} y={16} width={104} height={5} rx={3} fill="rgba(148,163,184,0.45)" />
+      <rect x={-52} y={16} width={(104 * progress) / 100} height={5} rx={3} fill={building.color} />
+      <text x={0} y={30} textAnchor="middle" fill="#e2e8f0" fontSize={7} fontWeight={800}>{economyLoop?.status || building.subtitle}</text>
     </g>
   );
 }
 
-function SportsBuildingView({ building, onClick }: { building: SportsBuilding; onClick: (building: SportsBuilding) => void }) {
+function SportsBuildingView({ building, economyLoop, onClick }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; onClick: (building: SportsBuilding) => void }) {
   const { x, y } = iso(building.tx, building.ty);
   return (
     <g
@@ -634,7 +690,7 @@ function SportsBuildingView({ building, onClick }: { building: SportsBuilding; o
     >
       <g className="transition-transform duration-150 hover:scale-105" style={{ transformOrigin: `${x}px ${y}px` }}>
         {building.kind === 'stadium' ? <StadiumBuilding building={building} /> : building.kind === 'field' ? <FieldBuilding building={building} /> : <BoxBuilding building={building} />}
-        <BuildingLabel building={building} />
+        <BuildingLabel building={building} economyLoop={economyLoop} />
       </g>
     </g>
   );
@@ -715,6 +771,184 @@ function LeagueEconomyPanel({ gate }: { gate: LeagueGate }) {
   );
 }
 
+function CommissionerPanel({
+  initialOverview,
+  onWallet,
+  onStatus,
+  onOverview,
+}: {
+  initialOverview: CommissionerOverview | null;
+  onWallet: (wallet: WalletSnapshot) => void;
+  onStatus: (status: string) => void;
+  onOverview: (overview: CommissionerOverview) => void;
+}) {
+  const [overview, setOverview] = useState<CommissionerOverview | null>(initialOverview);
+  const [amount, setAmount] = useState(500);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const syncOverview = useCallback((next: CommissionerOverview) => {
+    setOverview(next);
+    onOverview(next);
+  }, [onOverview]);
+
+  const reload = useCallback(async () => {
+    const data = await fetchApi('/api/commissioner/overview');
+    syncOverview(data.data);
+  }, [syncOverview]);
+
+  useEffect(() => {
+    if (initialOverview) setOverview(initialOverview);
+    else reload().catch((error) => onStatus(error instanceof Error ? error.message : 'Commissioner overview failed'));
+  }, [initialOverview, reload, onStatus]);
+
+  const contribute = async (currency = 'DYN') => {
+    try {
+      setBusy('contribute');
+      const data = await fetchApi('/api/commissioner/contribute', {
+        method: 'POST',
+        body: JSON.stringify({ amount, currency }),
+      });
+      if (data.data?.wallet) onWallet(data.data.wallet);
+      if (data.data?.overview) syncOverview(data.data.overview);
+      onStatus(`Commissioner funded: ${amount.toLocaleString()} ${currency}. Limited inventory meters updated.`);
+    } catch (error) {
+      onStatus(error instanceof Error ? error.message : 'Contribution failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const purchase = async (item: CommissionerInventoryItem) => {
+    try {
+      setBusy(item.id);
+      const data = await fetchApi(`/api/commissioner/inventory/${item.id}/purchase`, {
+        method: 'POST',
+        body: JSON.stringify({ quantity: 1 }),
+      });
+      if (data.data?.wallet) onWallet(data.data.wallet);
+      if (data.data?.overview) syncOverview(data.data.overview);
+      onStatus(`${item.name} purchased. Restock demand and scarcity meters updated.`);
+    } catch (error) {
+      onStatus(error instanceof Error ? error.message : 'Purchase failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const meters = overview?.meters || [];
+  const inventory = overview?.inventory || [];
+
+  return (
+    <div className="min-h-full bg-slate-950 text-white p-6 space-y-5">
+      <div className="rounded-3xl border border-cyan-300/20 bg-gradient-to-br from-slate-900 via-cyan-950/40 to-slate-900 p-5 shadow-2xl">
+        <div className="text-xs uppercase tracking-[0.3em] text-cyan-200 font-black">Sports Commissioner Cycle</div>
+        <div className="mt-2 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-black">{overview?.cycle.title || 'Grid City Sports Commissioner Cycle'}</h2>
+            <p className="text-sm text-slate-300 mt-1 max-w-2xl">Community funds league infrastructure, limited inventory unlocks by milestone, buyers create scarcity, and restocks happen only when demand is visible.</p>
+          </div>
+          <div className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-center">
+            <div className="text-2xl font-black text-cyan-100">{overview?.cycle.phase || 'FUNDING'}</div>
+            <div className="text-[11px] uppercase tracking-widest text-cyan-200">Current Phase</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-5">
+        {meters.map((meter) => (
+          <div key={meter.key} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+            <div className="text-[10px] uppercase tracking-widest text-slate-400 font-black">{meter.label}</div>
+            <div className="mt-1 text-lg font-black text-white">{Math.round(meter.value).toLocaleString()}<span className="text-xs text-slate-400"> / {Math.round(meter.target).toLocaleString()} {meter.unit}</span></div>
+            <div className="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-cyan-400 to-emerald-300" style={{ width: `${Math.max(0, Math.min(100, meter.progress))}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4 space-y-3">
+          <div>
+            <div className="text-sm font-black text-emerald-100">Fund the next sports-economy drop</div>
+            <p className="text-xs text-emerald-50/80 mt-1">This is the Kintara-style loop with a sports theme: fund → unlock scarce useful supply → create trade/upkeep pressure → restock from demand.</p>
+          </div>
+          <label className="block text-xs uppercase tracking-widest text-emerald-100 font-black">DYN Contribution</label>
+          <input
+            type="number"
+            value={amount}
+            min={1}
+            max={1000000}
+            onChange={(event) => setAmount(Math.max(1, Number(event.target.value) || 1))}
+            className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-emerald-300"
+          />
+          <div className="flex flex-wrap gap-2">
+            {[250, 500, 2500, 10000].map((value) => (
+              <button key={value} type="button" onClick={() => setAmount(value)} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-black hover:bg-white/20">{value.toLocaleString()}</button>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={busy === 'contribute'}
+            onClick={() => contribute('DYN')}
+            className="w-full rounded-xl bg-emerald-500 px-4 py-3 font-black text-slate-950 hover:bg-emerald-300 disabled:opacity-60"
+          >
+            {busy === 'contribute' ? 'Funding...' : 'Fund Commissioner Cycle'}
+          </button>
+          {overview && (
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-xl bg-slate-900/70 p-2"><div className="font-black text-white">{Math.round(overview.myStats.dynEquivalentFunded).toLocaleString()}</div><div className="text-slate-400">My Funded</div></div>
+              <div className="rounded-xl bg-slate-900/70 p-2"><div className="font-black text-white">{overview.myStats.purchaseCount}</div><div className="text-slate-400">Buys</div></div>
+              <div className="rounded-xl bg-slate-900/70 p-2"><div className="font-black text-white">{Math.round(overview.myStats.rewardDynEquivalent).toLocaleString()}</div><div className="text-slate-400">Rewards</div></div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <div className="text-sm font-black">Limited Restock Inventory</div>
+              <div className="text-xs text-slate-400">No infinite shop: funding milestones release finite batches.</div>
+            </div>
+            <button type="button" onClick={() => reload().catch(() => undefined)} className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black hover:bg-white/20">Refresh</button>
+          </div>
+          <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+            {inventory.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-white/10 bg-slate-900/70 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-black text-white">{item.name}</div>
+                    <div className="text-xs text-slate-300 mt-1">{item.description}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-black text-amber-200">{item.priceLabel}</div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">{item.phase}</div>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-slate-300"><span>Unlock</span><span>{item.unlockProgress}%</span></div>
+                    <div className="mt-1 h-2 rounded-full bg-slate-800 overflow-hidden"><div className="h-full bg-cyan-400" style={{ width: `${item.unlockProgress}%` }} /></div>
+                  </div>
+                  <div className="w-24 text-center rounded-xl bg-white/5 p-2"><div className="font-black">{item.quantityRemaining}/{item.quantityTotal}</div><div className="text-slate-400">left</div></div>
+                  <button
+                    type="button"
+                    disabled={!item.unlocked || item.soldOut || busy === item.id}
+                    onClick={() => purchase(item)}
+                    className="rounded-xl bg-amber-400 px-3 py-2 font-black text-slate-950 hover:bg-amber-200 disabled:bg-slate-700 disabled:text-slate-400"
+                  >
+                    {item.soldOut ? 'Sold Out' : item.unlocked ? 'Buy' : 'Locked'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {inventory.length === 0 && <div className="text-sm text-slate-400">Loading commissioner inventory...</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MiniMap({ player }: { player: { x: number; y: number } }) {
   const toMini = (x: number, y: number) => ({
     left: Math.max(13, Math.min(139, 76 + x / 10)),
@@ -776,6 +1010,7 @@ export default function KintaraSportsWorld() {
   const [chatInput, setChatInput] = useState('');
   const [worldStatus, setWorldStatus] = useState('Live world connected');
   const [walletOverride, setWalletOverride] = useState<WalletSnapshot | null>(null);
+  const [commissionerOverview, setCommissionerOverview] = useState<CommissionerOverview | null>(null);
 
   const tiles = useMemo(() => {
     const all: Array<{ key: string; x: number; y: number; fill: string; stroke: string }> = [];
@@ -836,10 +1071,20 @@ export default function KintaraSportsWorld() {
     }
   }, []);
 
+  const loadCommissioner = useCallback(async () => {
+    try {
+      const data = await fetchApi('/api/commissioner/overview');
+      setCommissionerOverview(data.data || null);
+    } catch {
+      setCommissionerOverview(null);
+    }
+  }, []);
+
   useEffect(() => {
     loadQuests();
     loadChat();
-  }, [loadChat, loadQuests]);
+    loadCommissioner();
+  }, [loadChat, loadCommissioner, loadQuests]);
 
   useEffect(() => {
     const handleMessage = (message: ChatHudMessage) => {
@@ -882,7 +1127,7 @@ export default function KintaraSportsWorld() {
       case 'wallet': return { title: 'Sponsor Bank', content: <WalletPage /> };
       case 'training': return { title: 'Training Gym', content: <TrainingPage /> };
       case 'stadium': return { title: 'Home Stadium', content: <StadiumInteriorPage /> };
-      case 'world': return { title: 'Scout Office', content: <WorldMapPage /> };
+      case 'commissioner': return { title: 'Commissioner Office', content: <CommissionerPanel initialOverview={commissionerOverview} onWallet={setWalletOverride} onStatus={setWorldStatus} onOverview={setCommissionerOverview} /> };
       case 'transport': return { title: 'Team Garage', content: <TransportGaragePage /> };
       case 'matches': return { title: 'Practice Field', content: <MatchesPage /> };
       case 'progression': return { title: 'Medical Center', content: <PlayerProgressionPage /> };
@@ -1020,7 +1265,7 @@ export default function KintaraSportsWorld() {
 
   const refreshHud = async () => {
     setWorldStatus('Refreshing live world, quests, and chat...');
-    const results = await Promise.allSettled([refreshWorld(), loadQuests(), loadChat()]);
+    const results = await Promise.allSettled([refreshWorld(), loadQuests(), loadChat(), loadCommissioner()]);
     const failed = results.filter((result) => result.status === 'rejected').length;
     setWorldStatus(failed ? `Refresh finished with ${failed} server issue${failed === 1 ? '' : 's'}` : 'Live world refreshed');
   };
@@ -1028,6 +1273,17 @@ export default function KintaraSportsWorld() {
   const username = user?.displayName || user?.username || 'Owner';
   const cash = walletOverride?.cash ?? user?.wallet?.cash ?? 0;
   const dyn = walletOverride?.dynTokens ?? user?.wallet?.dynTokens ?? 0;
+  const loopByBuilding = useMemo(() => {
+    const map = new Map<string, BuildingEconomyLoop>();
+    commissionerOverview?.buildingLoops?.forEach((loop) => map.set(loop.buildingId, loop));
+    return map;
+  }, [commissionerOverview]);
+  const economyMeters: EconomyMeter[] = commissionerOverview?.meters || [
+    { key: 'communityFunding', label: 'Community Funding', value: 0, target: 25000, progress: 0, unit: 'DYN', description: 'Fund shared sports infrastructure.' },
+    { key: 'limitedInventory', label: 'Limited Inventory', value: 0, target: 5, progress: 0, unit: 'drops', description: 'Unlock finite restock batches.' },
+    { key: 'inventoryScarcity', label: 'Scarcity', value: 0, target: 1, progress: 0, unit: 'claimed', description: 'Claimed supply drives restock demand.' },
+    { key: 'rewardPool', label: 'Rewards', value: 0, target: 2500, progress: 0, unit: 'DYN-equiv', description: 'Contributor reward budget.' },
+  ];
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#8ed5f5] select-none">
@@ -1108,7 +1364,7 @@ export default function KintaraSportsWorld() {
         {DECORATIONS.map((item, idx) => <Decoration key={`${item.kind}-${idx}`} item={item} />)}
         {CROWD_CLUSTERS.map((cluster, idx) => <CrowdCluster key={`crowd-${idx}`} tx={cluster.tx} ty={cluster.ty} color={cluster.color} />)}
 
-        {BUILDINGS.map((building) => <SportsBuildingView key={building.id} building={building} onClick={openBuilding} />)}
+        {BUILDINGS.map((building) => <SportsBuildingView key={building.id} building={building} economyLoop={loopByBuilding.get(building.id)} onClick={openBuilding} />)}
 
         {NPCS.map((npc) => {
           const p = iso(npc.tx, npc.ty);
@@ -1164,26 +1420,25 @@ export default function KintaraSportsWorld() {
       <MiniMap player={player} />
 
       {/* Economy loop card */}
-      <div className="absolute right-4 top-52 z-[6] hidden xl:block w-[330px] rounded-2xl bg-slate-950/88 border border-white/15 shadow-2xl text-white backdrop-blur-md overflow-hidden">
+      <div className="absolute right-4 top-52 z-[6] hidden xl:block w-[350px] rounded-2xl bg-slate-950/88 border border-white/15 shadow-2xl text-white backdrop-blur-md overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-orange-500/25 to-sky-500/20">
-          <div className="text-[11px] uppercase tracking-[0.25em] text-slate-300 font-black">Return + Volume Loop</div>
-          <div className="text-lg font-black">Build, Trade, Host, Advance</div>
+          <div className="text-[11px] uppercase tracking-[0.25em] text-slate-300 font-black">Commissioner Economy Meters</div>
+          <div className="text-lg font-black">Fund → Unlock → Buy → Restock</div>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-2 text-xs">
-          {[
-            ['Make', 'Tickets, sponsors, player sales, league rewards'],
-            ['Spend', 'Training, recovery, travel, stadium upgrades'],
-            ['Trade', 'Players, gear, passes, facility slots'],
-            ['Own', 'Custom leagues, venues, tournaments, media'],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="font-black text-amber-200 uppercase tracking-wider">{label}</div>
-              <div className="mt-1 text-slate-200 leading-snug">{value}</div>
+        <div className="p-4 space-y-3 text-xs">
+          {economyMeters.slice(0, 5).map((meter) => (
+            <div key={meter.key} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-black text-amber-200 uppercase tracking-wider">{meter.label}</div>
+                <div className="font-black text-white">{meter.progress}%</div>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden"><div className="h-full bg-gradient-to-r from-cyan-400 to-emerald-300" style={{ width: `${Math.max(0, Math.min(100, meter.progress))}%` }} /></div>
+              <div className="mt-1 text-slate-300 leading-snug">{meter.description}</div>
             </div>
           ))}
         </div>
         <div className="px-4 pb-4 text-[11px] leading-snug text-emerald-100">
-          Better user leagues attract outside teams; owners earn revenue while paying maintenance and game tax, creating repeat play and platform sinks.
+          Every building now points at a real loop: tickets, development, trade, recovery, travel, treasury flow, or Commissioner scarcity/restocks.
         </div>
       </div>
 

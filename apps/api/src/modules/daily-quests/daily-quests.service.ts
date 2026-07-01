@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { creditCurrency } from '../economy/currency.service';
 
 const DAILY_QUESTS = [
   {
@@ -213,52 +213,62 @@ export async function claimDailyQuest(userId: string, questId: string) {
 
   if (!progress) throw new AppError(404, 'Daily quest progress not found');
   if (!progress.completed) throw new AppError(400, 'Daily quest is not complete yet');
-  if (progress.claimed) throw new AppError(400, 'Daily quest reward already claimed');
+  if (progress.claimed || progress.rewardGranted) throw new AppError(400, 'Daily quest reward already claimed');
 
   return prisma.$transaction(async (tx: any) => {
-    const claimed = await tx.dailyQuestProgress.update({
-      where: { id: progress.id },
+    const claimLock = await tx.dailyQuestProgress.updateMany({
+      where: {
+        id: progress.id,
+        userId,
+        questId,
+        dateKey,
+        completed: true,
+        claimed: false,
+        rewardGranted: false,
+      },
       data: { claimed: true, rewardGranted: true, claimedAt: new Date() },
+    });
+
+    if (claimLock.count !== 1) {
+      throw new AppError(409, 'Daily quest reward already claimed');
+    }
+
+    const claimed = await tx.dailyQuestProgress.findUnique({
+      where: { id: progress.id },
       include: { quest: true },
     });
+
+    if (!claimed) throw new AppError(404, 'Daily quest progress not found');
 
     let wallet = await tx.wallet.findUnique({ where: { userId } });
     if (!wallet) {
       wallet = await tx.wallet.create({ data: { userId } });
     }
 
-    if (progress.quest.rewardCash > 0) {
-      wallet = await tx.wallet.update({
-        where: { userId },
-        data: { cash: { increment: progress.quest.rewardCash } },
-      });
-      await recordCurrencyLedger(tx, {
+    if (claimed.quest.rewardCash > 0) {
+      const credit = await creditCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: progress.quest.rewardCash,
-        balanceAfter: wallet.cash,
+        amount: claimed.quest.rewardCash,
         reason: 'DAILY_QUEST_REWARD',
         sourceType: 'DAILY_QUEST',
-        sourceId: progress.quest.id,
-        metadata: { code: progress.quest.code, dateKey },
+        sourceId: claimed.quest.id,
+        metadata: { code: claimed.quest.code, dateKey, progressId: claimed.id },
       });
+      wallet = credit.wallet;
     }
 
-    if (progress.quest.rewardDyn > 0) {
-      wallet = await tx.wallet.update({
-        where: { userId },
-        data: { dynTokens: { increment: progress.quest.rewardDyn } },
-      });
-      await recordCurrencyLedger(tx, {
+    if (claimed.quest.rewardDyn > 0) {
+      const credit = await creditCurrency(tx, {
         userId,
         currency: 'DYN',
-        amount: progress.quest.rewardDyn,
-        balanceAfter: wallet.dynTokens,
+        amount: claimed.quest.rewardDyn,
         reason: 'DAILY_QUEST_REWARD',
         sourceType: 'DAILY_QUEST',
-        sourceId: progress.quest.id,
-        metadata: { code: progress.quest.code, dateKey },
+        sourceId: claimed.quest.id,
+        metadata: { code: claimed.quest.code, dateKey, progressId: claimed.id },
       });
+      wallet = credit.wallet;
     }
 
     return {

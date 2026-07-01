@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { recordCurrencyLedger } from '../economy/ledger';
+import { debitCurrency } from '../economy/currency.service';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
 import { calculateTeamSlotPrice } from '../game-time/game-time.routes';
 
@@ -174,19 +174,10 @@ export async function buyTeamFromCatalog(userId: string, teamId: string, currenc
 
   return prisma.$transaction(async (tx: any) => {
     // Deduct payment
-    const updatedWallet = await tx.wallet.update({
-      where: { userId },
-      data: currency === 'DYN'
-        ? { dynTokens: { decrement: price } }
-        : { solBalance: { decrement: price } },
-    });
-
-    // Record ledger
-    await recordCurrencyLedger(tx, {
+    const { wallet: updatedWallet } = await debitCurrency(tx, {
       userId,
       currency,
-      amount: -price,
-      balanceAfter: currency === 'DYN' ? updatedWallet.dynTokens : Math.round(updatedWallet.solBalance),
+      amount: price,
       reason: 'TEAM_PURCHASE',
       sourceType: 'TEAM_CATALOG',
       sourceId: teamId,

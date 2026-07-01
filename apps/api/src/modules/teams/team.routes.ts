@@ -7,7 +7,8 @@ import { tokenGate } from '../../middleware/tokenGate';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
-import { recordCurrencyLedger, legacyAttributesFromPlayer } from '../economy/ledger';
+import { legacyAttributesFromPlayer } from '../economy/ledger';
+import { creditCurrency, debitCurrency, processCurrencySink, settleMarketplaceSale } from '../economy/currency.service';
 import { getSportConfig, SportId } from '../sports/sports.config';
 import { generateAndCreatePlayerTx } from '../players/player.generator';
 import { generateAIPlayers } from '../ai-teams/ai-teams.service';
@@ -279,15 +280,10 @@ router.post(
     }
 
     await prisma.$transaction(async (tx: any) => {
-      const walletAfter = await tx.wallet.update({
-        where: { userId },
-        data: { cash: { decrement: price } },
-      });
-      await recordCurrencyLedger(tx, {
+      await debitCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: -price,
-        balanceAfter: walletAfter.cash,
+        amount: price,
         reason: 'PLAYER_HIRE',
         sourceType: 'TEAM_PLAYER',
         sourceId: input.playerId,
@@ -410,7 +406,7 @@ router.post(
         });
       }
       // Create new venue
-      await tx.venue.create({
+      const createdVenue = await tx.venue.create({
         data: {
           teamId: team.id,
           ownerId: userId, // Stadium stays with the player
@@ -423,31 +419,40 @@ router.post(
           prestige: prestigeMap[input.tier] || 10,
         },
       });
-      // Deduct cash from buyer
-      await tx.wallet.update({
-        where: { userId },
-        data: { cash: { decrement: input.cost } },
-      });
-      // Credit game owner (infrastructure revenue)
-      const gameOwnerId = env.GAME_OWNER_USER_ID;
-      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
-      if (gameOwnerWallet) {
-        await tx.wallet.update({
-          where: { userId: gameOwnerId },
-          data: { cash: { increment: input.cost } },
-        });
-      }
-      // Record ledger
-      await recordCurrencyLedger(tx, {
+
+      await debitCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: -input.cost,
-        balanceAfter: wallet.cash - input.cost,
+        amount: input.cost,
         reason: 'STADIUM_UPGRADE',
         sourceType: 'VENUE_PURCHASE',
-        sourceId: teamId,
-        metadata: { tier: input.tier, capacity: input.capacity },
+        sourceId: createdVenue.id,
+        metadata: { teamId, tier: input.tier, capacity: input.capacity, name: input.name },
       });
+
+      // Infrastructure sale proceeds go to game owner wallet when configured;
+      // otherwise they are a platform sink/treasury inflow.
+      const gameOwnerId = env.GAME_OWNER_USER_ID;
+      const gameOwnerWallet = gameOwnerId ? await tx.wallet.findUnique({ where: { userId: gameOwnerId } }) : null;
+      if (gameOwnerId && gameOwnerWallet) {
+        await creditCurrency(tx, {
+          userId: gameOwnerId,
+          currency: 'CASH',
+          amount: input.cost,
+          reason: 'STADIUM_UPGRADE_REVENUE',
+          sourceType: 'VENUE_PURCHASE',
+          sourceId: createdVenue.id,
+          metadata: { buyerId: userId, teamId, tier: input.tier, capacity: input.capacity, name: input.name },
+        });
+      } else {
+        await processCurrencySink(tx, 'CASH', input.cost, 'STADIUM_UPGRADE', 'VENUE_PURCHASE', createdVenue.id, {
+          buyerId: userId,
+          teamId,
+          tier: input.tier,
+          capacity: input.capacity,
+          name: input.name,
+        });
+      }
     });
 
     res.json({ status: 'success', message: `Purchased ${input.name}` });
@@ -492,7 +497,7 @@ router.post(
         data: { teamId: null },
       });
       // Create new
-      await tx.transportationAsset.create({
+      const createdTransport = await tx.transportationAsset.create({
         data: {
           teamId: team.id,
           ownerId: userId, // Transport stays with the player
@@ -503,31 +508,39 @@ router.post(
           prestige: input.prestige,
         },
       });
-      // Deduct cash from buyer
-      await tx.wallet.update({
-        where: { userId },
-        data: { cash: { decrement: input.cost } },
-      });
-      // Credit game owner (infrastructure revenue)
-      const gameOwnerId = env.GAME_OWNER_USER_ID;
-      const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
-      if (gameOwnerWallet) {
-        await tx.wallet.update({
-          where: { userId: gameOwnerId },
-          data: { cash: { increment: input.cost } },
-        });
-      }
-      // Record ledger
-      await recordCurrencyLedger(tx, {
+
+      await debitCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: -input.cost,
-        balanceAfter: wallet.cash - input.cost,
+        amount: input.cost,
         reason: 'TRANSPORTATION_PURCHASE',
         sourceType: 'TRANSPORT_PURCHASE',
-        sourceId: teamId,
-        metadata: { tier: input.tier, name: input.name },
+        sourceId: createdTransport.id,
+        metadata: { teamId, tier: input.tier, name: input.name },
       });
+
+      // Infrastructure sale proceeds go to game owner wallet when configured;
+      // otherwise they are a platform sink/treasury inflow.
+      const gameOwnerId = env.GAME_OWNER_USER_ID;
+      const gameOwnerWallet = gameOwnerId ? await tx.wallet.findUnique({ where: { userId: gameOwnerId } }) : null;
+      if (gameOwnerId && gameOwnerWallet) {
+        await creditCurrency(tx, {
+          userId: gameOwnerId,
+          currency: 'CASH',
+          amount: input.cost,
+          reason: 'TRANSPORTATION_PURCHASE_REVENUE',
+          sourceType: 'TRANSPORT_PURCHASE',
+          sourceId: createdTransport.id,
+          metadata: { buyerId: userId, teamId, tier: input.tier, name: input.name },
+        });
+      } else {
+        await processCurrencySink(tx, 'CASH', input.cost, 'TRANSPORTATION_PURCHASE', 'TRANSPORT_PURCHASE', createdTransport.id, {
+          buyerId: userId,
+          teamId,
+          tier: input.tier,
+          name: input.name,
+        });
+      }
     });
 
     res.json({ status: 'success', message: `Purchased ${input.name}` });
@@ -610,53 +623,43 @@ router.post(
         data: { ownerId: userId, leaseRate: 0 },
       });
 
+      await debitCurrency(tx, {
+        userId,
+        currency,
+        amount: price,
+        reason: currency === 'SOL' ? 'VENUE_PURCHASE_SOL' : 'VENUE_PURCHASE',
+        sourceType: 'VENUE_BUY',
+        sourceId: team.venue!.id,
+        metadata: { tier: team.venue!.tier, name: team.venue!.name, price, currency, sellerId: team.venue!.ownerId },
+      });
+
       if (currency === 'CASH') {
-        // Deduct cash from buyer, credit game owner
-        await tx.wallet.update({
-          where: { userId },
-          data: { cash: { decrement: price } },
-        });
-        const gameOwnerId = env.GAME_OWNER_USER_ID;
-        const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
-        if (gameOwnerWallet) {
-          await tx.wallet.update({
-            where: { userId: gameOwnerId },
-            data: { cash: { increment: price } },
-          });
-        }
-        await recordCurrencyLedger(tx, {
-          userId,
-          currency: 'CASH',
-          amount: -price,
-          balanceAfter: wallet.cash - price,
-          reason: 'VENUE_PURCHASE',
-          sourceType: 'VENUE_BUY',
-          sourceId: team.venue!.id,
-          metadata: { tier: team.venue!.tier, name: team.venue!.name, price, currency },
-        });
-      } else {
-        // SOL purchase: deduct SOL, credit to treasury (real-world revenue)
-        await tx.wallet.update({
-          where: { userId },
-          data: { solBalance: { decrement: price } },
-        });
-        // Credit SOL to treasury for real-world expenses
-        await tx.gameTreasury.upsert({
-          where: { currency: 'SOL' },
-          create: { currency: 'SOL', balance: price, totalInflows: price },
-          update: { balance: { increment: price }, totalInflows: { increment: price } },
-        });
-        await tx.treasuryTransaction.create({
-          data: {
-            treasury: { connect: { currency: 'SOL' } },
-            type: 'INFLOW',
+        const sellerId = team.venue!.ownerId || env.GAME_OWNER_USER_ID;
+        const sellerWallet = sellerId ? await tx.wallet.findUnique({ where: { userId: sellerId } }) : null;
+        if (sellerId && sellerWallet) {
+          await creditCurrency(tx, {
+            userId: sellerId,
+            currency: 'CASH',
             amount: price,
-            currency: 'SOL',
-            reason: 'VENUE_PURCHASE_SOL',
+            reason: 'VENUE_PURCHASE_REVENUE',
             sourceType: 'VENUE_BUY',
             sourceId: team.venue!.id,
-            metadata: { tier: team.venue!.tier, name: team.venue!.name, price, userId },
-          },
+            metadata: { buyerId: userId, tier: team.venue!.tier, name: team.venue!.name, price },
+          });
+        } else {
+          await processCurrencySink(tx, 'CASH', price, 'VENUE_PURCHASE', 'VENUE_BUY', team.venue!.id, {
+            buyerId: userId,
+            tier: team.venue!.tier,
+            name: team.venue!.name,
+            price,
+          });
+        }
+      } else {
+        await processCurrencySink(tx, 'SOL', price, 'VENUE_PURCHASE_SOL', 'VENUE_BUY', team.venue!.id, {
+          buyerId: userId,
+          tier: team.venue!.tier,
+          name: team.venue!.name,
+          price,
         });
       }
     });
@@ -716,51 +719,43 @@ router.post(
         data: { ownerId: userId },
       });
 
+      await debitCurrency(tx, {
+        userId,
+        currency,
+        amount: price,
+        reason: currency === 'SOL' ? 'TRANSPORT_PURCHASE_SOL' : 'TRANSPORTATION_PURCHASE',
+        sourceType: 'TRANSPORT_BUY',
+        sourceId: transport.id,
+        metadata: { tier: transport.tier, name: transport.name, price, currency, sellerId: transport.ownerId },
+      });
+
       if (currency === 'CASH') {
-        await tx.wallet.update({
-          where: { userId },
-          data: { cash: { decrement: price } },
-        });
-        const gameOwnerId = env.GAME_OWNER_USER_ID;
-        const gameOwnerWallet = await tx.wallet.findUnique({ where: { userId: gameOwnerId } });
-        if (gameOwnerWallet) {
-          await tx.wallet.update({
-            where: { userId: gameOwnerId },
-            data: { cash: { increment: price } },
-          });
-        }
-        await recordCurrencyLedger(tx, {
-          userId,
-          currency: 'CASH',
-          amount: -price,
-          balanceAfter: wallet.cash - price,
-          reason: 'TRANSPORTATION_PURCHASE',
-          sourceType: 'TRANSPORT_BUY',
-          sourceId: transport.id,
-          metadata: { tier: transport.tier, name: transport.name, price, currency },
-        });
-      } else {
-        // SOL purchase: goes to treasury
-        await tx.wallet.update({
-          where: { userId },
-          data: { solBalance: { decrement: price } },
-        });
-        await tx.gameTreasury.upsert({
-          where: { currency: 'SOL' },
-          create: { currency: 'SOL', balance: price, totalInflows: price },
-          update: { balance: { increment: price }, totalInflows: { increment: price } },
-        });
-        await tx.treasuryTransaction.create({
-          data: {
-            treasury: { connect: { currency: 'SOL' } },
-            type: 'INFLOW',
+        const sellerId = transport.ownerId || env.GAME_OWNER_USER_ID;
+        const sellerWallet = sellerId ? await tx.wallet.findUnique({ where: { userId: sellerId } }) : null;
+        if (sellerId && sellerWallet) {
+          await creditCurrency(tx, {
+            userId: sellerId,
+            currency: 'CASH',
             amount: price,
-            currency: 'SOL',
-            reason: 'TRANSPORT_PURCHASE_SOL',
+            reason: 'TRANSPORTATION_PURCHASE_REVENUE',
             sourceType: 'TRANSPORT_BUY',
             sourceId: transport.id,
-            metadata: { tier: transport.tier, name: transport.name, price, userId },
-          },
+            metadata: { buyerId: userId, tier: transport.tier, name: transport.name, price },
+          });
+        } else {
+          await processCurrencySink(tx, 'CASH', price, 'TRANSPORTATION_PURCHASE', 'TRANSPORT_BUY', transport.id, {
+            buyerId: userId,
+            tier: transport.tier,
+            name: transport.name,
+            price,
+          });
+        }
+      } else {
+        await processCurrencySink(tx, 'SOL', price, 'TRANSPORT_PURCHASE_SOL', 'TRANSPORT_BUY', transport.id, {
+          buyerId: userId,
+          tier: transport.tier,
+          name: transport.name,
+          price,
         });
       }
     });
@@ -1088,28 +1083,28 @@ router.post(
     const sellerId = venue.ownerId;
 
     await prisma.$transaction(async (tx: any) => {
-      // Transfer ownership
-      await tx.venue.update({
-        where: { id: venueId },
+      const saleGuard: any = { id: venueId, isForSale: true };
+      if (sellerId) saleGuard.ownerId = sellerId;
+      else saleGuard.ownerId = null;
+
+      const transfer = await tx.venue.updateMany({
+        where: saleGuard,
         data: { ownerId: userId, isForSale: false, salePrice: null, saleListedAt: null },
       });
-
-      if (currency === 'CASH') {
-        await tx.wallet.update({ where: { userId }, data: { cash: { decrement: price } } });
-        if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { cash: { increment: price } } });
-        }
-      } else if (currency === 'DYN') {
-        await tx.wallet.update({ where: { userId }, data: { dynTokens: { decrement: price } } });
-        if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { dynTokens: { increment: price } } });
-        }
-      } else {
-        await tx.wallet.update({ where: { userId }, data: { solBalance: { decrement: price } } });
-        if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { solBalance: { increment: price } } });
-        }
+      if (transfer.count !== 1) {
+        throw new AppError(409, 'Venue listing is no longer available');
       }
+
+      await settleMarketplaceSale(tx, {
+        buyerId: userId,
+        sellerId,
+        currency,
+        price,
+        reasonPrefix: 'VENUE',
+        sourceType: 'VENUE_MARKETPLACE',
+        sourceId: venueId,
+        metadata: { venueId, venueName: venue.name, sellerId },
+      });
     });
 
     res.json({ status: 'success', message: `You now own ${venue.name}` });
@@ -1249,27 +1244,28 @@ router.post(
     const sellerId = transport.ownerId;
 
     await prisma.$transaction(async (tx: any) => {
-      await tx.transportationAsset.update({
-        where: { id: transportId },
+      const saleGuard: any = { id: transportId, isForSale: true, teamId: null };
+      if (sellerId) saleGuard.ownerId = sellerId;
+      else saleGuard.ownerId = null;
+
+      const transfer = await tx.transportationAsset.updateMany({
+        where: saleGuard,
         data: { ownerId: userId, isForSale: false, salePrice: null, saleListedAt: null },
       });
-
-      if (currency === 'CASH') {
-        await tx.wallet.update({ where: { userId }, data: { cash: { decrement: price } } });
-        if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { cash: { increment: price } } });
-        }
-      } else if (currency === 'DYN') {
-        await tx.wallet.update({ where: { userId }, data: { dynTokens: { decrement: price } } });
-        if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { dynTokens: { increment: price } } });
-        }
-      } else {
-        await tx.wallet.update({ where: { userId }, data: { solBalance: { decrement: price } } });
-        if (sellerId) {
-          await tx.wallet.update({ where: { userId: sellerId }, data: { solBalance: { increment: price } } });
-        }
+      if (transfer.count !== 1) {
+        throw new AppError(409, 'Transport listing is no longer available');
       }
+
+      await settleMarketplaceSale(tx, {
+        buyerId: userId,
+        sellerId,
+        currency,
+        price,
+        reasonPrefix: 'TRANSPORT',
+        sourceType: 'TRANSPORT_MARKETPLACE',
+        sourceId: transportId,
+        metadata: { transportId, transportName: transport.name, sellerId },
+      });
     });
 
     res.json({ status: 'success', message: `You now own ${transport.name}` });
