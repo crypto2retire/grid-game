@@ -36,9 +36,18 @@ const FOCUS_LABELS: Record<string, string> = {
 
 const TRAINING_DURATION_SECONDS = 30; // Real-time seconds per training
 
+const safeNumber = (value: unknown): number => {
+  const parsed = typeof value === 'number' ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatNumber = (value: unknown): string => safeNumber(value).toLocaleString();
+
 export default function TrainingPage() {
   const { packages, activeTraining, isTraining, startTraining, cancelTraining, claimReward, playerFatigue, canTrain, completedSessions, loading: packagesLoading } = useTraining();
-  const { teams, selectedTeamId, setSelectedTeamId, wallet, refreshTeams } = useGameStore();
+  const { teams, selectedTeamId, setSelectedTeamId, wallet, refreshTeams, refreshWallet } = useGameStore();
+  const walletCash = safeNumber(wallet?.cash);
+  const walletDyn = safeNumber(wallet?.dynTokens);
   
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -47,12 +56,13 @@ export default function TrainingPage() {
 
   // Load teams on mount if not already loaded
   useEffect(() => {
+    refreshWallet();
     if (teams.length === 0) {
       refreshTeams().then(() => setLoading(false));
     } else {
       setLoading(false);
     }
-  }, [teams.length, refreshTeams]);
+  }, [teams.length, refreshTeams, refreshWallet]);
 
   // Reset player selection when team changes
   useEffect(() => {
@@ -149,11 +159,11 @@ export default function TrainingPage() {
           </select>
           <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl text-sm">
             <Coins className="w-4 h-4 text-[#FFD700]" />
-            <span className="text-white font-medium">{wallet.cash.toLocaleString()} CASH</span>
+            <span className="text-white font-medium">{formatNumber(walletCash)} CASH</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl text-sm">
             <Zap className="w-4 h-4 text-purple-400" />
-            <span className="text-white font-medium">{wallet.dynTokens.toLocaleString()} DYN</span>
+            <span className="text-white font-medium">{formatNumber(walletDyn)} DYN</span>
           </div>
         </div>
       </div>
@@ -294,7 +304,9 @@ export default function TrainingPage() {
       <div className="grid grid-cols-1 gap-4">
         {packages.map((pkg) => {
           const FocusIcon = FOCUS_ICONS[pkg.focusType] || Users;
-          const canAfford = wallet.dynTokens >= pkg.costGrid && wallet.cash >= pkg.costCash;
+          const costGrid = safeNumber(pkg.costGrid);
+          const costCash = safeNumber(pkg.costCash);
+          const canAfford = walletDyn >= costGrid && walletCash >= costCash;
           const check = canTrain(pkg.focusType === 'INDIVIDUAL' ? selectedPlayer : undefined);
           
           return (
@@ -330,13 +342,13 @@ export default function TrainingPage() {
 
               <div className="flex items-center justify-between pt-4 border-t border-white/10">
                 <div className="space-y-1">
-                  {pkg.costGrid > 0 && (
-                    <div className="text-sm text-purple-400 font-bold">{pkg.costGrid.toLocaleString()} DYN</div>
+                  {costGrid > 0 && (
+                    <div className="text-sm text-purple-400 font-bold">{formatNumber(costGrid)} DYN</div>
                   )}
-                  {pkg.costCash > 0 && (
-                    <div className="text-sm text-[#FFD700] font-bold">{pkg.costCash.toLocaleString()} CASH</div>
+                  {costCash > 0 && (
+                    <div className="text-sm text-[#FFD700] font-bold">{formatNumber(costCash)} CASH</div>
                   )}
-                  {pkg.costGrid === 0 && pkg.costCash === 0 && (
+                  {costGrid === 0 && costCash === 0 && (
                     <div className="text-sm text-emerald-400 font-bold">Free</div>
                   )}
                 </div>
