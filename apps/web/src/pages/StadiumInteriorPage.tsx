@@ -156,7 +156,7 @@ function buildSectionsFromVenue(venue: any): StadiumSection[] {
   return sections;
 }
 
-export default function StadiumInteriorPage() {
+export default function StadiumInteriorPage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stadiumData, setStadiumData] = useState<StadiumInteriorData | null>(null);
@@ -302,44 +302,14 @@ export default function StadiumInteriorPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <button
-            onClick={() => navigate('/world-map')}
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-3 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to World Map
-          </button>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <Home className="h-7 w-7 text-[#E94560]" />
-            {stadiumData.name}
-          </h1>
-          <div className="flex items-center gap-4 mt-2">
-            <span className={`text-sm font-bold ${TIER_COLORS[stadiumData.tier] || 'text-slate-400'}`}>
-              {TIER_LABELS[stadiumData.tier] || stadiumData.tier}
-            </span>
-            <span className="text-slate-500">•</span>
-            <span className="text-sm text-slate-400">{stadiumData.capacity.toLocaleString()} capacity</span>
-            <span className="text-slate-500">•</span>
-            <span className="text-sm text-slate-400">${stadiumData.ticketPrice}/ticket</span>
-            <span className="text-slate-500">•</span>
-            <span className="text-sm text-[#FFD700]">{stadiumData.prestige} prestige</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <div className="text-xs text-slate-500 uppercase tracking-wider">Wallet</div>
-            <div className="text-lg font-bold text-[#FFD700]">{wallet.cash.toLocaleString()} CASH</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <button
-            onClick={() => navigate('/world-map')}
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-3 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to World Map
-          </button>
+          {!embedded && (
+            <button
+              onClick={() => navigate('/world-map')}
+              className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-3 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to World Map
+            </button>
+          )}
           <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
             <Home className="h-7 w-7 text-[#E94560]" />
             {stadiumData.name}

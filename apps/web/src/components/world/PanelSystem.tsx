@@ -2,6 +2,8 @@ import { useState, createContext, useContext, useEffect, type ReactNode, useCall
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 
+export type PanelMode = 'side-panel' | 'interior' | 'modal';
+
 export interface Panel {
   id: string;
   title: string;
@@ -13,6 +15,7 @@ export interface Panel {
   zIndex: number;
   minimized: boolean;
   maximized: boolean;
+  mode?: PanelMode;
   content: ReactNode;
 }
 
@@ -111,7 +114,19 @@ export function PanelOverlay() {
 
   return (
     <AnimatePresence>
-      {topPanel && (
+      {topPanel && topPanel.mode === 'interior' && (
+        <motion.div
+          key={topPanel.id}
+          initial={{ opacity: 0, scale: 0.985 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.985 }}
+          transition={{ duration: 0.22 }}
+          className="fixed inset-0 bg-[#06101d] z-20 overflow-hidden"
+        >
+          {topPanel.content}
+        </motion.div>
+      )}
+      {topPanel && topPanel.mode !== 'interior' && (
         <>
           {/* Backdrop overlay */}
           <motion.div

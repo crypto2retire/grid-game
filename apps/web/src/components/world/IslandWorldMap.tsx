@@ -416,7 +416,7 @@ export default function IslandWorldMap() {
       height: 650,
       minimized: false,
       maximized: false,
-      content: <StadiumInteriorPage />,
+      content: <StadiumInteriorPage embedded />,
     });
   }, [openPanel]);
 

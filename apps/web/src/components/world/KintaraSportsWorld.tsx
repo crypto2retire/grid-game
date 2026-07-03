@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   Coins,
   Compass,
@@ -24,8 +24,8 @@ import TeamPage from '../../pages/TeamPage';
 import MatchesPage from '../../pages/MatchesPage';
 import PlayerProgressionPage from '../../pages/PlayerProgressionPage';
 
-const TILE_W = 66;
-const TILE_H = 34;
+const TILE_W = 74;
+const TILE_H = 38;
 
 function iso(tileX: number, tileY: number) {
   return {
@@ -35,11 +35,11 @@ function iso(tileX: number, tileY: number) {
 }
 
 const WORLD_BOUNDS = {
-  topY: -430,
+  topY: -610,
   centerY: -90,
-  bottomY: 350,
-  halfWidth: 690,
-  avatarMargin: 34,
+  bottomY: 545,
+  halfWidth: 1010,
+  avatarMargin: 42,
 };
 
 function islandHalfWidthAtY(y: number) {
@@ -90,17 +90,17 @@ interface SportsBuilding {
 }
 
 const BUILDINGS: SportsBuilding[] = [
-  { id: 'stadium', panelId: 'stadium', label: 'Home Stadium', subtitle: 'Tickets + Capacity', loop: 'Game-day revenue: ticket yield, stadium wear, owner upgrades', tx: 0, ty: -6, color: '#ef4444', accent: '#991b1b', kind: 'stadium' },
-  { id: 'practice', panelId: 'matches', label: 'Practice Field', subtitle: 'Match Volume', loop: 'Play games, generate fans, qualify for better leagues', tx: -6, ty: -2, color: '#22c55e', accent: '#15803d', kind: 'field' },
-  { id: 'training', panelId: 'training', label: 'Training Gym', subtitle: 'Develop Assets', loop: 'Spend to improve players, then win or sell upward', tx: 5, ty: -2, color: '#8b5cf6', accent: '#5b21b6', kind: 'gym' },
-  { id: 'clubhouse', panelId: 'dashboard', label: 'Clubhouse HQ', subtitle: 'Daily Ops', loop: 'Quests and office tasks route owners back into the economy', tx: -2, ty: 1, color: '#f97316', accent: '#9a3412', kind: 'clubhouse' },
-  { id: 'team', panelId: 'team', label: 'Locker Room', subtitle: 'Roster Value', loop: 'Manage lineup, wages, morale, and tradable player value', tx: 3, ty: 1, color: '#38bdf8', accent: '#0369a1', kind: 'team' },
-  { id: 'market', panelId: 'market', label: 'Sports Market', subtitle: 'Trade Liquidity', loop: 'Players, gear, slots, and team assets create marketplace volume', tx: -7, ty: 4, color: '#fbbf24', accent: '#b45309', kind: 'shop' },
-  { id: 'medical', panelId: 'progression', label: 'Medical Center', subtitle: 'Recovery Sink', loop: 'Injury and fatigue costs protect player value but drain currency', tx: 7, ty: 4, color: '#f8fafc', accent: '#ef4444', kind: 'medical' },
-  { id: 'commissioner', panelId: 'commissioner', label: 'Commissioner Office', subtitle: 'Fund Restocks', loop: 'Community funding unlocks limited sports infrastructure inventory', tx: -4, ty: 7, color: '#14b8a6', accent: '#0f766e', kind: 'scout' },
-  { id: 'hall', panelId: 'leaderboard', label: 'Trophy Hall', subtitle: 'Prestige Race', loop: 'Rankings create demand for training, travel, and premium leagues', tx: 2, ty: 7, color: '#fde047', accent: '#ca8a04', kind: 'trophy' },
-  { id: 'garage', panelId: 'transport', label: 'Team Garage', subtitle: 'Travel Upkeep', loop: 'Better transport reduces fatigue but adds recurring operating costs', tx: 8, ty: -1, color: '#94a3b8', accent: '#475569', kind: 'garage' },
-  { id: 'bank', panelId: 'wallet', label: 'Sponsor Bank', subtitle: 'CASH ↔ DYN', loop: 'Sponsorship, exchange, fees, treasury, and token sinks', tx: -9, ty: 0, color: '#0ea5e9', accent: '#075985', kind: 'bank' },
+  { id: 'stadium', panelId: 'stadium', label: 'Home Stadium', subtitle: 'Tickets + Capacity', loop: 'Game-day revenue: ticket yield, stadium wear, owner upgrades', tx: 0, ty: -10, color: '#ef4444', accent: '#991b1b', kind: 'stadium' },
+  { id: 'practice', panelId: 'matches', label: 'Practice Field', subtitle: 'Match Volume', loop: 'Play games, generate fans, qualify for better leagues', tx: -10, ty: -5, color: '#22c55e', accent: '#15803d', kind: 'field' },
+  { id: 'training', panelId: 'training', label: 'Training Gym', subtitle: 'Develop Assets', loop: 'Spend to improve players, then win or sell upward', tx: 10, ty: -5, color: '#8b5cf6', accent: '#5b21b6', kind: 'gym' },
+  { id: 'clubhouse', panelId: 'dashboard', label: 'Clubhouse HQ', subtitle: 'Daily Ops', loop: 'Quests and office tasks route owners back into the economy', tx: -5, ty: 2, color: '#f97316', accent: '#9a3412', kind: 'clubhouse' },
+  { id: 'team', panelId: 'team', label: 'Locker Room', subtitle: 'Roster Value', loop: 'Manage lineup, wages, morale, and tradable player value', tx: 5, ty: 2, color: '#38bdf8', accent: '#0369a1', kind: 'team' },
+  { id: 'market', panelId: 'market', label: 'Sports Market', subtitle: 'Trade Liquidity', loop: 'Players, gear, slots, and team assets create marketplace volume', tx: -13, ty: 7, color: '#fbbf24', accent: '#b45309', kind: 'shop' },
+  { id: 'medical', panelId: 'progression', label: 'Medical Center', subtitle: 'Recovery Sink', loop: 'Injury and fatigue costs protect player value but drain currency', tx: 13, ty: 7, color: '#f8fafc', accent: '#ef4444', kind: 'medical' },
+  { id: 'commissioner', panelId: 'commissioner', label: 'Commissioner Office', subtitle: 'Fund Restocks', loop: 'Community funding unlocks limited sports infrastructure inventory', tx: -7, ty: 12, color: '#14b8a6', accent: '#0f766e', kind: 'scout' },
+  { id: 'hall', panelId: 'leaderboard', label: 'Trophy Hall', subtitle: 'Prestige Race', loop: 'Rankings create demand for training, travel, and premium leagues', tx: 4, ty: 12, color: '#fde047', accent: '#ca8a04', kind: 'trophy' },
+  { id: 'garage', panelId: 'transport', label: 'Team Garage', subtitle: 'Travel Upkeep', loop: 'Better transport reduces fatigue but adds recurring operating costs', tx: 14, ty: 0, color: '#94a3b8', accent: '#475569', kind: 'garage' },
+  { id: 'bank', panelId: 'wallet', label: 'Sponsor Bank', subtitle: 'CASH ↔ DYN', loop: 'Sponsorship, exchange, fees, treasury, and token sinks', tx: -14, ty: 0, color: '#0ea5e9', accent: '#075985', kind: 'bank' },
 ];
 
 type LeagueGateStatus = 'open' | 'locked' | 'owner';
@@ -130,9 +130,9 @@ const LEAGUE_GATES: LeagueGate[] = [
     name: 'Launch Rec League',
     label: 'GRID Rec Road',
     tier: 'Launch / Basic',
-    tx: -12,
+    tx: -17,
     ty: 0,
-    route: [[0, 0], [-3, 0], [-6, 0], [-9, 0], [-12, 0]],
+    route: [[0, 0], [-4, 0], [-8, 0], [-12, 0], [-16, 0]],
     color: '#22c55e',
     accent: '#166534',
     status: 'open',
@@ -149,8 +149,8 @@ const LEAGUE_GATES: LeagueGate[] = [
     label: 'Regional Route',
     tier: 'Promotion Gate',
     tx: 0,
-    ty: -10,
-    route: [[0, 0], [0, -2], [0, -5], [0, -8], [0, -10]],
+    ty: -14,
+    route: [[0, 0], [0, -3], [0, -7], [0, -11], [0, -14]],
     color: '#38bdf8',
     accent: '#0369a1',
     status: 'locked',
@@ -166,9 +166,9 @@ const LEAGUE_GATES: LeagueGate[] = [
     name: 'Creator League District',
     label: 'Owner Leagues',
     tier: 'User-owned',
-    tx: 12,
+    tx: 17,
     ty: 0,
-    route: [[0, 0], [3, 0], [6, 0], [9, 0], [12, 0]],
+    route: [[0, 0], [4, 0], [8, 0], [12, 0], [16, 0]],
     color: '#a855f7',
     accent: '#6b21a8',
     status: 'owner',
@@ -185,8 +185,8 @@ const LEAGUE_GATES: LeagueGate[] = [
     label: 'Pro Circuit',
     tier: 'Premium / Custom',
     tx: 0,
-    ty: 10,
-    route: [[0, 0], [0, 2], [0, 5], [0, 8], [0, 10]],
+    ty: 15,
+    route: [[0, 0], [0, 3], [0, 7], [0, 11], [0, 15]],
     color: '#f59e0b',
     accent: '#92400e',
     status: 'locked',
@@ -280,10 +280,10 @@ interface CommissionerOverview {
 }
 
 const NPCS = [
-  { name: 'Coach Mills', role: 'Daily Drills', tx: -5, ty: -1, color: '#f97316', marker: '?' },
-  { name: 'Scout Ava', role: 'Prospects', tx: -3, ty: 6, color: '#14b8a6', marker: '!' },
-  { name: 'Medic Jo', role: 'Recovery', tx: 6, ty: 3, color: '#ef4444', marker: '+' },
-  { name: 'Ticket Sam', role: 'Revenue', tx: -6, ty: 3, color: '#fbbf24', marker: '$' },
+  { name: 'Coach Mills', role: 'Daily Drills', tx: -9, ty: -3, color: '#f97316', marker: '?' },
+  { name: 'Scout Ava', role: 'Prospects', tx: -8, ty: 10, color: '#14b8a6', marker: '!' },
+  { name: 'Medic Jo', role: 'Recovery', tx: 12, ty: 6, color: '#ef4444', marker: '+' },
+  { name: 'Ticket Sam', role: 'Revenue', tx: -12, ty: 6, color: '#fbbf24', marker: '$' },
 ];
 
 type HotbarSlot = {
@@ -306,6 +306,21 @@ function darker(hex: string, amount = 34) {
   const g = Math.min(255, Math.max(0, ((n >> 8) & 255) - amount));
   const b = Math.min(255, Math.max(0, (n & 255) - amount));
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+function stadiumVisualLevel(stadium: { tier?: string; upgrades?: number; capacity?: number } | null) {
+  const tierLevels: Record<string, number> = {
+    shack: 0,
+    basic: 1,
+    standard: 2,
+    premium: 3,
+    elite: 4,
+    legendary: 5,
+  };
+  const tierLevel = tierLevels[(stadium?.tier || '').toLowerCase()] ?? 0;
+  const upgradeLevel = Math.floor((stadium?.upgrades ?? 0) / 2);
+  const capacityLevel = Math.floor((stadium?.capacity ?? 0) / 15000);
+  return Math.max(0, Math.min(5, Math.max(tierLevel, upgradeLevel, capacityLevel)));
 }
 
 function Tile({ x, y, fill, stroke = '#5fa83f' }: { x: number; y: number; fill: string; stroke?: string }) {
@@ -337,31 +352,31 @@ function BlockTree({ x, y }: { x: number; y: number }) {
 type DecorationKind = 'lamp' | 'bench' | 'cone' | 'flag' | 'food' | 'bus' | 'statue' | 'ad';
 
 const DECORATIONS: Array<{ kind: DecorationKind; tx: number; ty: number; color?: string; label?: string }> = [
-  { kind: 'lamp', tx: -2, ty: -1 },
-  { kind: 'lamp', tx: 2, ty: 1 },
-  { kind: 'lamp', tx: -5, ty: 2 },
-  { kind: 'lamp', tx: 5, ty: -1 },
-  { kind: 'bench', tx: -3, ty: 2 },
-  { kind: 'bench', tx: 4, ty: 2 },
-  { kind: 'cone', tx: -5, ty: -3, color: '#fb923c' },
-  { kind: 'cone', tx: -7, ty: -1, color: '#fb923c' },
-  { kind: 'flag', tx: -1, ty: -7, color: '#ef4444', label: 'HOME' },
-  { kind: 'flag', tx: 4, ty: -5, color: '#38bdf8', label: 'AWAY' },
-  { kind: 'food', tx: -8, ty: 3, color: '#f59e0b' },
-  { kind: 'food', tx: -6, ty: 5, color: '#ef4444' },
-  { kind: 'bus', tx: 7, ty: -3 },
-  { kind: 'statue', tx: 1, ty: 3 },
-  { kind: 'ad', tx: -4, ty: -5, color: '#0f172a', label: 'DYN CUP' },
-  { kind: 'ad', tx: 5, ty: 5, color: '#111827', label: 'OWNER LEAGUES' },
+  { kind: 'lamp', tx: -4, ty: -2 },
+  { kind: 'lamp', tx: 4, ty: 2 },
+  { kind: 'lamp', tx: -8, ty: 4 },
+  { kind: 'lamp', tx: 8, ty: -2 },
+  { kind: 'bench', tx: -5, ty: 3 },
+  { kind: 'bench', tx: 6, ty: 3 },
+  { kind: 'cone', tx: -11, ty: -6, color: '#fb923c' },
+  { kind: 'cone', tx: -9, ty: -4, color: '#fb923c' },
+  { kind: 'flag', tx: -2, ty: -11, color: '#ef4444', label: 'HOME' },
+  { kind: 'flag', tx: 4, ty: -10, color: '#38bdf8', label: 'AWAY' },
+  { kind: 'food', tx: -14, ty: 6, color: '#f59e0b' },
+  { kind: 'food', tx: -12, ty: 9, color: '#ef4444' },
+  { kind: 'bus', tx: 13, ty: -2 },
+  { kind: 'statue', tx: 3, ty: 10 },
+  { kind: 'ad', tx: -5, ty: -9, color: '#0f172a', label: 'DYN CUP' },
+  { kind: 'ad', tx: 8, ty: 10, color: '#111827', label: 'OWNER LEAGUES' },
 ];
 
 const CROWD_CLUSTERS = [
-  { tx: -2, ty: -6, color: '#60a5fa' },
-  { tx: 2, ty: -6, color: '#f87171' },
-  { tx: -1, ty: -4, color: '#fde047' },
-  { tx: 6, ty: 2, color: '#34d399' },
-  { tx: -7, ty: 2, color: '#fb7185' },
-  { tx: 1, ty: 6, color: '#c084fc' },
+  { tx: -3, ty: -11, color: '#60a5fa' },
+  { tx: 3, ty: -11, color: '#f87171' },
+  { tx: -1, ty: -8, color: '#fde047' },
+  { tx: 12, ty: 5, color: '#34d399' },
+  { tx: -13, ty: 5, color: '#fb7185' },
+  { tx: 4, ty: 11, color: '#c084fc' },
 ];
 
 function DistrictGround({ building }: { building: SportsBuilding }) {
@@ -486,11 +501,11 @@ function CrowdCluster({ tx, ty, color }: { tx: number; ty: number; color: string
 function WaterfrontDetails() {
   return (
     <g opacity={0.58}>
-      {[-630, -420, -210, 140, 360, 590].map((x, idx) => (
-        <path key={`wave-top-${idx}`} d={`M ${x} ${-430 + (idx % 2) * 26} q 32 -18 64 0 t 64 0`} fill="none" stroke="#e0f2fe" strokeWidth={4} strokeLinecap="round" />
+      {[-920, -620, -310, 40, 380, 730].map((x, idx) => (
+        <path key={`wave-top-${idx}`} d={`M ${x} ${-625 + (idx % 2) * 32} q 38 -20 76 0 t 76 0`} fill="none" stroke="#e0f2fe" strokeWidth={4} strokeLinecap="round" />
       ))}
-      {[-590, -330, -70, 210, 470].map((x, idx) => (
-        <path key={`wave-bottom-${idx}`} d={`M ${x} ${356 - (idx % 2) * 24} q 30 16 60 0 t 60 0`} fill="none" stroke="#e0f2fe" strokeWidth={4} strokeLinecap="round" />
+      {[-900, -560, -200, 170, 520, 840].map((x, idx) => (
+        <path key={`wave-bottom-${idx}`} d={`M ${x} ${548 - (idx % 2) * 28} q 36 18 72 0 t 72 0`} fill="none" stroke="#e0f2fe" strokeWidth={4} strokeLinecap="round" />
       ))}
     </g>
   );
@@ -518,25 +533,55 @@ function VoxelAvatar({ x, y, name, level, color, isPlayer = false }: { x: number
   );
 }
 
-function StadiumBuilding({ building }: { building: SportsBuilding }) {
+function StadiumBuilding({ building, upgradeLevel = 0 }: { building: SportsBuilding; upgradeLevel?: number }) {
   const { x, y } = iso(building.tx, building.ty);
+  const level = Math.max(0, Math.min(5, Math.round(upgradeLevel)));
+  const outerRx = 124 + level * 15;
+  const outerRy = 56 + level * 6;
+  const innerRx = 66 + level * 4;
+  const innerRy = 28 + level * 2;
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <ellipse cx={0} cy={17} rx={118} ry={50} fill="rgba(0,0,0,0.2)" />
-      <ellipse cx={0} cy={-20} rx={116} ry={54} fill={building.accent} stroke="#111827" strokeWidth={2} />
-      <ellipse cx={0} cy={-31} rx={96} ry={43} fill={building.color} stroke="#fee2e2" strokeWidth={2} />
-      <ellipse cx={0} cy={-31} rx={63} ry={27} fill="#30c85f" stroke="#dcfce7" strokeWidth={2} />
-      {[-40, -20, 0, 20, 40].map((lx) => (
-        <line key={lx} x1={lx} y1={-55} x2={lx} y2={-8} stroke="#ffffff" strokeWidth={1} opacity={0.7} />
+      <ellipse cx={0} cy={24} rx={outerRx + 12} ry={outerRy + 10} fill="rgba(0,0,0,0.22)" />
+      {level >= 3 && <ellipse cx={0} cy={-24} rx={outerRx + 16} ry={outerRy + 10} fill="none" stroke="#fef3c7" strokeWidth={8} opacity={0.45} strokeDasharray="34 18" />}
+      <ellipse cx={0} cy={-18} rx={outerRx} ry={outerRy} fill={building.accent} stroke="#111827" strokeWidth={2.5} />
+      <ellipse cx={0} cy={-31} rx={outerRx - 22} ry={outerRy - 10} fill={building.color} stroke="#fee2e2" strokeWidth={2} />
+      {level >= 1 && <ellipse cx={0} cy={-38} rx={outerRx - 43} ry={outerRy - 21} fill="#fecaca" stroke="#991b1b" strokeWidth={1.5} opacity={0.95} />}
+      <ellipse cx={0} cy={-31} rx={innerRx} ry={innerRy} fill="#30c85f" stroke="#dcfce7" strokeWidth={2} />
+      <rect x={-innerRx + 16} y={-43} width={innerRx * 2 - 32} height={24} rx={9} fill="none" stroke="#ffffff" strokeWidth={1.2} opacity={0.72} />
+      {[-48, -24, 0, 24, 48].map((lx) => (
+        <line key={lx} x1={lx} y1={-57} x2={lx} y2={-7} stroke="#ffffff" strokeWidth={1} opacity={0.72} />
       ))}
-      <rect x={-36} y={-94} width={72} height={22} rx={4} fill="#0f172a" stroke="#64748b" strokeWidth={2} />
-      <text x={0} y={-80} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={900}>GRID 00 - 00 GUEST</text>
-      {[[-95, -86], [95, -86], [-105, -4], [105, -4]].map(([lx, ly], idx) => (
-        <g key={idx}>
-          <rect x={lx - 3} y={ly} width={6} height={70} fill="#475569" />
-          <circle cx={lx} cy={ly - 3} r={9} fill="#fde047" opacity={0.86} />
+      {level >= 2 && [-108, -72, 72, 108].map((lx) => (
+        <rect key={lx} x={lx - 18} y={-89} width={36} height={16} rx={4} fill="#fef3c7" stroke="#92400e" strokeWidth={1.5} />
+      ))}
+      {level >= 1 && [-112, -58, 58, 112].map((lx, idx) => (
+        <g key={`sponsor-${idx}`} transform={`translate(${lx}, ${idx % 2 ? -10 : 8})`}>
+          <rect x={-28} y={0} width={56} height={15} rx={4} fill={idx % 2 ? '#0f172a' : '#fbbf24'} stroke="#111827" strokeWidth={1.5} />
+          <text x={0} y={11} textAnchor="middle" fill={idx % 2 ? '#fbbf24' : '#111827'} fontSize={8} fontWeight={900}>SPONSOR</text>
         </g>
       ))}
+      <rect x={-48 - level * 5} y={-112 - level * 7} width={96 + level * 10} height={26 + level * 4} rx={5} fill="#0f172a" stroke={level >= 4 ? '#fde047' : '#64748b'} strokeWidth={2.5} />
+      <text x={0} y={-94 - level * 7} textAnchor="middle" fill="#fff" fontSize={level >= 4 ? 10 : 8} fontWeight={900}>GRID 00 - 00 GUEST</text>
+      {level >= 4 && <text x={0} y={-122} textAnchor="middle" fill="#fde047" fontSize={9} fontWeight={900}>ULTRA BOARD</text>}
+      {[[-108 - level * 10, -96 - level * 3], [108 + level * 10, -96 - level * 3], [-120 - level * 8, -6], [120 + level * 8, -6]].map(([lx, ly], idx) => (
+        <g key={idx}>
+          <rect x={lx - 4} y={ly} width={8} height={78 + level * 6} fill="#475569" />
+          <circle cx={lx} cy={ly - 4} r={11 + level} fill="#fde047" opacity={0.9} filter="url(#warmGlow)" />
+        </g>
+      ))}
+      {level >= 5 && (
+        <g>
+          <path d="M -154 42 L -92 16 L -62 30 L -124 58 Z" fill="#111827" stroke="#fbbf24" strokeWidth={2} />
+          <path d="M 154 42 L 92 16 L 62 30 L 124 58 Z" fill="#111827" stroke="#fbbf24" strokeWidth={2} />
+          <text x={-110} y={40} textAnchor="middle" fill="#fbbf24" fontSize={9} fontWeight={900}>VIP</text>
+          <text x={110} y={40} textAnchor="middle" fill="#fbbf24" fontSize={9} fontWeight={900}>CLUB</text>
+        </g>
+      )}
+      <g transform={`translate(${outerRx - 22}, ${outerRy - 12})`}>
+        <rect x={-44} y={-18} width={88} height={24} rx={8} fill="#fef3c7" stroke="#92400e" strokeWidth={1.5} />
+        <text x={0} y={-2} textAnchor="middle" fill="#92400e" fontSize={9} fontWeight={900}>{level > 0 ? `UPGRADE ${level}` : 'STARTER PARK'}</text>
+      </g>
     </g>
   );
 }
@@ -559,9 +604,9 @@ function FieldBuilding({ building }: { building: SportsBuilding }) {
 
 function BoxBuilding({ building }: { building: SportsBuilding }) {
   const { x, y } = iso(building.tx, building.ty);
-  const w = building.kind === 'gym' ? 86 : building.kind === 'garage' ? 96 : building.kind === 'bank' ? 82 : 68;
-  const h = building.kind === 'clubhouse' ? 86 : building.kind === 'scout' ? 112 : building.kind === 'trophy' ? 78 : 64;
-  const d = building.kind === 'garage' ? 58 : 46;
+  const w = building.kind === 'gym' ? 112 : building.kind === 'garage' ? 132 : building.kind === 'bank' ? 112 : building.kind === 'shop' ? 118 : building.kind === 'medical' ? 100 : building.kind === 'team' ? 104 : 86;
+  const h = building.kind === 'clubhouse' ? 96 : building.kind === 'scout' ? 132 : building.kind === 'trophy' ? 92 : building.kind === 'bank' ? 108 : building.kind === 'garage' ? 78 : building.kind === 'team' ? 82 : 72;
+  const d = building.kind === 'garage' ? 72 : building.kind === 'shop' ? 62 : building.kind === 'team' ? 58 : 50;
   const roof = building.kind === 'bank' ? '#e0f2fe' : darker(building.color, -8);
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -666,31 +711,61 @@ function BoxBuilding({ building }: { building: SportsBuilding }) {
   );
 }
 
-function BuildingLabel({ building, economyLoop }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop }) {
+function BuildingLabel({ building, economyLoop, selected = false }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; selected?: boolean }) {
   const { x, y } = iso(building.tx, building.ty);
   const progress = Math.max(0, Math.min(100, economyLoop?.progress ?? 0));
   return (
-    <g transform={`translate(${x}, ${y + 58})`} style={{ pointerEvents: 'none' }}>
-      <rect x={-72} y={-20} width={144} height={50} rx={12} fill="rgba(15,23,42,0.88)" stroke={building.accent} />
-      <text x={0} y={-6} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={900}>{building.label}</text>
-      <text x={0} y={7} textAnchor="middle" fill="#cbd5e1" fontSize={8} fontWeight={800}>{economyLoop?.label || building.subtitle}</text>
-      <rect x={-52} y={16} width={104} height={5} rx={3} fill="rgba(148,163,184,0.45)" />
-      <rect x={-52} y={16} width={(104 * progress) / 100} height={5} rx={3} fill={building.color} />
-      <text x={0} y={30} textAnchor="middle" fill="#e2e8f0" fontSize={7} fontWeight={800}>{economyLoop?.status || building.subtitle}</text>
+    <g transform={`translate(${x}, ${y + 72})`} style={{ pointerEvents: 'none' }}>
+      <rect x={-86} y={-24} width={172} height={56} rx={14} fill="rgba(15,23,42,0.92)" stroke={selected ? '#fde047' : building.accent} strokeWidth={selected ? 2.5 : 1.5} />
+      <text x={0} y={-8} textAnchor="middle" fill="#fff" fontSize={12} fontWeight={900}>{building.label}</text>
+      <text x={0} y={7} textAnchor="middle" fill="#cbd5e1" fontSize={9} fontWeight={800}>{economyLoop?.label || building.subtitle}</text>
+      <rect x={-58} y={17} width={116} height={5} rx={3} fill="rgba(148,163,184,0.45)" />
+      <rect x={-58} y={17} width={(116 * progress) / 100} height={5} rx={3} fill={building.color} />
+      <text x={0} y={34} textAnchor="middle" fill={selected ? '#fde047' : '#e2e8f0'} fontSize={8} fontWeight={900}>{selected ? 'PRESS E TO ENTER' : economyLoop?.status || building.subtitle}</text>
     </g>
   );
 }
 
-function SportsBuildingView({ building, economyLoop, onClick }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; onClick: (building: SportsBuilding) => void }) {
+function BuildingFootprint({ building, active }: { building: SportsBuilding; active: boolean }) {
   const { x, y } = iso(building.tx, building.ty);
+  return (
+    <g transform={`translate(${x}, ${y})`} opacity={active ? 1 : 0.78} style={{ pointerEvents: 'none' }}>
+      <ellipse cx={0} cy={28} rx={building.kind === 'stadium' ? 188 : building.kind === 'field' ? 122 : 88} ry={building.kind === 'stadium' ? 66 : building.kind === 'field' ? 44 : 34} fill="none" stroke={active ? '#fde047' : building.accent} strokeWidth={active ? 5 : 2} strokeDasharray={active ? '18 10' : '10 9'} opacity={active ? 0.78 : 0.34} />
+      {active && <path d="M -26 38 L 0 56 L 26 38" fill="none" stroke="#fde047" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />}
+    </g>
+  );
+}
+
+function SportsBuildingView({
+  building,
+  economyLoop,
+  onClick,
+  active = false,
+  hovered = false,
+  onHover,
+  stadiumUpgradeLevel = 0,
+}: {
+  building: SportsBuilding;
+  economyLoop?: BuildingEconomyLoop;
+  onClick: (building: SportsBuilding) => void;
+  active?: boolean;
+  hovered?: boolean;
+  onHover: (id: string | null) => void;
+  stadiumUpgradeLevel?: number;
+}) {
+  const { x, y } = iso(building.tx, building.ty);
+  const showLabel = active || hovered;
   return (
     <g
       onClick={(e) => { e.stopPropagation(); onClick(building); }}
+      onMouseEnter={() => onHover(building.id)}
+      onMouseLeave={() => onHover(null)}
       className="cursor-pointer"
     >
+      <BuildingFootprint building={building} active={active || hovered} />
       <g className="transition-transform duration-150 hover:scale-105" style={{ transformOrigin: `${x}px ${y}px` }}>
-        {building.kind === 'stadium' ? <StadiumBuilding building={building} /> : building.kind === 'field' ? <FieldBuilding building={building} /> : <BoxBuilding building={building} />}
-        <BuildingLabel building={building} economyLoop={economyLoop} />
+        {building.kind === 'stadium' ? <StadiumBuilding building={building} upgradeLevel={stadiumUpgradeLevel} /> : building.kind === 'field' ? <FieldBuilding building={building} /> : <BoxBuilding building={building} />}
+        {showLabel && <BuildingLabel building={building} economyLoop={economyLoop} selected={active} />}
       </g>
     </g>
   );
@@ -949,10 +1024,142 @@ function CommissionerPanel({
   );
 }
 
+function BuildingInteriorShell({
+  building,
+  title,
+  children,
+  onExit,
+  stadiumUpgradeLevel = 0,
+}: {
+  building: SportsBuilding;
+  title: string;
+  children: ReactNode;
+  onExit: () => void;
+  stadiumUpgradeLevel?: number;
+}) {
+  const isComputerLed = ['market', 'bank', 'commissioner', 'garage', 'stadium'].includes(building.id);
+  const roomLabel = building.id === 'team'
+    ? 'Locker wall • roster board • gear rack'
+    : building.id === 'training'
+      ? 'Coach station • turf lanes • weight room'
+      : building.id === 'stadium'
+        ? `Suite desk • scoreboard terminal • upgrade tier ${stadiumUpgradeLevel}`
+        : building.id === 'market'
+          ? 'Auction terminals • display cases • equipment counter'
+          : building.id === 'medical'
+            ? 'Trainer desk • recovery pods • treatment board'
+            : building.id === 'garage'
+              ? 'Route computer • vehicle bays • mechanic desk'
+              : building.id === 'commissioner'
+                ? 'League office • funding board • drop terminal'
+                : building.id === 'hall'
+                  ? 'Trophy cases • prestige wall • season archive'
+                  : building.id === 'bank'
+                    ? 'Sponsor desk • DYN vault • treasury terminal'
+                    : 'Operations desk • daily board • staff room';
+  const stationLabels = roomLabel.split(' • ');
+
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-[#06101d] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(56,189,248,.22),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(249,115,22,.18),transparent_24%),linear-gradient(180deg,#071525_0%,#050913_100%)]" />
+      <div className="relative z-10 h-full flex flex-col">
+        <div className="flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950/70 px-5 py-3 backdrop-blur-xl">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.32em] text-slate-400 font-black">Inside {building.label}</div>
+            <h2 className="text-xl md:text-2xl font-black truncate">{title}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onExit}
+            className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white hover:bg-white/20"
+          >
+            Exit to Grid City
+          </button>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[460px_minmax(0,1fr)]">
+          <div className="relative overflow-hidden border-r border-white/10 bg-slate-900/80 p-5">
+            <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+            <div className="relative z-10 h-full min-h-[360px] rounded-[2rem] border border-white/10 bg-gradient-to-b from-white/10 to-white/[0.03] p-5 shadow-2xl overflow-hidden">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-slate-300 font-black">Room Stations</div>
+                  <div className="mt-1 text-sm text-slate-200 leading-snug">{roomLabel}</div>
+                </div>
+                <div className="rounded-2xl px-3 py-2 text-center font-black text-slate-950 shadow-lg" style={{ backgroundColor: building.color }}>
+                  {building.id === 'stadium' ? '🏟️' : building.id === 'team' ? '👕' : building.id === 'training' ? '🏋️' : building.id === 'medical' ? '➕' : building.id === 'market' ? '🛒' : building.id === 'garage' ? '🚌' : building.id === 'bank' ? '🏦' : building.id === 'hall' ? '🏆' : building.id === 'commissioner' ? '📋' : '🏠'}
+                </div>
+              </div>
+
+              <div className="absolute left-8 right-8 top-28 h-24 rounded-t-[2rem] border border-white/10 bg-slate-950/80 shadow-inner" />
+              <div className="absolute left-10 right-10 top-32 flex justify-around">
+                {[0, 1, 2, 3].map((idx) => (
+                  <div key={idx} className="h-20 w-14 rounded-t-xl border border-white/10 bg-slate-800 shadow-lg">
+                    <div className="mx-auto mt-3 h-2 w-8 rounded-full" style={{ backgroundColor: idx % 2 ? building.color : building.accent }} />
+                    <div className="mx-auto mt-3 h-7 w-7 rounded-md bg-white/10" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="absolute bottom-9 left-1/2 h-36 w-[330px] -translate-x-1/2 rounded-[45%] bg-black/25 blur-sm" />
+              <div className="absolute bottom-16 left-10 right-10 h-24 rounded-3xl border border-white/10 bg-slate-800/80 shadow-2xl" />
+              <div className="absolute bottom-24 left-16 right-16 h-8 rounded-xl border border-white/10 bg-slate-700/90" />
+
+              <div className="absolute left-8 right-8 top-[226px] grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-wider text-white">
+                {stationLabels.map((label, idx) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-white/15 bg-slate-950/80 px-2 py-2 text-center shadow-xl"
+                    style={{ color: idx === 1 ? building.accent : '#e2e8f0' }}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              {isComputerLed ? (
+                <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
+                  <div className="h-24 w-36 rounded-2xl border-4 border-slate-700 bg-slate-950 shadow-2xl">
+                    <div className="m-3 h-16 rounded-lg border border-cyan-300/40 bg-cyan-300/15 p-2 text-[10px] font-black text-cyan-100">
+                      MENU<br />CONTROL<br />TERMINAL
+                    </div>
+                  </div>
+                  <div className="mx-auto h-8 w-16 bg-slate-700" />
+                  <div className="h-4 w-28 rounded-full bg-slate-600" />
+                </div>
+              ) : (
+                <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
+                  <div className="mx-auto h-14 w-14 rounded-2xl border-2 border-slate-950 bg-[#f7c89d]" />
+                  <div className="mx-auto -mt-1 h-24 w-20 rounded-2xl border-2 border-slate-950 shadow-xl" style={{ backgroundColor: building.color }} />
+                  <div className="absolute left-[-26px] top-20 h-10 w-10 rotate-[-18deg] rounded-xl border-2 border-slate-950 bg-[#f7c89d]" />
+                  <div className="absolute right-[-26px] top-20 h-10 w-10 rotate-[18deg] rounded-xl border-2 border-slate-950 bg-[#f7c89d]" />
+                  <div className="mt-2 rounded-xl bg-slate-950/90 px-4 py-2 text-center text-xs font-black text-white shadow-xl">STAFF MENU</div>
+                </div>
+              )}
+
+              <div className="absolute bottom-5 left-5 right-5 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-200">
+                <div className="rounded-xl bg-white/10 p-2 text-center">Click stations</div>
+                <div className="rounded-xl bg-white/10 p-2 text-center">Menu controls</div>
+                <div className="rounded-xl bg-white/10 p-2 text-center">No map clutter</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-w-0 overflow-y-auto bg-slate-950 p-4 md:p-6">
+            <div className="building-interior-content mx-auto max-w-6xl rounded-[1.75rem] border border-white/10 bg-slate-900/75 p-3 text-white shadow-2xl md:p-4">
+              {children}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MiniMap({ player }: { player: { x: number; y: number } }) {
   const toMini = (x: number, y: number) => ({
-    left: Math.max(13, Math.min(139, 76 + x / 10)),
-    top: Math.max(13, Math.min(139, 76 + y / 7)),
+    left: Math.max(13, Math.min(139, 76 + x / 15)),
+    top: Math.max(13, Math.min(139, 76 + y / 10)),
   });
   const playerPoint = toMini(player.x, player.y);
   return (
@@ -1001,10 +1208,11 @@ export default function KintaraSportsWorld() {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { user } = useAuthStore();
   const { onlinePlayers, myStadium, moveAvatar, refreshWorld } = useWorld();
-  const { openPanel } = usePanels();
+  const { openPanel, closePanel } = usePanels();
   const [player, setPlayer] = useState(() => ({ x: 0, y: 95 }));
   const [nearby, setNearby] = useState<SportsBuilding | null>(null);
   const [nearbyGate, setNearbyGate] = useState<LeagueGate | null>(null);
+  const [hoveredBuildingId, setHoveredBuildingId] = useState<string | null>(null);
   const [quests, setQuests] = useState<DailyQuestHudItem[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatHudMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -1014,18 +1222,18 @@ export default function KintaraSportsWorld() {
 
   const tiles = useMemo(() => {
     const all: Array<{ key: string; x: number; y: number; fill: string; stroke: string }> = [];
-    for (let tx = -12; tx <= 12; tx += 1) {
-      for (let ty = -9; ty <= 10; ty += 1) {
+    for (let tx = -16; tx <= 16; tx += 1) {
+      for (let ty = -13; ty <= 15; ty += 1) {
         const p = iso(tx, ty);
         const onMainRoad = Math.abs(tx) <= 1 || Math.abs(ty) <= 1 || Math.abs(tx + ty) <= 1;
         const onLeagueRoad = isLeaguePathTile(tx, ty);
         const onPlaza = Math.abs(tx) <= 2 && Math.abs(ty) <= 2;
-        const nearStadium = tx >= -4 && tx <= 4 && ty >= -8 && ty <= -4;
-        const nearMarket = tx >= -9 && tx <= -5 && ty >= 3 && ty <= 6;
-        const nearGarage = tx >= 6 && tx <= 10 && ty >= -3 && ty <= 1;
-        const nearMedical = tx >= 5 && tx <= 9 && ty >= 3 && ty <= 6;
-        const nearTrophy = tx >= 0 && tx <= 4 && ty >= 6 && ty <= 9;
-        const nearBank = tx >= -11 && tx <= -7 && ty >= -2 && ty <= 2;
+        const nearStadium = tx >= -5 && tx <= 5 && ty >= -12 && ty <= -8;
+        const nearMarket = tx >= -15 && tx <= -11 && ty >= 5 && ty <= 9;
+        const nearGarage = tx >= 12 && tx <= 16 && ty >= -2 && ty <= 2;
+        const nearMedical = tx >= 11 && tx <= 15 && ty >= 5 && ty <= 9;
+        const nearTrophy = tx >= 2 && tx <= 6 && ty >= 10 && ty <= 14;
+        const nearBank = tx >= -16 && tx <= -12 && ty >= -2 && ty <= 2;
         const turf = (tx + ty) % 2 === 0 ? '#78c74f' : '#6fbd45';
         const fill = onPlaza
           ? '#d1d5db'
@@ -1107,7 +1315,7 @@ export default function KintaraSportsWorld() {
     const nearest = BUILDINGS
       .map((b) => ({ b, p: iso(b.tx, b.ty) }))
       .map(({ b, p }) => ({ b, dist: Math.hypot(p.x - player.x, p.y - player.y) }))
-      .filter(({ dist }) => dist < 118)
+      .filter(({ dist }) => dist < 154)
       .sort((a, b) => a.dist - b.dist)[0]?.b ?? null;
     const nearestLeagueGate = LEAGUE_GATES
       .map((gate) => ({ gate, p: leagueGatePoint(gate) }))
@@ -1126,7 +1334,7 @@ export default function KintaraSportsWorld() {
       case 'leaderboard': return { title: 'Trophy Hall', content: <LeaderboardPage /> };
       case 'wallet': return { title: 'Sponsor Bank', content: <WalletPage /> };
       case 'training': return { title: 'Training Gym', content: <TrainingPage /> };
-      case 'stadium': return { title: 'Home Stadium', content: <StadiumInteriorPage /> };
+      case 'stadium': return { title: 'Home Stadium', content: <StadiumInteriorPage embedded /> };
       case 'commissioner': return { title: 'Commissioner Office', content: <CommissionerPanel initialOverview={commissionerOverview} onWallet={setWalletOverride} onStatus={setWorldStatus} onOverview={setCommissionerOverview} /> };
       case 'transport': return { title: 'Team Garage', content: <TransportGaragePage /> };
       case 'matches': return { title: 'Practice Field', content: <MatchesPage /> };
@@ -1137,6 +1345,7 @@ export default function KintaraSportsWorld() {
 
   const openBuilding = (building: SportsBuilding) => {
     const panel = panelForBuilding(building);
+    const visualLevel = stadiumVisualLevel(myStadium);
     openPanel({
       id: building.panelId,
       title: panel.title,
@@ -1147,8 +1356,19 @@ export default function KintaraSportsWorld() {
       height: 640,
       minimized: false,
       maximized: false,
-      content: panel.content,
+      mode: 'interior',
+      content: (
+        <BuildingInteriorShell
+          building={building}
+          title={panel.title}
+          stadiumUpgradeLevel={visualLevel}
+          onExit={() => closePanel(building.panelId)}
+        >
+          {panel.content}
+        </BuildingInteriorShell>
+      ),
     });
+    setWorldStatus(`Entered ${building.label}: ${building.loop}`);
   };
 
   const openLeagueGate = (gate: LeagueGate) => {
@@ -1273,6 +1493,7 @@ export default function KintaraSportsWorld() {
   const username = user?.displayName || user?.username || 'Owner';
   const cash = walletOverride?.cash ?? user?.wallet?.cash ?? 0;
   const dyn = walletOverride?.dynTokens ?? user?.wallet?.dynTokens ?? 0;
+  const stadiumLevel = stadiumVisualLevel(myStadium);
   const loopByBuilding = useMemo(() => {
     const map = new Map<string, BuildingEconomyLoop>();
     commissionerOverview?.buildingLoops?.forEach((loop) => map.set(loop.buildingId, loop));
@@ -1293,7 +1514,7 @@ export default function KintaraSportsWorld() {
       <svg
         ref={svgRef}
         className="absolute inset-0 w-full h-full"
-        viewBox="-760 -520 1520 980"
+        viewBox="-1120 -750 2240 1420"
         onClick={(e) => moveToSvgPoint(e.clientX, e.clientY)}
         role="img"
         aria-label="Interactive isometric sports world"
@@ -1320,15 +1541,15 @@ export default function KintaraSportsWorld() {
           </filter>
         </defs>
 
-        <rect x={-760} y={-520} width={1520} height={980} fill="url(#waterGradient)" />
+        <rect x={-1120} y={-750} width={2240} height={1420} fill="url(#waterGradient)" />
         <WaterfrontDetails />
-        <ellipse cx={0} cy={-55} rx={705} ry={374} fill="url(#islandGlow)" />
+        <ellipse cx={0} cy={-60} rx={960} ry={545} fill="url(#islandGlow)" />
 
         <g filter="url(#softShadow)">
-          <polygon points="0,-486 764,-96 0,404 -764,-96" fill="#d9f99d" opacity={0.94} stroke="#fef3c7" strokeWidth={16} />
-          <polygon points="0,-470 745,-90 0,386 -745,-90" fill="#5fb844" stroke="#3f8f2f" strokeWidth={6} />
-          <polygon points="0,386 745,-90 745,-40 0,440" fill="#407e33" opacity={0.7} />
-          <polygon points="0,386 -745,-90 -745,-40 0,440" fill="#386f2f" opacity={0.8} />
+          <polygon points="0,-682 1054,-104 0,602 -1054,-104" fill="#d9f99d" opacity={0.94} stroke="#fef3c7" strokeWidth={18} />
+          <polygon points="0,-660 1025,-90 0,575 -1025,-90" fill="#5fb844" stroke="#3f8f2f" strokeWidth={7} />
+          <polygon points="0,575 1025,-90 1025,-30 0,645" fill="#407e33" opacity={0.7} />
+          <polygon points="0,575 -1025,-90 -1025,-30 0,645" fill="#386f2f" opacity={0.8} />
         </g>
 
         <g>
@@ -1352,19 +1573,30 @@ export default function KintaraSportsWorld() {
         </g>
 
         {/* Trees and sports props */}
-        {[-10, -8, -5, 6, 8, 10].map((tx, i) => {
-          const p = iso(tx, -8 + (i % 3));
+        {[-14, -11, -7, 7, 11, 14].map((tx, i) => {
+          const p = iso(tx, -12 + (i % 4));
           return <BlockTree key={`top-tree-${i}`} x={p.x} y={p.y} />;
         })}
-        {[-9, -6, -3, 4, 7, 10].map((tx, i) => {
-          const p = iso(tx, 9 - (i % 4));
+        {[-14, -10, -5, 5, 10, 14].map((tx, i) => {
+          const p = iso(tx, 14 - (i % 5));
           return <BlockTree key={`bottom-tree-${i}`} x={p.x} y={p.y} />;
         })}
 
         {DECORATIONS.map((item, idx) => <Decoration key={`${item.kind}-${idx}`} item={item} />)}
         {CROWD_CLUSTERS.map((cluster, idx) => <CrowdCluster key={`crowd-${idx}`} tx={cluster.tx} ty={cluster.ty} color={cluster.color} />)}
 
-        {BUILDINGS.map((building) => <SportsBuildingView key={building.id} building={building} economyLoop={loopByBuilding.get(building.id)} onClick={openBuilding} />)}
+        {BUILDINGS.map((building) => (
+          <SportsBuildingView
+            key={building.id}
+            building={building}
+            economyLoop={loopByBuilding.get(building.id)}
+            onClick={openBuilding}
+            active={nearby?.id === building.id}
+            hovered={hoveredBuildingId === building.id}
+            onHover={setHoveredBuildingId}
+            stadiumUpgradeLevel={building.id === 'stadium' ? stadiumLevel : 0}
+          />
+        ))}
 
         {NPCS.map((npc) => {
           const p = iso(npc.tx, npc.ty);
