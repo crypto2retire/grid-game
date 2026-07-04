@@ -36,12 +36,84 @@ const FOCUS_LABELS: Record<string, string> = {
 
 const TRAINING_DURATION_SECONDS = 30; // Real-time seconds per training
 
+const OFFENSE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL'];
+const DEFENSE_POSITIONS = ['DL', 'LB', 'CB', 'S', 'K'];
+
+const STAT_LABELS: Record<string, string> = {
+  pace: 'SPD',
+  shooting: 'ARM',
+  passing: 'IQ',
+  dribbling: 'AGI',
+  defending: 'TCK',
+  physical: 'STR',
+};
+
+const POSITION_TRAINING_GUIDE: Record<string, { role: string; needs: string[]; bestStats: string[] }> = {
+  QB: { role: 'Quarterback', needs: ['ARM', 'IQ', 'AGI'], bestStats: ['shooting', 'passing', 'dribbling'] },
+  RB: { role: 'Running Back', needs: ['SPD', 'AGI', 'STR'], bestStats: ['pace', 'dribbling', 'physical'] },
+  WR: { role: 'Wide Receiver', needs: ['SPD', 'AGI', 'IQ'], bestStats: ['pace', 'dribbling', 'passing'] },
+  TE: { role: 'Tight End', needs: ['STR', 'IQ', 'AGI'], bestStats: ['physical', 'passing', 'dribbling'] },
+  OL: { role: 'O-Line', needs: ['STR', 'IQ'], bestStats: ['physical', 'passing'] },
+  DL: { role: 'D-Line', needs: ['STR', 'TCK'], bestStats: ['physical', 'defending'] },
+  LB: { role: 'Linebacker', needs: ['TCK', 'SPD', 'IQ'], bestStats: ['defending', 'pace', 'passing'] },
+  CB: { role: 'Cornerback', needs: ['SPD', 'AGI', 'TCK'], bestStats: ['pace', 'dribbling', 'defending'] },
+  S: { role: 'Safety', needs: ['TCK', 'IQ', 'SPD'], bestStats: ['defending', 'passing', 'pace'] },
+  K: { role: 'Kicker', needs: ['ARM', 'IQ'], bestStats: ['shooting', 'passing'] },
+};
+
 const safeNumber = (value: unknown): number => {
   const parsed = typeof value === 'number' ? value : Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
 const formatNumber = (value: unknown): string => safeNumber(value).toLocaleString();
+
+function normalizePosition(position?: string | null): string {
+  return (position || 'UNK').toUpperCase();
+}
+
+function getPositionGuide(position?: string | null) {
+  return POSITION_TRAINING_GUIDE[normalizePosition(position)] || {
+    role: 'Player',
+    needs: ['SPD', 'IQ', 'STR'],
+    bestStats: ['pace', 'passing', 'physical'],
+  };
+}
+
+function getPositionSide(position?: string | null): 'Offense' | 'Defense' | 'Special' {
+  const normalized = normalizePosition(position);
+  if (normalized === 'K') return 'Special';
+  if (OFFENSE_POSITIONS.includes(normalized)) return 'Offense';
+  return 'Defense';
+}
+
+function getPackageTargetText(pkg: TrainingPackage): string {
+  if (pkg.focusType === 'POSITION_GROUP' && pkg.targetPosition) return `Targets ${pkg.targetPosition}`;
+  if (pkg.focusType === 'OFFENSE') return 'Targets QB/RB/WR/TE/OL';
+  if (pkg.focusType === 'DEFENSE') return 'Targets DL/LB/CB/S/K';
+  if (pkg.focusType === 'INDIVIDUAL') return 'Targets selected player';
+  return 'Targets full roster';
+}
+
+function getPackageFitText(pkg: TrainingPackage, position?: string | null): string {
+  const normalized = normalizePosition(position);
+  const guide = getPositionGuide(normalized);
+  const boostStats = Object.entries(pkg.statBoosts)
+    .filter(([, boost]) => safeNumber(boost) > 0)
+    .map(([stat]) => stat);
+  const matchingStats = boostStats.filter((stat) => guide.bestStats.includes(stat));
+
+  const focusMatches =
+    pkg.focusType === 'ALL' ||
+    pkg.focusType === 'INDIVIDUAL' ||
+    (pkg.focusType === 'POSITION_GROUP' && normalizePosition(pkg.targetPosition) === normalized) ||
+    (pkg.focusType === 'OFFENSE' && OFFENSE_POSITIONS.includes(normalized)) ||
+    (pkg.focusType === 'DEFENSE' && DEFENSE_POSITIONS.includes(normalized));
+
+  if (!focusMatches) return `Does not target ${normalized}`;
+  if (matchingStats.length === 0) return `Targets ${normalized}, but secondary fit`;
+  return `Good for ${normalized}: boosts ${matchingStats.map((stat) => STAT_LABELS[stat] || stat.toUpperCase()).join(', ')}`;
+}
 
 export default function TrainingPage() {
   const { packages, activeTraining, isTraining, startTraining, cancelTraining, claimReward, playerFatigue, canTrain, completedSessions, loading: packagesLoading } = useTraining();
@@ -74,6 +146,7 @@ export default function TrainingPage() {
   };
 
   const selectedTeam = teams.find(t => t.id === selectedTeamId);
+  const selectedPlayerInfo = playerFatigue.find((p) => p.playerId === selectedPlayer);
 
   const handleStartTraining = async (pkg: TrainingPackage) => {
     if (!selectedTeamId) {
@@ -238,22 +311,41 @@ export default function TrainingPage() {
 
       {/* Player Fatigue Overview */}
       <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Player Fatigue
-          </h3>
-          <span className="text-xs text-white/40">Recovers 1% per minute</span>
+        <div className="flex flex-col gap-2 mb-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider flex items-center gap-2">
+              <Activity className="w-4 h-4 text-cyan-300" />
+              Player Fatigue + Position Fit
+            </h3>
+            <p className="mt-1 text-xs text-slate-300">
+              Position badges show who benefits most from each drill: QB/RB/WR/TE/OL are offense, DL/LB/CB/S/K are defense.
+            </p>
+          </div>
+          <span className="text-xs text-slate-300">Recovers 1% per minute</span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {playerFatigue.map((p) => {
             const isHigh = p.fatigue >= 80;
             const isCritical = p.fatigue >= 90;
+            const position = normalizePosition(p.position);
+            const guide = getPositionGuide(position);
+            const side = getPositionSide(position);
             return (
-              <div key={p.playerId} className={`p-3 rounded-xl border ${isCritical ? 'border-red-500/30 bg-red-500/5' : 'border-white/5 bg-white/5'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-white">{p.playerName}</span>
-                  {isHigh && <AlertTriangle className="w-4 h-4 text-amber-400" />}
+              <div key={p.playerId} className={`p-3 rounded-xl border ${isCritical ? 'border-red-500/40 bg-red-500/10' : 'border-cyan-200/10 bg-slate-900/70'}`}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-white truncate">{p.playerName}</span>
+                      <span className="rounded-md border border-cyan-200/30 bg-cyan-400/15 px-2 py-0.5 text-xs font-black text-cyan-100">
+                        {position}
+                      </span>
+                      <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                        {side}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-300">{guide.role} • train {guide.needs.join(' / ')}</div>
+                  </div>
+                  {isHigh && <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />}
                 </div>
                 <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
                   <div 
@@ -264,9 +356,9 @@ export default function TrainingPage() {
                   />
                 </div>
                 <div className="flex justify-between mt-1">
-                  <span className="text-xs text-white/40">{p.fatigue}% fatigue</span>
+                  <span className="text-xs text-slate-300">{p.fatigue}% fatigue</span>
                   {p.trainingStreak > 0 && (
-                    <span className="text-xs text-amber-400">{p.trainingStreak}x streak</span>
+                    <span className="text-xs text-amber-300">{p.trainingStreak}x streak</span>
                   )}
                 </div>
               </div>
@@ -278,24 +370,46 @@ export default function TrainingPage() {
       {/* Player selector for individual training */}
       {selectedTeamId && (
         <div className="glass-card p-4">
-          <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-3">Select Player (for Individual Training)</h3>
-          <div className="flex gap-2 flex-wrap">
-            {playerFatigue.map((p) => (
-              <button
-                key={p.playerId}
-                onClick={() => setSelectedPlayer(selectedPlayer === p.playerId ? '' : p.playerId)}
-                disabled={p.fatigue >= 90}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  selectedPlayer === p.playerId
-                    ? 'bg-[#E94560] text-white'
-                    : p.fatigue >= 90
-                    ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                    : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                {p.playerName} ({p.fatigue}%)
-              </button>
-            ))}
+          <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider">Select Player (for Individual Training)</h3>
+              <p className="mt-1 text-xs text-slate-300">Each chip shows position + best attributes, so you can match the player to the right drill.</p>
+            </div>
+            {selectedPlayerInfo && (
+              <div className="rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100">
+                Selected {normalizePosition(selectedPlayerInfo.position)} • train {getPositionGuide(selectedPlayerInfo.position).needs.join(' / ')}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {playerFatigue.map((p) => {
+              const position = normalizePosition(p.position);
+              const guide = getPositionGuide(position);
+              const disabled = p.fatigue >= 90;
+              const selected = selectedPlayer === p.playerId;
+              return (
+                <button
+                  key={p.playerId}
+                  onClick={() => setSelectedPlayer(selected ? '' : p.playerId)}
+                  disabled={disabled}
+                  className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition-all ${
+                    selected
+                      ? 'border-[#E94560]/70 bg-[#E94560]/25 text-white shadow-glow'
+                      : disabled
+                      ? 'border-white/5 bg-white/5 text-white/25 cursor-not-allowed'
+                      : 'border-cyan-200/10 bg-slate-900/70 text-slate-200 hover:border-cyan-200/40 hover:bg-cyan-400/10 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate font-bold">{p.playerName}</span>
+                    <span className="rounded-md border border-cyan-200/30 bg-cyan-400/15 px-2 py-0.5 text-xs font-black text-cyan-100">
+                      {position}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-300">{p.fatigue}% fatigue • best: {guide.needs.join(' / ')}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -308,6 +422,7 @@ export default function TrainingPage() {
           const costCash = safeNumber(pkg.costCash);
           const canAfford = walletDyn >= costGrid && walletCash >= costCash;
           const check = canTrain(pkg.focusType === 'INDIVIDUAL' ? selectedPlayer : undefined);
+          const selectedFitText = selectedPlayerInfo ? getPackageFitText(pkg, selectedPlayerInfo.position) : null;
           
           return (
             <div key={pkg.id} className={`glass-card p-5 border transition-all ${
@@ -325,6 +440,17 @@ export default function TrainingPage() {
 
               <p className="text-sm text-white/50 mb-4">{pkg.description}</p>
 
+              <div className="mb-4 flex flex-wrap gap-2">
+                <span className="rounded-lg border border-cyan-200/20 bg-cyan-400/10 px-2 py-1 text-xs font-bold text-cyan-100">
+                  {getPackageTargetText(pkg)}
+                </span>
+                {selectedFitText && (
+                  <span className={`rounded-lg border px-2 py-1 text-xs font-bold ${selectedFitText.startsWith('Good') ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100' : selectedFitText.startsWith('Does not') ? 'border-amber-300/25 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/5 text-slate-200'}`}>
+                    {selectedFitText}
+                  </span>
+                )}
+              </div>
+
               <div className="flex items-center gap-2 mb-4">
                 <Timer className="w-4 h-4 text-amber-400" />
                 <span className="text-sm text-amber-400">{TRAINING_DURATION_SECONDS}s real-time</span>
@@ -334,7 +460,7 @@ export default function TrainingPage() {
                 {Object.entries(pkg.statBoosts).map(([stat, boost]) => (
                   boost && typeof boost === 'number' && boost > 0 ? (
                     <span key={stat} className="text-xs bg-white/5 rounded-lg px-2 py-1 text-emerald-400">
-                      +{boost} {stat}
+                      +{boost} {STAT_LABELS[stat] || stat.toUpperCase()}
                     </span>
                   ) : null
                 ))}

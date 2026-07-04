@@ -36,6 +36,7 @@ export interface PlayerTraining {
 export interface PlayerFatigue {
   playerId: string;
   playerName: string;
+  position?: string;
   fatigue: number;
   lastTrainedAt: string | null;
   trainingStreak: number;
