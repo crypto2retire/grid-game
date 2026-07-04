@@ -1341,7 +1341,7 @@ function InteriorSceneProps({ building, stadiumUpgradeLevel = 0, visualStage = 0
         {[92, 210, 328].map((x, idx) => (
           <g key={x}>
             <rect x={x - 44} y="184" width="88" height="88" rx="14" fill={idx === 1 ? '#7f1d1d' : '#78350f'} stroke="#fef3c7" strokeWidth="2" />
-            <text x={x} y="232" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="900">CASE {idx + 1}</text>
+            <text x={x} y="232" textAnchor="middle" fill="#f8fafc" stroke="#020617" strokeWidth="3" paintOrder="stroke" fontSize="12" fontWeight="900">CASE {idx + 1}</text>
           </g>
         ))}
         {commonCase('AUCTION', 114, 355, '#f59e0b')}
