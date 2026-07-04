@@ -302,6 +302,33 @@ const HOTBAR: HotbarSlot[] = [
   { key: '3', icon: '🔭', label: 'Scout', miniGameType: 'SCOUTING' },
 ];
 
+const BUILDING_SIGNS: Record<string, { code: string; icon: string; fill: string; text: string }> = {
+  stadium: { code: 'GRID', icon: '🏟', fill: '#991b1b', text: 'Home field' },
+  practice: { code: 'PLAY', icon: '▶', fill: '#166534', text: 'Match field' },
+  training: { code: 'GYM', icon: '◆', fill: '#5b21b6', text: 'Training' },
+  clubhouse: { code: 'HQ', icon: '★', fill: '#9a3412', text: 'Daily ops' },
+  team: { code: 'LOCKER', icon: '◆', fill: '#0369a1', text: 'Roster' },
+  market: { code: 'DROP', icon: '◆', fill: '#b45309', text: 'Market' },
+  medical: { code: 'MED', icon: '+', fill: '#ef4444', text: 'Recovery' },
+  commissioner: { code: 'COMMISH', icon: '◆', fill: '#0f766e', text: 'Restocks' },
+  hall: { code: 'HOF', icon: '★', fill: '#ca8a04', text: 'Prestige' },
+  garage: { code: 'BUS', icon: '◆', fill: '#475569', text: 'Travel' },
+  bank: { code: 'DYN', icon: '$', fill: '#075985', text: 'Sponsor bank' },
+};
+
+function questTargetsFor(quest: DailyQuestHudItem) {
+  const text = `${quest.id} ${quest.label}`.toLowerCase();
+  if (text.includes('match') || text.includes('game') || text.includes('play')) return ['practice', 'stadium'];
+  if (text.includes('train') || text.includes('drill')) return ['training'];
+  if (text.includes('equip') || text.includes('market') || text.includes('buy') || text.includes('purchase')) return ['market'];
+  if (text.includes('sponsor') || text.includes('wallet') || text.includes('dyn')) return ['bank'];
+  if (text.includes('league') || text.includes('commissioner') || text.includes('fund')) return ['commissioner'];
+  if (text.includes('transport') || text.includes('travel') || text.includes('garage')) return ['garage'];
+  if (text.includes('heal') || text.includes('recover') || text.includes('injur') || text.includes('medical')) return ['medical'];
+  if (text.includes('roster') || text.includes('lineup') || text.includes('hire') || text.includes('team')) return ['team'];
+  return [];
+}
+
 function darker(hex: string, amount = 34) {
   const raw = hex.replace('#', '');
   const n = parseInt(raw, 16);
@@ -714,7 +741,28 @@ function BoxBuilding({ building }: { building: SportsBuilding }) {
   );
 }
 
-function BuildingLabel({ building, economyLoop, selected = false }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; selected?: boolean }) {
+function BuildingPhysicalSign({ building, questTarget = false }: { building: SportsBuilding; questTarget?: boolean }) {
+  const { x, y } = iso(building.tx, building.ty);
+  const sign = BUILDING_SIGNS[building.id] || { code: building.label.slice(0, 4).toUpperCase(), icon: '◆', fill: building.accent, text: building.subtitle };
+  const yOffset = building.kind === 'stadium' ? -154 : building.kind === 'field' ? -70 : building.kind === 'scout' ? -162 : building.kind === 'bank' ? -120 : -112;
+  const signWidth = Math.max(68, sign.code.length * 9 + 24);
+  return (
+    <g transform={`translate(${x}, ${y + yOffset})`} style={{ pointerEvents: 'none' }}>
+      {questTarget && (
+        <g transform="translate(0,-34)">
+          <circle r={17} fill="#fde047" stroke="#92400e" strokeWidth={2.5} filter="url(#warmGlow)" />
+          <text x={0} y={6} textAnchor="middle" fill="#422006" fontSize={18} fontWeight={900}>!</text>
+        </g>
+      )}
+      <rect x={-signWidth / 2} y={-14} width={signWidth} height={28} rx={8} fill={sign.fill} stroke="#fff7ed" strokeWidth={2} />
+      <text x={-signWidth / 2 + 13} y={5} textAnchor="middle" fill="#fff7ed" fontSize={13} fontWeight={900}>{sign.icon}</text>
+      <text x={8} y={4} textAnchor="middle" fill="#fff7ed" fontSize={sign.code.length > 5 ? 9 : 11} fontWeight={900}>{sign.code}</text>
+      <text x={0} y={26} textAnchor="middle" fill="#0f172a" fontSize={8} fontWeight={900}>{sign.text}</text>
+    </g>
+  );
+}
+
+function BuildingLabel({ building, economyLoop, selected = false, questTarget = false }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; selected?: boolean; questTarget?: boolean }) {
   const { x, y } = iso(building.tx, building.ty);
   const progress = Math.max(0, Math.min(100, economyLoop?.progress ?? 0));
   return (
@@ -724,7 +772,7 @@ function BuildingLabel({ building, economyLoop, selected = false }: { building: 
       <text x={0} y={7} textAnchor="middle" fill="#cbd5e1" fontSize={9} fontWeight={800}>{economyLoop?.label || building.subtitle}</text>
       <rect x={-58} y={17} width={116} height={5} rx={3} fill="rgba(148,163,184,0.45)" />
       <rect x={-58} y={17} width={(116 * progress) / 100} height={5} rx={3} fill={building.color} />
-      <text x={0} y={34} textAnchor="middle" fill={selected ? '#fde047' : '#e2e8f0'} fontSize={8} fontWeight={900}>{selected ? 'PRESS E TO ENTER' : economyLoop?.status || building.subtitle}</text>
+      <text x={0} y={34} textAnchor="middle" fill={selected ? '#fde047' : '#e2e8f0'} fontSize={8} fontWeight={900}>{selected ? 'PRESS E TO ENTER' : questTarget ? 'QUEST TARGET' : economyLoop?.status || building.subtitle}</text>
     </g>
   );
 }
@@ -747,6 +795,7 @@ function SportsBuildingView({
   hovered = false,
   onHover,
   stadiumUpgradeLevel = 0,
+  questTarget = false,
 }: {
   building: SportsBuilding;
   economyLoop?: BuildingEconomyLoop;
@@ -755,9 +804,10 @@ function SportsBuildingView({
   hovered?: boolean;
   onHover: (id: string | null) => void;
   stadiumUpgradeLevel?: number;
+  questTarget?: boolean;
 }) {
   const { x, y } = iso(building.tx, building.ty);
-  const showLabel = active || hovered;
+  const showLabel = active || hovered || questTarget;
   return (
     <g
       onClick={(e) => { e.stopPropagation(); onClick(building); }}
@@ -768,7 +818,8 @@ function SportsBuildingView({
       <BuildingFootprint building={building} active={active || hovered} />
       <g className="transition-transform duration-150 hover:scale-105" style={{ transformOrigin: `${x}px ${y}px` }}>
         {building.kind === 'stadium' ? <StadiumBuilding building={building} upgradeLevel={stadiumUpgradeLevel} /> : building.kind === 'field' ? <FieldBuilding building={building} /> : <BoxBuilding building={building} />}
-        {showLabel && <BuildingLabel building={building} economyLoop={economyLoop} selected={active} />}
+        <BuildingPhysicalSign building={building} questTarget={questTarget} />
+        {showLabel && <BuildingLabel building={building} economyLoop={economyLoop} selected={active} questTarget={questTarget} />}
       </g>
     </g>
   );
@@ -1033,12 +1084,14 @@ function BuildingInteriorShell({
   children,
   onExit,
   stadiumUpgradeLevel = 0,
+  questTarget = false,
 }: {
   building: SportsBuilding;
   title: string;
   children: ReactNode;
   onExit: () => void;
   stadiumUpgradeLevel?: number;
+  questTarget?: boolean;
 }) {
   const isComputerLed = ['market', 'bank', 'commissioner', 'garage', 'stadium'].includes(building.id);
   const roomLabel = building.id === 'team'
@@ -1513,6 +1566,7 @@ export default function KintaraSportsWorld() {
   const openQuestCount = quests.filter((quest) => !quest.claimed).length;
   const economyAverage = Math.round(economyMeters.reduce((sum, meter) => sum + meter.progress, 0) / Math.max(1, economyMeters.length));
   const latestChat = chatMessages.at(-1);
+  const questBuildingIds = useMemo(() => new Set(quests.filter((quest) => !quest.claimed).flatMap(questTargetsFor)), [quests]);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#8ed5f5] select-none">
@@ -1603,6 +1657,7 @@ export default function KintaraSportsWorld() {
             hovered={hoveredBuildingId === building.id}
             onHover={setHoveredBuildingId}
             stadiumUpgradeLevel={building.id === 'stadium' ? stadiumLevel : 0}
+            questTarget={questBuildingIds.has(building.id)}
           />
         ))}
 
