@@ -316,6 +316,39 @@ const BUILDING_SIGNS: Record<string, { code: string; icon: string; fill: string;
   bank: { code: 'DYN', icon: '$', fill: '#075985', text: 'Sponsor bank' },
 };
 
+const ONBOARDING_STEPS: Array<{ title: string; body: string; buildingIds: string[]; action: string }> = [
+  {
+    title: '1. Start as a local coach',
+    body: 'Open the Clubhouse and Locker Room first. Your job is to turn a starter roster into a real sports business.',
+    buildingIds: ['clubhouse', 'team'],
+    action: 'Enter HQ or Locker Room',
+  },
+  {
+    title: '2. Develop players before chasing leagues',
+    body: 'Use Training to raise roster value. Better players win more, sell for more, and justify higher stadium demand.',
+    buildingIds: ['training', 'team'],
+    action: 'Train or manage roster',
+  },
+  {
+    title: '3. Play matches to create revenue',
+    body: 'Practice Field and Stadium are the first cash loop: schedule, play, earn fans, and create game-day revenue.',
+    buildingIds: ['practice', 'stadium'],
+    action: 'Play match loop',
+  },
+  {
+    title: '4. Spend on infrastructure, not mining',
+    body: 'Upgrade stadium, travel, recovery, and market inventory. These are sports-economy sinks that build status.',
+    buildingIds: ['stadium', 'garage', 'medical', 'market'],
+    action: 'Upgrade the business',
+  },
+  {
+    title: '5. Graduate into scarce leagues',
+    body: 'Commissioner funding, sponsor treasury, and league gates create the Kintara-style long game: scarcity, ownership, and status.',
+    buildingIds: ['commissioner', 'bank', 'hall'],
+    action: 'Fund, sponsor, compete',
+  },
+];
+
 function questTargetsFor(quest: DailyQuestHudItem) {
   const text = `${quest.id} ${quest.label}`.toLowerCase();
   if (text.includes('match') || text.includes('game') || text.includes('play')) return ['practice', 'stadium'];
@@ -1488,6 +1521,8 @@ export default function KintaraSportsWorld() {
   const [walletOverride, setWalletOverride] = useState<WalletSnapshot | null>(null);
   const [commissionerOverview, setCommissionerOverview] = useState<CommissionerOverview | null>(null);
   const [hudOpen, setHudOpen] = useState({ economy: false, quests: false, chat: false });
+  const [coachGuideOpen, setCoachGuideOpen] = useState(() => (typeof window === 'undefined' ? false : localStorage.getItem('grid-local-coach-guide-seen') !== 'yes'));
+  const [coachStep, setCoachStep] = useState(0);
 
   const tiles = useMemo(() => {
     const all: Array<{ key: string; x: number; y: number; fill: string; stroke: string }> = [];
@@ -1759,6 +1794,11 @@ export default function KintaraSportsWorld() {
     setWorldStatus(failed ? `Refresh finished with ${failed} server issue${failed === 1 ? '' : 's'}` : 'Live world refreshed');
   };
 
+  const completeCoachGuide = () => {
+    setCoachGuideOpen(false);
+    localStorage.setItem('grid-local-coach-guide-seen', 'yes');
+  };
+
   const username = user?.displayName || user?.username || 'Owner';
   const cash = walletOverride?.cash ?? user?.wallet?.cash ?? 0;
   const dyn = walletOverride?.dynTokens ?? user?.wallet?.dynTokens ?? 0;
@@ -1779,6 +1819,12 @@ export default function KintaraSportsWorld() {
   const economyAverage = Math.round(economyMeters.reduce((sum, meter) => sum + meter.progress, 0) / Math.max(1, economyMeters.length));
   const latestChat = chatMessages.at(-1);
   const questBuildingIds = useMemo(() => new Set(quests.filter((quest) => !quest.claimed).flatMap(questTargetsFor)), [quests]);
+  const activeCoachStep = coachGuideOpen ? ONBOARDING_STEPS[coachStep] : null;
+  const guidedBuildingIds = useMemo(() => {
+    const ids = new Set(questBuildingIds);
+    activeCoachStep?.buildingIds.forEach((id) => ids.add(id));
+    return ids;
+  }, [activeCoachStep, questBuildingIds]);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#8ed5f5] select-none">
@@ -1870,7 +1916,7 @@ export default function KintaraSportsWorld() {
             hovered={hoveredBuildingId === building.id}
             onHover={setHoveredBuildingId}
             stadiumUpgradeLevel={building.id === 'stadium' ? stadiumLevel : 0}
-            questTarget={questBuildingIds.has(building.id)}
+            questTarget={guidedBuildingIds.has(building.id)}
           />
         ))}
 
@@ -1926,6 +1972,61 @@ export default function KintaraSportsWorld() {
       </div>
 
       <MiniMap player={player} />
+
+      {/* First-session coach path: teaches the sports economy loop without a wall of text. */}
+      {activeCoachStep && (
+        <div className="absolute left-1/2 top-20 z-[8] w-[min(680px,calc(100vw-2rem))] -translate-x-1/2 rounded-3xl border border-amber-200/70 bg-slate-950/92 p-4 text-white shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-amber-200 font-black">Local Coach Path</div>
+              <h3 className="mt-1 text-lg font-black">{activeCoachStep.title}</h3>
+              <p className="mt-1 text-sm leading-snug text-slate-200">{activeCoachStep.body}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+                {activeCoachStep.buildingIds.map((id) => (
+                  <span key={id} className="rounded-full bg-amber-300/15 px-2 py-1 text-amber-100">{BUILDING_SIGNS[id]?.text || id}</span>
+                ))}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-stretch">
+              <div className="rounded-2xl bg-emerald-400/15 px-3 py-2 text-center text-xs font-black text-emerald-100">{activeCoachStep.action}</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCoachStep((step) => Math.min(ONBOARDING_STEPS.length - 1, step + 1))}
+                  disabled={coachStep === ONBOARDING_STEPS.length - 1}
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-white hover:bg-white/20 disabled:opacity-40"
+                >
+                  Next
+                </button>
+                <button type="button" onClick={completeCoachGuide} className="rounded-xl bg-amber-300 px-3 py-2 text-xs font-black text-slate-950 hover:bg-amber-200">
+                  {coachStep === ONBOARDING_STEPS.length - 1 ? 'Finish' : 'Hide'}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-5 gap-1">
+            {ONBOARDING_STEPS.map((step, idx) => (
+              <button
+                key={step.title}
+                type="button"
+                onClick={() => setCoachStep(idx)}
+                className={`h-2 rounded-full ${idx === coachStep ? 'bg-amber-300' : idx < coachStep ? 'bg-emerald-400' : 'bg-white/20'}`}
+                aria-label={`Show onboarding step ${idx + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!activeCoachStep && (
+        <button
+          type="button"
+          onClick={() => { setCoachGuideOpen(true); setCoachStep(0); }}
+          className="absolute top-28 left-4 z-[7] rounded-2xl border border-amber-200/60 bg-slate-950/85 px-3 py-2 text-xs font-black uppercase tracking-wider text-amber-100 shadow-xl hover:bg-slate-900"
+        >
+          Local Coach Path
+        </button>
+      )}
 
       {/* Collapsible HUD dock: support widgets stay out of the play space until opened. */}
       <div className="absolute right-4 top-28 z-[7] flex flex-col items-end gap-2 pointer-events-none">
