@@ -1,0 +1,257 @@
+{
+  "model_type": "hypothetical_in_game_economy_simulation_not_real_financial_data",
+  "source_files": [
+    "apps/api/src/modules/daily-quests/daily-quests.service.ts",
+    "apps/api/src/modules/economy/teamEconomy.config.ts",
+    "apps/api/src/modules/economy/gameEconomics.ts",
+    "apps/api/src/modules/testing/mega-simulation.service.ts"
+  ],
+  "cohort_mix": {
+    "extractor": 0.5,
+    "free_grinder": 0.25,
+    "payer_holder": 0.25
+  },
+  "key_assumptions": {
+    "daily_quest_cash_reward": 2750,
+    "extractors": "complete daily quests + 1 LOCAL_REC match; extract/hoard all positive daily retained CASH; no upgrades",
+    "free_grinders": "complete daily quests + 2 matches; spend up to 70% of retained CASH on training; no external purchases",
+    "payer_holders": "complete daily quests + 3 matches; external purchase equivalent 5k-25k CASH/day; spend on training/equipment/upgrades; no extraction"
+  },
+  "results": [
+    {
+      "players": 100,
+      "days": 30,
+      "trials": 100,
+      "cohorts": {
+        "extractor": 50,
+        "free_grinder": 25,
+        "payer_holder": 25
+      },
+      "avg_totals": {
+        "cash_emissions": 47838936.17,
+        "operating_sinks": 3122994.5,
+        "upgrade_sinks": 19275665.116,
+        "extracted_cash": 7534363.92,
+        "retained_cash": 18887111.004,
+        "external_purchase_cash_equiv": 9350200.0,
+        "net_cash_created_after_sinks": 25440276.554,
+        "matches": 5250,
+        "training_sessions": 4378.44,
+        "upgrades": 168.82
+      },
+      "avg_per_day": {
+        "cash_emissions": 1594631.2056666666,
+        "operating_sinks": 104099.81666666667,
+        "upgrade_sinks": 642522.1705333333,
+        "extracted_cash": 251145.464,
+        "retained_cash": 629570.3668000001,
+        "external_purchase_cash_equiv": 311673.3333333333,
+        "net_cash_created_after_sinks": 848009.2184666668
+      },
+      "avg_per_player_per_day": {
+        "cash_emissions": 15946.312056666666,
+        "extracted_cash": 2511.45464,
+        "net_cash_created_after_sinks": 8480.092184666668,
+        "external_purchase_cash_equiv": 3116.733333333333
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 46.82098183873556,
+        "external_purchase_to_extracted_ratio": 1.241007216970215,
+        "daily_extracted_p50": 251054.0,
+        "daily_extracted_p95": 266562.0,
+        "daily_net_emission_p50": 842055.1,
+        "daily_net_emission_p95": 1100042.9,
+        "daily_external_purchase_p50": 310000.0,
+        "daily_external_purchase_p95": 370000.0
+      }
+    },
+    {
+      "players": 500,
+      "days": 30,
+      "trials": 100,
+      "cohorts": {
+        "extractor": 250,
+        "free_grinder": 125,
+        "payer_holder": 125
+      },
+      "avg_totals": {
+        "cash_emissions": 238367359.81,
+        "operating_sinks": 15602263.0,
+        "upgrade_sinks": 96491588.619,
+        "extracted_cash": 37672881.6,
+        "retained_cash": 93463636.781,
+        "external_purchase_cash_equiv": 46822500.0,
+        "net_cash_created_after_sinks": 126273508.191,
+        "matches": 26250,
+        "training_sessions": 21900.2,
+        "upgrades": 852.48
+      },
+      "avg_per_day": {
+        "cash_emissions": 7945578.660333334,
+        "operating_sinks": 520075.43333333335,
+        "upgrade_sinks": 3216386.2873,
+        "extracted_cash": 1255762.72,
+        "retained_cash": 3115454.5593666667,
+        "external_purchase_cash_equiv": 1560750.0,
+        "net_cash_created_after_sinks": 4209116.9397
+      },
+      "avg_per_player_per_day": {
+        "cash_emissions": 15891.157320666667,
+        "extracted_cash": 2511.52544,
+        "net_cash_created_after_sinks": 8418.2338794,
+        "external_purchase_cash_equiv": 3121.5
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 47.025671513225966,
+        "external_purchase_to_extracted_ratio": 1.2428701498639807,
+        "daily_extracted_p50": 1256038.0,
+        "daily_extracted_p95": 1290590.0,
+        "daily_net_emission_p50": 4201891.5,
+        "daily_net_emission_p95": 4787531.7,
+        "daily_external_purchase_p50": 1560000.0,
+        "daily_external_purchase_p95": 1690000.0
+      }
+    },
+    {
+      "players": 1000,
+      "days": 30,
+      "trials": 100,
+      "cohorts": {
+        "extractor": 500,
+        "free_grinder": 250,
+        "payer_holder": 250
+      },
+      "avg_totals": {
+        "cash_emissions": 477116335.62,
+        "operating_sinks": 31208962.25,
+        "upgrade_sinks": 193028886.213,
+        "extracted_cash": 75382419.96,
+        "retained_cash": 187271738.137,
+        "external_purchase_cash_equiv": 93731075.0,
+        "net_cash_created_after_sinks": 252878487.157,
+        "matches": 52500,
+        "training_sessions": 43777.28,
+        "upgrades": 1702.46
+      },
+      "avg_per_day": {
+        "cash_emissions": 15903877.854,
+        "operating_sinks": 1040298.7416666667,
+        "upgrade_sinks": 6434296.2071,
+        "extracted_cash": 2512747.332,
+        "retained_cash": 6242391.271233333,
+        "external_purchase_cash_equiv": 3124369.1666666665,
+        "net_cash_created_after_sinks": 8429282.905233333
+      },
+      "avg_per_player_per_day": {
+        "cash_emissions": 15903.877854,
+        "extracted_cash": 2512.747332,
+        "net_cash_created_after_sinks": 8429.282905233333,
+        "external_purchase_cash_equiv": 3124.3691666666664
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 46.99856863454672,
+        "external_purchase_to_extracted_ratio": 1.2434076147958146,
+        "daily_extracted_p50": 2512652.0,
+        "daily_extracted_p95": 2560488.0,
+        "daily_net_emission_p50": 8421549.700000001,
+        "daily_net_emission_p95": 9224720.600000001,
+        "daily_external_purchase_p50": 3125000.0,
+        "daily_external_purchase_p95": 3300000.0
+      }
+    },
+    {
+      "players": 5000,
+      "days": 30,
+      "trials": 100,
+      "cohorts": {
+        "extractor": 2500,
+        "free_grinder": 1250,
+        "payer_holder": 1250
+      },
+      "avg_totals": {
+        "cash_emissions": 2386527831.35,
+        "operating_sinks": 156083665.25,
+        "upgrade_sinks": 964762345.0749999,
+        "extracted_cash": 376866662.56,
+        "retained_cash": 937530463.7250003,
+        "external_purchase_cash_equiv": 468629800.0,
+        "net_cash_created_after_sinks": 1265681821.025,
+        "matches": 262500,
+        "training_sessions": 218994.08,
+        "upgrades": 8503.23
+      },
+      "avg_per_day": {
+        "cash_emissions": 79550927.71166666,
+        "operating_sinks": 5202788.841666667,
+        "upgrade_sinks": 32158744.83583333,
+        "extracted_cash": 12562222.085333334,
+        "retained_cash": 31251015.457500007,
+        "external_purchase_cash_equiv": 15620993.333333334,
+        "net_cash_created_after_sinks": 42189394.03416667
+      },
+      "avg_per_player_per_day": {
+        "cash_emissions": 15910.18554233333,
+        "extracted_cash": 2512.444417066667,
+        "net_cash_created_after_sinks": 8437.878806833334,
+        "external_purchase_cash_equiv": 3124.1986666666667
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 46.9655537053161,
+        "external_purchase_to_extracted_ratio": 1.243489665062615,
+        "daily_extracted_p50": 12562136.0,
+        "daily_extracted_p95": 12666912.0,
+        "daily_net_emission_p50": 42156267.5,
+        "daily_net_emission_p95": 43909634.800000004,
+        "daily_external_purchase_p50": 15617500.0,
+        "daily_external_purchase_p95": 16020000.0
+      }
+    },
+    {
+      "players": 10000,
+      "days": 30,
+      "trials": 100,
+      "cohorts": {
+        "extractor": 5000,
+        "free_grinder": 2500,
+        "payer_holder": 2500
+      },
+      "avg_totals": {
+        "cash_emissions": 4772607326.55,
+        "operating_sinks": 312173800.0,
+        "upgrade_sinks": 1929799381.496998,
+        "extracted_cash": 753664152.28,
+        "retained_cash": 1874635565.4330025,
+        "external_purchase_cash_equiv": 937277275.0,
+        "net_cash_created_after_sinks": 2530634145.0530024,
+        "matches": 525000,
+        "training_sessions": 437993.97,
+        "upgrades": 16996.71
+      },
+      "avg_per_day": {
+        "cash_emissions": 159086910.88500002,
+        "operating_sinks": 10405793.333333334,
+        "upgrade_sinks": 64326646.049899936,
+        "extracted_cash": 25122138.409333333,
+        "retained_cash": 62487852.181100085,
+        "external_purchase_cash_equiv": 31242575.833333332,
+        "net_cash_created_after_sinks": 84354471.50176674
+      },
+      "avg_per_player_per_day": {
+        "cash_emissions": 15908.691088500002,
+        "extracted_cash": 2512.2138409333334,
+        "net_cash_created_after_sinks": 8435.447150176675,
+        "external_purchase_cash_equiv": 3124.257583333333
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 46.975856761248885,
+        "external_purchase_to_extracted_ratio": 1.2436272471823555,
+        "daily_extracted_p50": 25121636.0,
+        "daily_extracted_p95": 25272540.0,
+        "daily_net_emission_p50": 84355758.70000006,
+        "daily_net_emission_p95": 86852075.90000007,
+        "daily_external_purchase_p50": 31240000.0,
+        "daily_external_purchase_p95": 31837500.0
+      }
+    }
+  ]
+}
