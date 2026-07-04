@@ -1078,6 +1078,135 @@ function CommissionerPanel({
   );
 }
 
+function InteriorSceneProps({ building, stadiumUpgradeLevel = 0 }: { building: SportsBuilding; stadiumUpgradeLevel?: number }) {
+  const commonCase = (label: string, x: number, y: number, color = building.color) => (
+    <g key={label} transform={`translate(${x}, ${y})`}>
+      <rect x={-34} y={-22} width={68} height={44} rx={8} fill="rgba(15,23,42,.88)" stroke={color} strokeWidth={2} />
+      <text x={0} y={4} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={900}>{label}</text>
+    </g>
+  );
+
+  if (building.id === 'stadium') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        <rect x="68" y="90" width="284" height="52" rx="12" fill="#0f172a" stroke="#fde047" strokeWidth="3" />
+        <text x="210" y="123" textAnchor="middle" fill="#fde047" fontSize="16" fontWeight="900">SCOREBOARD TIER {stadiumUpgradeLevel}</text>
+        <rect x="38" y="178" width="118" height="84" rx="14" fill="#7f1d1d" stroke="#fecaca" strokeWidth="2" />
+        <text x="97" y="221" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="900">TICKET OFFICE</text>
+        <rect x="264" y="174" width="118" height="92" rx="14" fill="#78350f" stroke="#facc15" strokeWidth="2" />
+        <text x="323" y="214" textAnchor="middle" fill="#fef3c7" fontSize="12" fontWeight="900">SPONSOR SUITE</text>
+        <path d="M80 345 Q210 286 340 345 L310 394 Q210 354 110 394 Z" fill="#15803d" stroke="#dcfce7" strokeWidth="3" />
+        <text x="210" y="370" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="900">MATCHDAY REVENUE FLOOR</text>
+      </svg>
+    );
+  }
+  if (building.id === 'training') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        {[92, 142, 192, 242].map((x) => <rect key={x} x={x} y="120" width="22" height="210" rx="10" fill="#166534" stroke="#bbf7d0" strokeWidth="2" />)}
+        {[90, 140, 190, 240, 290].map((x) => <circle key={x} cx={x} cy="352" r="13" fill="#fb923c" stroke="#7c2d12" strokeWidth="2" />)}
+        {commonCase('COACH BOARD', 315, 170, '#a78bfa')}
+        {commonCase('WEIGHTS', 102, 386, '#a78bfa')}
+      </svg>
+    );
+  }
+  if (building.id === 'team') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        {[74, 126, 178, 230, 282].map((x, idx) => (
+          <g key={x}>
+            <rect x={x} y="108" width="38" height="128" rx="8" fill="#075985" stroke="#bae6fd" strokeWidth="2" />
+            <text x={x + 19} y="179" textAnchor="middle" fill="#e0f2fe" fontSize="20" fontWeight="900">{idx + 1}</text>
+          </g>
+        ))}
+        <rect x="66" y="280" width="130" height="82" rx="12" fill="#f8fafc" stroke="#0f172a" strokeWidth="3" />
+        <text x="131" y="326" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="900">LINEUP BOARD</text>
+        {commonCase('GEAR RACK', 294, 320, '#38bdf8')}
+      </svg>
+    );
+  }
+  if (building.id === 'market') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        <rect x="52" y="102" width="316" height="36" rx="10" fill="#451a03" stroke="#facc15" strokeWidth="2" />
+        <text x="210" y="126" textAnchor="middle" fill="#fde68a" fontSize="14" fontWeight="900">LIMITED DROP TICKER</text>
+        {[92, 210, 328].map((x, idx) => (
+          <g key={x}>
+            <rect x={x - 44} y="184" width="88" height="88" rx="14" fill={idx === 1 ? '#7f1d1d' : '#78350f'} stroke="#fef3c7" strokeWidth="2" />
+            <text x={x} y="232" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="900">CASE {idx + 1}</text>
+          </g>
+        ))}
+        {commonCase('AUCTION', 114, 355, '#f59e0b')}
+        {commonCase('RESTOCK', 306, 355, '#f59e0b')}
+      </svg>
+    );
+  }
+  if (building.id === 'medical') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        {[104, 210, 316].map((x) => <rect key={x} x={x - 38} y="150" width="76" height="150" rx="28" fill="#ecfeff" stroke="#ef4444" strokeWidth="3" />)}
+        <rect x="190" y="72" width="40" height="100" rx="8" fill="#ef4444" />
+        <rect x="160" y="102" width="100" height="40" rx="8" fill="#ef4444" />
+        {commonCase('TREATMENT', 118, 365, '#ef4444')}
+        {commonCase('RECOVERY', 302, 365, '#ef4444')}
+      </svg>
+    );
+  }
+  if (building.id === 'garage') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        {[96, 210, 324].map((x, idx) => <rect key={x} x={x - 46} y="118" width="92" height="122" rx="10" fill="#1e293b" stroke="#cbd5e1" strokeWidth="3" opacity={idx === 1 ? 1 : .75} />)}
+        <rect x="115" y="274" width="190" height="70" rx="18" fill="#fbbf24" stroke="#92400e" strokeWidth="3" />
+        <circle cx="160" cy="348" r="17" fill="#0f172a" /><circle cx="260" cy="348" r="17" fill="#0f172a" />
+        {commonCase('ROUTES', 108, 405, '#94a3b8')}
+        {commonCase('UPKEEP', 312, 405, '#94a3b8')}
+      </svg>
+    );
+  }
+  if (building.id === 'commissioner') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        <rect x="48" y="98" width="148" height="140" rx="16" fill="#064e3b" stroke="#5eead4" strokeWidth="3" />
+        <text x="122" y="153" textAnchor="middle" fill="#ccfbf1" fontSize="13" fontWeight="900">FUNDING BOARD</text>
+        <text x="122" y="181" textAnchor="middle" fill="#fde047" fontSize="22" fontWeight="900">%</text>
+        <rect x="226" y="98" width="146" height="140" rx="16" fill="#0f172a" stroke="#facc15" strokeWidth="3" />
+        <text x="299" y="153" textAnchor="middle" fill="#fef3c7" fontSize="13" fontWeight="900">DROP WALL</text>
+        {[254, 300, 346].map((x) => <rect key={x} x={x - 15} y="176" width="30" height="30" rx="6" fill="#facc15" />)}
+        {commonCase('SEASON', 116, 340, '#14b8a6')}
+        {commonCase('RESTOCK', 304, 340, '#14b8a6')}
+      </svg>
+    );
+  }
+  if (building.id === 'hall') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        {[92, 160, 228, 296].map((x) => <g key={x}><rect x={x - 28} y="132" width="56" height="98" rx="10" fill="#78350f" stroke="#facc15" strokeWidth="2" /><text x={x} y="192" textAnchor="middle" fontSize="30">🏆</text></g>)}
+        <rect x="70" y="278" width="280" height="78" rx="16" fill="#422006" stroke="#fde047" strokeWidth="3" />
+        <text x="210" y="326" textAnchor="middle" fill="#fde68a" fontSize="15" fontWeight="900">PRESTIGE WALL</text>
+      </svg>
+    );
+  }
+  if (building.id === 'bank') {
+    return (
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+        <circle cx="210" cy="176" r="74" fill="#075985" stroke="#bae6fd" strokeWidth="6" />
+        <circle cx="210" cy="176" r="42" fill="#0f172a" stroke="#facc15" strokeWidth="4" />
+        <text x="210" y="188" textAnchor="middle" fill="#facc15" fontSize="22" fontWeight="900">DYN</text>
+        {commonCase('SPONSORS', 104, 332, '#0ea5e9')}
+        {commonCase('TREASURY', 316, 332, '#0ea5e9')}
+      </svg>
+    );
+  }
+  return (
+    <svg className="absolute inset-0 h-full w-full" viewBox="0 0 420 520" aria-hidden="true">
+      <rect x="64" y="110" width="292" height="120" rx="18" fill="#78350f" stroke="#fed7aa" strokeWidth="3" />
+      <text x="210" y="174" textAnchor="middle" fill="#fff7ed" fontSize="15" fontWeight="900">DAILY OPS BOARD</text>
+      {commonCase('QUESTS', 108, 320, '#f97316')}
+      {commonCase('STAFF', 310, 320, '#f97316')}
+    </svg>
+  );
+}
+
 function BuildingInteriorShell({
   building,
   title,
@@ -1137,7 +1266,8 @@ function BuildingInteriorShell({
           <div className="relative overflow-hidden border-r border-white/10 bg-slate-900/80 p-5">
             <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
             <div className="relative z-10 h-full min-h-[360px] rounded-[2rem] border border-white/10 bg-gradient-to-b from-white/10 to-white/[0.03] p-5 shadow-2xl overflow-hidden">
-              <div className="flex items-start justify-between gap-3">
+              <InteriorSceneProps building={building} stadiumUpgradeLevel={stadiumUpgradeLevel} />
+              <div className="relative z-20 flex items-start justify-between gap-3">
                 <div>
                   <div className="text-xs uppercase tracking-[0.24em] text-slate-300 font-black">Room Stations</div>
                   <div className="mt-1 text-sm text-slate-200 leading-snug">{roomLabel}</div>
@@ -1161,7 +1291,7 @@ function BuildingInteriorShell({
               <div className="absolute bottom-16 left-10 right-10 h-24 rounded-3xl border border-white/10 bg-slate-800/80 shadow-2xl" />
               <div className="absolute bottom-24 left-16 right-16 h-8 rounded-xl border border-white/10 bg-slate-700/90" />
 
-              <div className="absolute left-8 right-8 top-[226px] grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-wider text-white">
+              <div className="absolute left-8 right-8 top-[226px] z-20 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-wider text-white">
                 {stationLabels.map((label, idx) => (
                   <div
                     key={label}
@@ -1174,7 +1304,7 @@ function BuildingInteriorShell({
               </div>
 
               {isComputerLed ? (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
+                <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2">
                   <div className="h-24 w-36 rounded-2xl border-4 border-slate-700 bg-slate-950 shadow-2xl">
                     <div className="m-3 h-16 rounded-lg border border-cyan-300/40 bg-cyan-300/15 p-2 text-[10px] font-black text-cyan-100">
                       MENU<br />CONTROL<br />TERMINAL
@@ -1184,7 +1314,7 @@ function BuildingInteriorShell({
                   <div className="h-4 w-28 rounded-full bg-slate-600" />
                 </div>
               ) : (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
+                <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2">
                   <div className="mx-auto h-14 w-14 rounded-2xl border-2 border-slate-950 bg-[#f7c89d]" />
                   <div className="mx-auto -mt-1 h-24 w-20 rounded-2xl border-2 border-slate-950 shadow-xl" style={{ backgroundColor: building.color }} />
                   <div className="absolute left-[-26px] top-20 h-10 w-10 rotate-[-18deg] rounded-xl border-2 border-slate-950 bg-[#f7c89d]" />
@@ -1193,7 +1323,7 @@ function BuildingInteriorShell({
                 </div>
               )}
 
-              <div className="absolute bottom-5 left-5 right-5 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-200">
+              <div className="absolute bottom-5 left-5 right-5 z-20 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-200">
                 <div className="rounded-xl bg-white/10 p-2 text-center">Click stations</div>
                 <div className="rounded-xl bg-white/10 p-2 text-center">Menu controls</div>
                 <div className="rounded-xl bg-white/10 p-2 text-center">No map clutter</div>
