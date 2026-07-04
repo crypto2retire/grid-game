@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    /* Blocky Sports Theme — bright, playful, Kintara-inspired */
-    --background: 200 60% 96%;
-    --foreground: 215 30% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 215 30% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 30% 15%;
-    --primary: 215 30% 15%;
+    /* GameFi dark arena UI: high contrast text over deep navy panels. */
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 15 85% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 200 40% 92%;
-    --secondary-foreground: 215 30% 15%;
-    --muted: 200 30% 88%;
-    --muted-foreground: 215 15% 45%;
+    --secondary: 222 42% 16%;
+    --secondary-foreground: 210 40% 94%;
+    --muted: 222 30% 20%;
+    --muted-foreground: 215 20% 74%;
     --accent: 15 85% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 200 30% 82%;
-    --input: 200 30% 82%;
+    --border: 215 26% 27%;
+    --input: 215 26% 27%;
     --ring: 15 85% 55%;
     --radius: 0.75rem;
   }
@@ -34,7 +34,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(180deg, #e8f4f8 0%, #f0f7e8 50%, #e8f4f8 100%);
+    background: linear-gradient(180deg, #050913 0%, #0b1220 55%, #070a12 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
@@ -44,10 +44,10 @@
     height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: hsl(200 40% 90%);
+    background: hsl(222 47% 10%);
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(200 20% 70%);
+    background: hsl(215 20% 38%);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -56,19 +56,22 @@
 }
 
 @layer components {
-  /* Solid Card — clean white with subtle shadow */
+  /* Arena Card — readable dark surface for game menus and building interiors. */
   .glass-card {
-    @apply bg-white/95 border border-gray-200/80 rounded-2xl;
+    @apply rounded-2xl border border-cyan-200/15 bg-slate-950/90 text-slate-100;
+    color: rgb(241 245 249);
     box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.06),
-      0 4px 12px rgba(0, 0, 0, 0.04);
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 18px 42px rgba(0, 0, 0, 0.28),
+      0 0 0 1px rgba(125, 211, 252, 0.04);
   }
 
   .glass-card:hover {
-    border-color: rgba(0, 0, 0, 0.12);
+    border-color: rgba(125, 211, 252, 0.32);
     box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.08),
-      0 8px 24px rgba(0, 0, 0, 0.06);
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 20px 50px rgba(0, 0, 0, 0.34),
+      0 0 24px rgba(14, 165, 233, 0.08);
   }
 
   /* Game Panel — dark translucent like Kintara quest/chat panels */
@@ -85,8 +88,8 @@
 
   /* Secondary Button */
   .btn-secondary {
-    @apply bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 px-6 rounded-xl
-           border border-slate-200 hover:border-slate-300 transition-all duration-200;
+    @apply rounded-xl border border-slate-600 bg-slate-800 px-6 py-3 font-semibold text-slate-100
+           transition-all duration-200 hover:border-cyan-300/50 hover:bg-slate-700;
   }
 
   /* Gradient Text */
@@ -102,8 +105,65 @@
 
   /* Stat Card */
   .stat-card {
-    @apply bg-white border border-gray-200 rounded-2xl p-4;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    @apply rounded-2xl border border-white/10 bg-slate-950/80 p-4 text-slate-100;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+  }
+
+  /* Building interiors embed older pages that used white text on the former
+     white glass-card. Force a single readable contrast system inside menus. */
+  .building-interior-content {
+    color: rgb(241 245 249);
+  }
+
+  .building-interior-content .glass-card,
+  .building-interior-content .stat-card,
+  .building-interior-content [class*='bg-card'],
+  .building-interior-content [class*='bg-secondary'] {
+    background-color: rgba(15, 23, 42, 0.92) !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    color: rgb(241 245 249) !important;
+  }
+
+  .building-interior-content h1,
+  .building-interior-content h2,
+  .building-interior-content h3,
+  .building-interior-content h4,
+  .building-interior-content label,
+  .building-interior-content p,
+  .building-interior-content span,
+  .building-interior-content div {
+    text-shadow: none;
+  }
+
+  .building-interior-content .text-muted-foreground,
+  .building-interior-content [class*='text-white/30'],
+  .building-interior-content [class*='text-white/40'],
+  .building-interior-content [class*='text-white/50'],
+  .building-interior-content [class*='text-slate-500'],
+  .building-interior-content [class*='text-slate-400'] {
+    color: rgb(203 213 225) !important;
+  }
+
+  .building-interior-content input,
+  .building-interior-content select,
+  .building-interior-content textarea {
+    background-color: rgba(2, 6, 23, 0.92) !important;
+    border-color: rgba(148, 163, 184, 0.36) !important;
+    color: rgb(248 250 252) !important;
+  }
+
+  .building-interior-content option {
+    background-color: rgb(15 23 42);
+    color: rgb(248 250 252);
+  }
+
+  .building-interior-content button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  .building-interior-content button:disabled {
+    opacity: 0.58 !important;
+    cursor: not-allowed;
   }
 
   /* Rarity Styles — colorful borders */

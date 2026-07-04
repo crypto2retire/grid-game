@@ -1415,6 +1415,100 @@ function InteriorSceneProps({ building, stadiumUpgradeLevel = 0, visualStage = 0
   );
 }
 
+interface InteriorAction {
+  label: string;
+  helper: string;
+  buttonTextMatches: string[];
+}
+
+const BUILDING_INTERIOR_ACTIONS: Record<string, InteriorAction[]> = {
+  stadium: [
+    { label: 'Open upgrades', helper: 'Find the stadium upgrade controls', buttonTextMatches: ['Upgrade', 'Upgrade Stadium', 'Buy Upgrade'] },
+    { label: 'View economy', helper: 'Jump to capacity, wear, and ticket yield panels', buttonTextMatches: ['Economy', 'Revenue', 'Capacity'] },
+    { label: 'Back to assets', helper: 'Use the asset overview for stadium context', buttonTextMatches: ['Back to Assets', 'Assets'] },
+  ],
+  practice: [
+    { label: 'Play match', helper: 'Start the core game loop', buttonTextMatches: ['Play', 'Play Match', 'Start Match', 'Quick Match'] },
+    { label: 'Schedule', helper: 'Open opponent and schedule controls', buttonTextMatches: ['Schedule', 'Schedule Match', 'Opponents'] },
+    { label: 'History', helper: 'Review match outcomes', buttonTextMatches: ['History', 'Past Matches', 'Results'] },
+  ],
+  training: [
+    { label: 'Pick team', helper: 'Focus the team selector first', buttonTextMatches: ['Select Team'] },
+    { label: 'Start training', helper: 'Run the first available drill', buttonTextMatches: ['Start Training', 'Train', 'Start'] },
+    { label: 'Claim reward', helper: 'Collect completed training output', buttonTextMatches: ['Claim Reward', 'Claim'] },
+  ],
+  clubhouse: [
+    { label: 'Daily ops', helper: 'Open the dashboard operations path', buttonTextMatches: ['Daily', 'Quests', 'Dashboard'] },
+    { label: 'Team', helper: 'Open roster management', buttonTextMatches: ['Team', 'Roster'] },
+    { label: 'Market', helper: 'Open economy activity', buttonTextMatches: ['Market', 'Marketplace'] },
+  ],
+  team: [
+    { label: 'Roster', helper: 'Manage players and lineup', buttonTextMatches: ['Roster'] },
+    { label: 'Sponsorships', helper: 'Open sponsor offers and contracts', buttonTextMatches: ['Sponsorships', 'Refresh Offers'] },
+    { label: 'Equipment', helper: 'Buy or review team gear', buttonTextMatches: ['Equipment', 'Purchase'] },
+  ],
+  market: [
+    { label: 'Game market', helper: 'Buy game-supplied gear', buttonTextMatches: ['Market'] },
+    { label: 'P2P listings', helper: 'Open player-created marketplace listings', buttonTextMatches: ['Marketplace', 'Sell Item'] },
+    { label: 'Player market', helper: 'Open player sale listings', buttonTextMatches: ['Players'] },
+  ],
+  medical: [
+    { label: 'Player cards', helper: 'Select the first progression card', buttonTextMatches: ['XP', 'Career Stats', 'Recent XP Gains'] },
+    { label: 'XP history', helper: 'Open recent XP and recovery history', buttonTextMatches: ['Recent XP Gains'] },
+    { label: 'Career stats', helper: 'Jump to selected-player detail', buttonTextMatches: ['Career Stats'] },
+  ],
+  commissioner: [
+    { label: 'Fund cycle', helper: 'Use community funding controls', buttonTextMatches: ['Fund', 'Contribute', 'Add Funding'] },
+    { label: 'Restock', helper: 'Review or unlock limited inventory restocks', buttonTextMatches: ['Restock', 'Unlock'] },
+    { label: 'Meters', helper: 'Jump to economy meters', buttonTextMatches: ['Meters', 'Economy'] },
+  ],
+  hall: [
+    { label: 'Teams', helper: 'View team leaderboard', buttonTextMatches: ['Teams', 'Team'] },
+    { label: 'Players', helper: 'View player leaderboard', buttonTextMatches: ['Players', 'Player'] },
+    { label: 'Refresh', helper: 'Reload rankings', buttonTextMatches: ['Refresh', 'Reload'] },
+  ],
+  garage: [
+    { label: 'Select vehicle', helper: 'Select the first vehicle bay', buttonTextMatches: ['Select', 'View', 'Upgrade'] },
+    { label: 'Upgrade', helper: 'Improve condition and fatigue reduction', buttonTextMatches: ['Upgrade', 'Repair'] },
+    { label: 'Marketplace', helper: 'List or buy transport assets', buttonTextMatches: ['List for Sale', 'Buy'] },
+  ],
+  bank: [
+    { label: 'Add CASH', helper: 'Use the current test-economy CASH faucet', buttonTextMatches: ['Add 50,000 Test CASH', 'Add CASH'] },
+    { label: 'Add DYN', helper: 'Use the current test-economy DYN faucet', buttonTextMatches: ['Add 100,000 Test DYN', 'Add DYN'] },
+    { label: 'Ledger', helper: 'Review wallet transaction history', buttonTextMatches: ['Recent Ledger Activity', 'Ledger'] },
+  ],
+};
+
+function getInteriorActions(buildingId: string) {
+  return BUILDING_INTERIOR_ACTIONS[buildingId] || BUILDING_INTERIOR_ACTIONS.clubhouse;
+}
+
+function normalizeActionText(value: string) {
+  return value.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function runInteriorAction(action: InteriorAction) {
+  const root = document.querySelector('.building-interior-content');
+  if (!root) return false;
+  const controls = Array.from(root.querySelectorAll<HTMLElement>('button, a, [role="button"], select, input'));
+  const normalizedTargets = action.buttonTextMatches.map(normalizeActionText);
+  const target = controls.find((control) => {
+    const text = normalizeActionText(control.textContent || control.getAttribute('aria-label') || control.getAttribute('title') || '');
+    return normalizedTargets.some((targetText) => text.includes(targetText));
+  });
+  if (target) {
+    target.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    if (target instanceof HTMLButtonElement || target instanceof HTMLAnchorElement || target.getAttribute('role') === 'button') {
+      target.click();
+    } else {
+      target.focus();
+    }
+    return true;
+  }
+  root.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  return false;
+}
+
 function BuildingInteriorShell({
   building,
   title,
@@ -1451,6 +1545,7 @@ function BuildingInteriorShell({
                     ? 'Sponsor desk • DYN vault • treasury terminal'
                     : 'Operations desk • daily board • staff room';
   const stationLabels = roomLabel.split(' • ');
+  const interiorActions = getInteriorActions(building.id);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#06101d] text-white">
@@ -1500,15 +1595,21 @@ function BuildingInteriorShell({
               <div className="absolute bottom-24 left-16 right-16 h-8 rounded-xl border border-white/10 bg-slate-700/90" />
 
               <div className="absolute left-8 right-8 top-[226px] z-20 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-wider text-white">
-                {stationLabels.map((label, idx) => (
-                  <div
+                {stationLabels.map((label, idx) => {
+                  const action = interiorActions[idx % interiorActions.length];
+                  return (
+                  <button
                     key={label}
-                    className="rounded-xl border border-white/15 bg-slate-950/80 px-2 py-2 text-center shadow-xl"
+                    type="button"
+                    onClick={() => runInteriorAction(action)}
+                    title={action.helper}
+                    className="rounded-xl border border-cyan-200/25 bg-slate-950/90 px-2 py-2 text-center shadow-xl transition-all hover:-translate-y-0.5 hover:border-cyan-200/60 hover:bg-cyan-950/60 focus:outline-none focus:ring-2 focus:ring-cyan-300"
                     style={{ color: idx === 1 ? building.accent : '#e2e8f0' }}
                   >
                     {label}
-                  </div>
-                ))}
+                  </button>
+                  );
+                })}
               </div>
 
               {isComputerLed ? (
@@ -1532,15 +1633,36 @@ function BuildingInteriorShell({
               )}
 
               <div className="absolute bottom-5 left-5 right-5 z-20 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-200">
-                <div className="rounded-xl bg-white/10 p-2 text-center">Click stations</div>
-                <div className="rounded-xl bg-white/10 p-2 text-center">Menu controls</div>
-                <div className="rounded-xl bg-white/10 p-2 text-center">No map clutter</div>
+                <div className="rounded-xl bg-cyan-400/15 p-2 text-center text-cyan-100">Stations work</div>
+                <div className="rounded-xl bg-amber-300/15 p-2 text-center text-amber-100">Quick actions</div>
+                <div className="rounded-xl bg-emerald-300/15 p-2 text-center text-emerald-100">Readable menus</div>
               </div>
             </div>
           </div>
 
           <div className="min-w-0 overflow-y-auto bg-slate-950 p-4 md:p-6">
-            <div className="building-interior-content mx-auto max-w-6xl rounded-[1.75rem] border border-white/10 bg-slate-900/75 p-3 text-white shadow-2xl md:p-4">
+            <div className="building-interior-content mx-auto max-w-6xl rounded-[1.75rem] border border-cyan-200/15 bg-slate-950/90 p-3 text-white shadow-2xl md:p-4">
+              <div className="mb-4 rounded-2xl border border-cyan-200/15 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 p-3 shadow-xl">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Working controls</div>
+                    <div className="mt-1 text-sm leading-snug text-slate-200">Use these buttons or the room stations on the left. They jump to the real controls inside this building instead of decorative dead spots.</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {interiorActions.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={() => runInteriorAction(action)}
+                        className="rounded-xl border border-cyan-200/20 bg-cyan-400/15 px-3 py-2 text-xs font-black uppercase tracking-wider text-cyan-50 transition-all hover:-translate-y-0.5 hover:border-cyan-200/60 hover:bg-cyan-400/20 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                        title={action.helper}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <Suspense fallback={<InteriorPageFallback label={title} />}>
                 {children}
               </Suspense>
