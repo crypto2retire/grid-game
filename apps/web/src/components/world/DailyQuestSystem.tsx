@@ -8,7 +8,7 @@ interface Quest {
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  reward: number;
+  rewardLabel: string;
   completed: boolean;
   target: number;
   current: number;
@@ -20,7 +20,7 @@ const DEFAULT_QUESTS: Quest[] = [
     label: 'Play a Match',
     description: 'Schedule and play 1 match today',
     icon: Trophy,
-    reward: 500,
+    rewardLabel: 'Payout access',
     completed: false,
     target: 1,
     current: 0,
@@ -30,7 +30,7 @@ const DEFAULT_QUESTS: Quest[] = [
     label: 'Train Players',
     description: 'Complete 3 training sessions',
     icon: Dumbbell,
-    reward: 300,
+    rewardLabel: 'Payout access',
     completed: false,
     target: 3,
     current: 0,
@@ -40,7 +40,7 @@ const DEFAULT_QUESTS: Quest[] = [
     label: 'Buy Equipment',
     description: 'Purchase 1 item from the Market',
     icon: Shirt,
-    reward: 400,
+    rewardLabel: 'Payout access',
     completed: false,
     target: 1,
     current: 0,
@@ -116,7 +116,7 @@ export function DailyQuestPanel() {
     const success = claimReward(id);
     if (success) {
       const quest = quests.find(q => q.id === id);
-      setClaimedMsg(`+${quest?.reward} CASH claimed!`);
+      setClaimedMsg(`${quest?.rewardLabel || 'Payout eligibility'} unlocked — earn CASH by playing games.`);
       setTimeout(() => setClaimedMsg(null), 3000);
     }
   };
@@ -189,7 +189,7 @@ export function DailyQuestPanel() {
                           <div className={`text-sm font-bold ${quest.completed ? 'text-white' : 'text-white/70'}`}>
                             {quest.label}
                           </div>
-                          <div className="text-xs text-yellow-400 font-bold">{quest.reward} CASH</div>
+                          <div className="text-xs text-yellow-400 font-bold">{quest.rewardLabel}</div>
                         </div>
                         <div className="text-[10px] text-white/50 mt-0.5">{quest.description}</div>
                         <div className="mt-1.5 flex items-center gap-2">
@@ -210,7 +210,7 @@ export function DailyQuestPanel() {
                         onClick={() => handleClaim(quest.id)}
                         className="mt-2 w-full py-1.5 bg-[#E94560] text-white rounded-lg text-xs font-bold hover:bg-[#E94560]/80 transition-colors"
                       >
-                        Claim {quest.reward} CASH
+                        Unlock Payout Access
                       </button>
                     )}
                   </div>

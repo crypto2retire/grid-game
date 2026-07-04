@@ -21,7 +21,7 @@ router.post(
   asyncHandler(async (req: AuthRequest, res) => {
     const questId = routeParam(req.params.questId, 'questId');
     const result = await claimDailyQuest(req.user!.id, questId);
-    res.json({ status: 'success', data: result, message: 'Daily quest reward claimed' });
+    res.json({ status: 'success', data: result, message: 'Daily payout eligibility unlocked' });
   })
 );
 

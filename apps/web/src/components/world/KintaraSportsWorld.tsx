@@ -1984,7 +1984,7 @@ export default function KintaraSportsWorld() {
     try {
       const data = await fetchApi(`/api/daily-quests/${quest.id}/claim`, { method: 'POST' });
       if (data.data?.wallet) setWalletOverride(data.data.wallet);
-      setWorldStatus(`${quest.label} reward claimed`);
+      setWorldStatus(`${quest.label} unlocked daily payout eligibility`);
       await loadQuests();
     } catch (error) {
       setWorldStatus(error instanceof Error ? error.message : 'Quest claim failed');
@@ -2314,6 +2314,9 @@ export default function KintaraSportsWorld() {
         {hudOpen.quests && (
           <div className="pointer-events-auto mt-2 w-[330px] rounded-2xl bg-slate-900/92 border border-white/20 shadow-2xl text-white overflow-hidden backdrop-blur-md">
             <div className="p-4 space-y-3">
+              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-[11px] leading-snug text-emerald-100">
+                Complete these objectives to unlock today’s payout eligibility. CASH is earned from games, not from quest claims.
+              </div>
               {quests.length === 0 && <div className="text-xs text-slate-300">Loading server-backed quests...</div>}
               {quests.map((q) => (
                 <div key={q.id} className="rounded-xl bg-white/5 border border-white/10 p-3">
@@ -2327,9 +2330,9 @@ export default function KintaraSportsWorld() {
                   <div className="flex items-center justify-between gap-2 mt-2">
                     <div className="text-[11px] text-emerald-300 font-bold">{q.rewardLabel}</div>
                     {q.completed && !q.claimed && (
-                      <button onClick={() => claimQuest(q)} className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-400">CLAIM</button>
+                      <button onClick={() => claimQuest(q)} className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-400">UNLOCK</button>
                     )}
-                    {q.claimed && <span className="text-[10px] text-slate-400 font-black">CLAIMED</span>}
+                    {q.claimed && <span className="text-[10px] text-slate-400 font-black">UNLOCKED</span>}
                   </div>
                 </div>
               ))}

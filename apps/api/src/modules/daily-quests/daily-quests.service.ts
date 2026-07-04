@@ -1,6 +1,5 @@
 import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
-import { creditCurrency } from '../economy/currency.service';
 
 const DAILY_QUESTS = [
   {
@@ -9,11 +8,17 @@ const DAILY_QUESTS = [
     description: 'Run server-scored drills from the hotbar to sharpen your roster.',
     category: 'TEAM_DRILL',
     target: 3,
-    rewardCash: 750,
+    rewardCash: 0,
     rewardDyn: 0,
     rewardXp: 750,
     sortOrder: 10,
-    metadata: { theme: 'training', icon: '💪' },
+    metadata: {
+      theme: 'training',
+      icon: '💪',
+      payoutGate: true,
+      eligibilityLabel: 'Daily payout access',
+      legacyCashRewardRemoved: 750,
+    },
   },
   {
     code: 'PLAY_1_STADIUM_SCRIMMAGE',
@@ -21,11 +26,17 @@ const DAILY_QUESTS = [
     description: 'Run a live server-resolved scrimmage at the stadium district.',
     category: 'STADIUM_MATCH',
     target: 1,
-    rewardCash: 1500,
+    rewardCash: 0,
     rewardDyn: 0,
     rewardXp: 1200,
     sortOrder: 20,
-    metadata: { theme: 'matchday', icon: '🏟️' },
+    metadata: {
+      theme: 'matchday',
+      icon: '🏟️',
+      payoutGate: true,
+      eligibilityLabel: 'Daily payout access',
+      legacyCashRewardRemoved: 1500,
+    },
   },
   {
     code: 'SCOUT_2_ATHLETES',
@@ -33,11 +44,18 @@ const DAILY_QUESTS = [
     description: 'Run scouting combines to uncover player-value signals.',
     category: 'SCOUTING',
     target: 2,
-    rewardCash: 500,
+    rewardCash: 0,
     rewardDyn: 0,
     rewardXp: 500,
     sortOrder: 30,
-    metadata: { theme: 'scouting', icon: '🔭', rewardItem: 'Draft Ticket' },
+    metadata: {
+      theme: 'scouting',
+      icon: '🔭',
+      rewardItem: 'Draft Ticket',
+      payoutGate: true,
+      eligibilityLabel: 'Daily payout access',
+      legacyCashRewardRemoved: 500,
+    },
   },
 ];
 
@@ -56,14 +74,30 @@ export function todayKey(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
+function metadataRecord(metadata?: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : {};
+}
+
 function buildRewardLabel(quest: { rewardCash: number; rewardDyn: number; rewardXp: number; metadata?: unknown }): string {
   const parts: string[] = [];
-  if (quest.rewardCash > 0) parts.push(`+${quest.rewardCash.toLocaleString()} CASH`);
-  if (quest.rewardDyn > 0) parts.push(`+${quest.rewardDyn.toLocaleString()} DYN`);
+  const metadata = metadataRecord(quest.metadata);
+  if (metadata.payoutGate === true) parts.push(String(metadata.eligibilityLabel || 'Daily payout access'));
   if (quest.rewardXp > 0) parts.push(`+${quest.rewardXp.toLocaleString()} Team XP`);
-  const metadata = quest.metadata && typeof quest.metadata === 'object' ? quest.metadata as Record<string, unknown> : {};
   if (typeof metadata.rewardItem === 'string') parts.push(`+1 ${metadata.rewardItem}`);
-  return parts.join(' • ') || 'Progress reward';
+  return parts.join(' • ') || 'Payout eligibility';
+}
+
+function buildDailyPayoutEligibilitySummary(rows: Array<{ completed: boolean; claimed: boolean }>, totalQuests: number) {
+  const completedCount = rows.filter((row) => row.completed).length;
+  const unlockedCount = rows.filter((row) => row.claimed).length;
+  return {
+    completedCount,
+    unlockedCount,
+    totalQuests,
+    eligible: totalQuests > 0 && completedCount >= totalQuests,
+    allTasksUnlocked: totalQuests > 0 && unlockedCount >= totalQuests,
+    rule: 'Daily quests unlock payout eligibility only; CASH is awarded from games and game-economy actions.',
+  };
 }
 
 export async function ensureDefaultDailyQuests(): Promise<void> {
@@ -213,7 +247,7 @@ export async function claimDailyQuest(userId: string, questId: string) {
 
   if (!progress) throw new AppError(404, 'Daily quest progress not found');
   if (!progress.completed) throw new AppError(400, 'Daily quest is not complete yet');
-  if (progress.claimed || progress.rewardGranted) throw new AppError(400, 'Daily quest reward already claimed');
+  if (progress.claimed || progress.rewardGranted) throw new AppError(400, 'Daily payout eligibility already unlocked');
 
   return prisma.$transaction(async (tx: any) => {
     const claimLock = await tx.dailyQuestProgress.updateMany({
@@ -230,7 +264,7 @@ export async function claimDailyQuest(userId: string, questId: string) {
     });
 
     if (claimLock.count !== 1) {
-      throw new AppError(409, 'Daily quest reward already claimed');
+      throw new AppError(409, 'Daily payout eligibility already unlocked');
     }
 
     const claimed = await tx.dailyQuestProgress.findUnique({
@@ -240,36 +274,12 @@ export async function claimDailyQuest(userId: string, questId: string) {
 
     if (!claimed) throw new AppError(404, 'Daily quest progress not found');
 
-    let wallet = await tx.wallet.findUnique({ where: { userId } });
-    if (!wallet) {
-      wallet = await tx.wallet.create({ data: { userId } });
-    }
-
-    if (claimed.quest.rewardCash > 0) {
-      const credit = await creditCurrency(tx, {
-        userId,
-        currency: 'CASH',
-        amount: claimed.quest.rewardCash,
-        reason: 'DAILY_QUEST_REWARD',
-        sourceType: 'DAILY_QUEST',
-        sourceId: claimed.quest.id,
-        metadata: { code: claimed.quest.code, dateKey, progressId: claimed.id },
-      });
-      wallet = credit.wallet;
-    }
-
-    if (claimed.quest.rewardDyn > 0) {
-      const credit = await creditCurrency(tx, {
-        userId,
-        currency: 'DYN',
-        amount: claimed.quest.rewardDyn,
-        reason: 'DAILY_QUEST_REWARD',
-        sourceType: 'DAILY_QUEST',
-        sourceId: claimed.quest.id,
-        metadata: { code: claimed.quest.code, dateKey, progressId: claimed.id },
-      });
-      wallet = credit.wallet;
-    }
+    const wallet = await tx.wallet.findUnique({ where: { userId } });
+    const allProgress = await tx.dailyQuestProgress.findMany({
+      where: { userId, dateKey },
+      select: { completed: true, claimed: true },
+    });
+    const totalActiveQuests = await tx.dailyQuest.count({ where: { active: true } });
 
     return {
       quest: {
@@ -282,6 +292,7 @@ export async function claimDailyQuest(userId: string, questId: string) {
         claimed: claimed.claimed,
         rewardLabel: buildRewardLabel(claimed.quest),
       },
+      eligibility: buildDailyPayoutEligibilitySummary(allProgress, totalActiveQuests),
       wallet,
     };
   });

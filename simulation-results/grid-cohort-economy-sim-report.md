@@ -8,7 +8,7 @@
 
 ## Important correction from Kevin
 
-The previous simulation treated daily quests as direct CASH rewards because the current source code still defines daily quest `rewardCash` values. That is **not the intended Kintara-style economy**.
+The previous simulation treated daily quests as direct CASH rewards. Production code has now been corrected so daily quests use `rewardCash: 0` and function as payout eligibility gates instead of wallet credits.
 
 Correct target design:
 
@@ -18,7 +18,7 @@ Correct target design:
 4. **That daily payout scales based on holdings / DYN status.**
 5. **The traveling merchant gives additional gold/CASH access only after donating materials, then selling to the merchant.**
 
-This revised sim models that target design. It does **not** claim production code has already been changed.
+This revised sim models the same rule now enforced for daily quests in production code: tasks unlock access; they do not credit CASH.
 
 ## Source files used
 
@@ -117,11 +117,11 @@ These are design assumptions for the sim, not production constants yet:
 
 ## Implementation implications
 
-Production code currently still has direct daily quest CASH values in `daily-quests.service.ts`. To align the game with this model, implement these mechanics:
+Daily quest production code now aligns with this model: `daily-quests.service.ts` seeds `rewardCash: 0`, claim/unlock no longer calls `creditCurrency`, and the route response says daily payout eligibility was unlocked. Remaining mechanics to build next:
 
-1. **Daily quests**
-   - Change daily quest rewards from direct `rewardCash` to eligibility/progression rewards.
+1. **Daily payout claim records**
    - Store `dailyPayoutEligible = true` or equivalent after required tasks are complete.
+   - Add a dedicated claim model/table when holder-scaled payout redemption is implemented.
    - Keep XP/items/tickets as daily quest rewards if desired.
 
 2. **Game CASH**
@@ -148,5 +148,5 @@ Production code currently still has direct daily quest CASH values in `daily-que
 
 - This is not a real financial audit. It does not use production transaction history, real deposits, real token purchases, or real payout records.
 - It is a stress model from source-code constants and explicit design assumptions.
-- The current production code does not yet fully match the corrected Kintara-style design; this sim models the target rule set.
+- Daily quests now align with the corrected production rule: they gate payout eligibility and do not credit wallet CASH.
 - Real outcomes depend on actual payout caps, DYN pricing, retention, fraud controls, bot resistance, payer conversion, and whether CASH is ever redeemable.

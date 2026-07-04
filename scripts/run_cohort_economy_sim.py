@@ -32,8 +32,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
 
-# Current source-code daily quest values. The revised model treats these as the
-# legacy/direct-CASH baseline for comparison only. Daily quests now gate claims.
+# Removed legacy daily quest CASH values. The revised production model treats
+# daily quests as eligibility gates only; this constant remains for stress-test
+# comparison against the old direct-CASH design that emitted 750 + 1500 + 500.
 LEGACY_DAILY_QUEST_REWARD_CASH = 750 + 1500 + 500
 
 # Source-code constants from teamEconomy.config.ts / gameEconomics.ts
