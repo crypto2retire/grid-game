@@ -409,6 +409,88 @@ const CROWD_CLUSTERS = [
   { tx: 4, ty: 11, color: '#c084fc' },
 ];
 
+function meterProgress(meters: EconomyMeter[], key: string) {
+  return meters.find((meter) => meter.key === key)?.progress ?? 0;
+}
+
+function WorldEconomyEvents({
+  myStadium,
+  liveMatches,
+  commissionerOverview,
+  economyMeters,
+}: {
+  myStadium: MyStadium | null;
+  liveMatches: LiveMatch[];
+  commissionerOverview: CommissionerOverview | null;
+  economyMeters: EconomyMeter[];
+}) {
+  const funding = meterProgress(economyMeters, 'communityFunding');
+  const restock = meterProgress(economyMeters, 'limitedInventory');
+  const scarcity = meterProgress(economyMeters, 'inventoryScarcity');
+  const rewards = meterProgress(economyMeters, 'rewardPool');
+  const liveAttendance = myStadium?.liveMatch?.attendance ?? liveMatches[0]?.attendance ?? 0;
+  const capacity = myStadium?.capacity ?? myStadium?.liveMatch?.capacity ?? 5000;
+  const crowdLevel = Math.max(0, Math.min(5, Math.ceil((liveAttendance || capacity * 0.22) / Math.max(1, capacity) * 5)));
+  const condition = myStadium?.condition ?? 92;
+  const inventory = commissionerOverview?.inventory ?? [];
+  const remainingDrops = inventory.reduce((sum, item) => sum + Math.max(0, item.quantityRemaining), 0);
+  const unlockedDrops = inventory.filter((item) => item.unlocked && !item.soldOut).length;
+  const marketCrates = Math.max(1, Math.min(6, unlockedDrops || Math.ceil(restock / 20) || Math.ceil(remainingDrops / 5)));
+  const stadiumPoint = iso(0, -10);
+  const marketPoint = iso(-13, 7);
+  const commissionerPoint = iso(-7, 12);
+  const bankPoint = iso(-14, 0);
+  const medicalPoint = iso(13, 7);
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <g transform={`translate(${stadiumPoint.x}, ${stadiumPoint.y})`}>
+        {Array.from({ length: crowdLevel }).map((_, idx) => (
+          <g key={`crowd-event-${idx}`} transform={`translate(${-120 + idx * 60}, ${44 + (idx % 2) * 12})`}>
+            <rect x={-22} y={-18} width={44} height={22} rx={8} fill="#0f172a" stroke="#fde047" strokeWidth={1.5} opacity={0.9} />
+            <text x={0} y={-3} textAnchor="middle" fill="#fde047" fontSize={8} fontWeight={900}>FANS</text>
+          </g>
+        ))}
+        <g transform="translate(-4, 96)">
+          <rect x={-82} y={-16} width={164} height={32} rx={12} fill={condition < 75 ? '#7f1d1d' : '#064e3b'} stroke="#fef3c7" strokeWidth={2} />
+          <text x={0} y={5} textAnchor="middle" fill="#fff7ed" fontSize={10} fontWeight={900}>{condition < 75 ? `REPAIR DUE • ${condition}%` : `GAME-DAY READY • ${condition}%`}</text>
+        </g>
+      </g>
+
+      <g transform={`translate(${marketPoint.x}, ${marketPoint.y})`}>
+        <rect x={-92} y={68} width={184} height={30} rx={12} fill="#451a03" stroke="#facc15" strokeWidth={2} />
+        <text x={0} y={88} textAnchor="middle" fill="#fde68a" fontSize={10} fontWeight={900}>{scarcity >= 75 ? 'SOLD-OUT PRESSURE' : `RESTOCK QUEUE • ${restock}%`}</text>
+        {Array.from({ length: marketCrates }).map((_, idx) => (
+          <g key={`crate-${idx}`} transform={`translate(${-66 + idx * 26}, ${34 + (idx % 2) * 10})`}>
+            <rect x={-10} y={-10} width={20} height={20} rx={3} fill={idx % 2 ? '#f59e0b' : '#fef3c7'} stroke="#78350f" strokeWidth={1.5} />
+            <path d="M -10 0 H 10 M 0 -10 V 10" stroke="#78350f" strokeWidth={1} />
+          </g>
+        ))}
+      </g>
+
+      <g transform={`translate(${commissionerPoint.x}, ${commissionerPoint.y})`}>
+        <rect x={-108} y={46} width={216} height={34} rx={14} fill="#042f2e" stroke="#5eead4" strokeWidth={2} />
+        <rect x={-92} y={59} width={184} height={8} rx={4} fill="#134e4a" />
+        <rect x={-92} y={59} width={(184 * Math.max(funding, rewards)) / 100} height={8} rx={4} fill="#5eead4" />
+        <text x={0} y={41} textAnchor="middle" fill="#ccfbf1" fontSize={10} fontWeight={900}>COMMUNITY FUNDING {funding}%</text>
+        <text x={0} y={94} textAnchor="middle" fill="#fde047" fontSize={9} fontWeight={900}>Reward pool signal {rewards}%</text>
+      </g>
+
+      <g transform={`translate(${bankPoint.x}, ${bankPoint.y})`}>
+        <rect x={-92} y={58} width={184} height={30} rx={12} fill="#075985" stroke="#facc15" strokeWidth={2} />
+        <text x={0} y={78} textAnchor="middle" fill="#fef3c7" fontSize={10} fontWeight={900}>SPONSOR TREASURY ACTIVE</text>
+      </g>
+
+      {condition < 85 && (
+        <g transform={`translate(${medicalPoint.x}, ${medicalPoint.y})`}>
+          <circle cx={88} cy={-70} r={24} fill="#ef4444" stroke="#fff7ed" strokeWidth={3} filter="url(#warmGlow)" />
+          <text x={88} y={-62} textAnchor="middle" fill="#fff" fontSize={24} fontWeight={900}>+</text>
+          <text x={88} y={-28} textAnchor="middle" fill="#7f1d1d" fontSize={9} fontWeight={900}>CARE COSTS</text>
+        </g>
+      )}
+    </g>
+  );
+}
+
 function DistrictGround({ building }: { building: SportsBuilding }) {
   const { x, y } = iso(building.tx, building.ty);
   const large = building.kind === 'stadium' || building.kind === 'field';
@@ -1393,7 +1475,7 @@ function MiniMap({ player }: { player: { x: number; y: number } }) {
 export default function KintaraSportsWorld() {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { user } = useAuthStore();
-  const { onlinePlayers, myStadium, moveAvatar, refreshWorld } = useWorld();
+  const { onlinePlayers, myStadium, liveMatches, moveAvatar, refreshWorld } = useWorld();
   const { openPanel, closePanel } = usePanels();
   const [player, setPlayer] = useState(() => ({ x: 0, y: 95 }));
   const [nearby, setNearby] = useState<SportsBuilding | null>(null);
@@ -1776,6 +1858,7 @@ export default function KintaraSportsWorld() {
 
         {DECORATIONS.map((item, idx) => <Decoration key={`${item.kind}-${idx}`} item={item} />)}
         {CROWD_CLUSTERS.map((cluster, idx) => <CrowdCluster key={`crowd-${idx}`} tx={cluster.tx} ty={cluster.ty} color={cluster.color} />)}
+        <WorldEconomyEvents myStadium={myStadium} liveMatches={liveMatches} commissionerOverview={commissionerOverview} economyMeters={economyMeters} />
 
         {BUILDINGS.map((building) => (
           <SportsBuildingView
