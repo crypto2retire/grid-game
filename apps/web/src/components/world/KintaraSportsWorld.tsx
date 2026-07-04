@@ -14,7 +14,7 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { fetchApi } from '../../lib/api';
 import { socket } from '../../lib/socket';
-import { useWorld } from './WorldSystem';
+import { useWorld, type LiveMatch, type MyStadium } from './WorldSystem';
 import { usePanels } from './PanelSystem';
 import CityPage from '../../pages/CityPage';
 import MarketplacePage from '../../pages/MarketplacePage';
@@ -1328,14 +1328,12 @@ function BuildingInteriorShell({
   children,
   onExit,
   stadiumUpgradeLevel = 0,
-  questTarget = false,
 }: {
   building: SportsBuilding;
   title: string;
   children: ReactNode;
   onExit: () => void;
   stadiumUpgradeLevel?: number;
-  questTarget?: boolean;
 }) {
   const isComputerLed = ['market', 'bank', 'commissioner', 'garage', 'stadium'].includes(building.id);
   const roomLabel = building.id === 'team'
