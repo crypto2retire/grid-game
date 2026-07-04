@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  ChevronDown,
+  ChevronUp,
   Coins,
   Compass,
   Hand,
+  MessageCircle,
   RefreshCw,
   Target,
   Users,
@@ -1219,6 +1222,7 @@ export default function KintaraSportsWorld() {
   const [worldStatus, setWorldStatus] = useState('Live world connected');
   const [walletOverride, setWalletOverride] = useState<WalletSnapshot | null>(null);
   const [commissionerOverview, setCommissionerOverview] = useState<CommissionerOverview | null>(null);
+  const [hudOpen, setHudOpen] = useState({ economy: false, quests: false, chat: false });
 
   const tiles = useMemo(() => {
     const all: Array<{ key: string; x: number; y: number; fill: string; stroke: string }> = [];
@@ -1505,6 +1509,10 @@ export default function KintaraSportsWorld() {
     { key: 'inventoryScarcity', label: 'Scarcity', value: 0, target: 1, progress: 0, unit: 'claimed', description: 'Claimed supply drives restock demand.' },
     { key: 'rewardPool', label: 'Rewards', value: 0, target: 2500, progress: 0, unit: 'DYN-equiv', description: 'Contributor reward budget.' },
   ];
+  const completedQuestCount = quests.filter((quest) => quest.completed).length;
+  const openQuestCount = quests.filter((quest) => !quest.claimed).length;
+  const economyAverage = Math.round(economyMeters.reduce((sum, meter) => sum + meter.progress, 0) / Math.max(1, economyMeters.length));
+  const latestChat = chatMessages.at(-1);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#8ed5f5] select-none">
@@ -1651,80 +1659,132 @@ export default function KintaraSportsWorld() {
 
       <MiniMap player={player} />
 
-      {/* Economy loop card */}
-      <div className="absolute right-4 top-52 z-[6] hidden xl:block w-[350px] rounded-2xl bg-slate-950/88 border border-white/15 shadow-2xl text-white backdrop-blur-md overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-orange-500/25 to-sky-500/20">
-          <div className="text-[11px] uppercase tracking-[0.25em] text-slate-300 font-black">Commissioner Economy Meters</div>
-          <div className="text-lg font-black">Fund → Unlock → Buy → Restock</div>
-        </div>
-        <div className="p-4 space-y-3 text-xs">
-          {economyMeters.slice(0, 5).map((meter) => (
-            <div key={meter.key} className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-black text-amber-200 uppercase tracking-wider">{meter.label}</div>
-                <div className="font-black text-white">{meter.progress}%</div>
-              </div>
-              <div className="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden"><div className="h-full bg-gradient-to-r from-cyan-400 to-emerald-300" style={{ width: `${Math.max(0, Math.min(100, meter.progress))}%` }} /></div>
-              <div className="mt-1 text-slate-300 leading-snug">{meter.description}</div>
+      {/* Collapsible HUD dock: support widgets stay out of the play space until opened. */}
+      <div className="absolute right-4 top-28 z-[7] flex flex-col items-end gap-2 pointer-events-none">
+        <button
+          type="button"
+          onClick={() => setHudOpen((prev) => ({ ...prev, economy: !prev.economy }))}
+          className="pointer-events-auto min-w-[230px] rounded-2xl bg-slate-950/90 border border-white/20 shadow-2xl text-white px-4 py-3 backdrop-blur-md hover:-translate-y-0.5 transition-transform"
+          aria-expanded={hudOpen.economy}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-left">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-orange-200 font-black">Economy</div>
+              <div className="text-sm font-black">Fund → Unlock → Restock</div>
             </div>
-          ))}
-        </div>
-        <div className="px-4 pb-4 text-[11px] leading-snug text-emerald-100">
-          Every building now points at a real loop: tickets, development, trade, recovery, travel, treasury flow, or Commissioner scarcity/restocks.
-        </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-cyan-400/20 px-2 py-1 text-xs font-black text-cyan-100">{economyAverage}%</span>
+              {hudOpen.economy ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </div>
+        </button>
+        {hudOpen.economy && (
+          <div className="pointer-events-auto w-[350px] rounded-2xl bg-slate-950/92 border border-white/15 shadow-2xl text-white backdrop-blur-md overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-orange-500/25 to-sky-500/20">
+              <div className="text-[11px] uppercase tracking-[0.25em] text-slate-300 font-black">Commissioner Economy Meters</div>
+              <div className="text-lg font-black">Every system has a visible loop</div>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              {economyMeters.slice(0, 5).map((meter) => (
+                <div key={meter.key} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-black text-amber-200 uppercase tracking-wider">{meter.label}</div>
+                    <div className="font-black text-white">{meter.progress}%</div>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden"><div className="h-full bg-gradient-to-r from-cyan-400 to-emerald-300" style={{ width: `${Math.max(0, Math.min(100, meter.progress))}%` }} /></div>
+                  <div className="mt-1 text-slate-300 leading-snug">{meter.description}</div>
+                </div>
+              ))}
+            </div>
+            <div className="px-4 pb-4 text-[11px] leading-snug text-emerald-100">
+              Economy HUD is collapsed by default so the world stays readable. Open it only when tuning funding, restocks, scarcity, and reward pools.
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Daily quests */}
-      <div className="absolute left-4 bottom-36 z-[6] w-[330px] max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900/88 border border-white/20 shadow-2xl text-white overflow-hidden backdrop-blur-md">
-        <div className="px-4 py-3 bg-slate-800/90 border-b border-white/10 flex items-center gap-2">
+      {/* Daily quests: compact bottom-left drawer instead of permanent card. */}
+      <div className="absolute left-4 bottom-24 z-[7] max-w-[calc(100vw-2rem)] pointer-events-none">
+        <button
+          type="button"
+          onClick={() => setHudOpen((prev) => ({ ...prev, quests: !prev.quests }))}
+          className="pointer-events-auto rounded-2xl bg-slate-900/90 border border-white/20 shadow-2xl text-white px-4 py-3 backdrop-blur-md flex items-center gap-3 hover:-translate-y-0.5 transition-transform"
+          aria-expanded={hudOpen.quests}
+        >
           <Target className="w-4 h-4 text-orange-300" />
-          <span className="text-sm font-black tracking-wider">DAILY SPORTS QUESTS</span>
-        </div>
-        <div className="p-4 space-y-3">
-          {quests.length === 0 && <div className="text-xs text-slate-300">Loading server-backed quests...</div>}
-          {quests.map((q) => (
-            <div key={q.id}>
-              <div className="flex items-center justify-between text-xs mb-1 gap-2">
-                <span className="font-bold truncate">{q.label}</span>
-                <span className="text-slate-300 shrink-0">{q.progress}/{q.total}</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-orange-400 to-yellow-300" style={{ width: `${Math.min(100, (q.progress / q.total) * 100)}%` }} />
-              </div>
-              <div className="flex items-center justify-between gap-2 mt-1">
-                <div className="text-[11px] text-emerald-300 font-bold">{q.rewardLabel}</div>
-                {q.completed && !q.claimed && (
-                  <button onClick={() => claimQuest(q)} className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-400">CLAIM</button>
-                )}
-                {q.claimed && <span className="text-[10px] text-slate-400 font-black">CLAIMED</span>}
-              </div>
+          <div className="text-left">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-300 font-black">Daily Sports Quests</div>
+            <div className="text-sm font-black">{completedQuestCount}/{Math.max(quests.length, 1)} complete • {openQuestCount} active</div>
+          </div>
+          {hudOpen.quests ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        </button>
+        {hudOpen.quests && (
+          <div className="pointer-events-auto mt-2 w-[330px] rounded-2xl bg-slate-900/92 border border-white/20 shadow-2xl text-white overflow-hidden backdrop-blur-md">
+            <div className="p-4 space-y-3">
+              {quests.length === 0 && <div className="text-xs text-slate-300">Loading server-backed quests...</div>}
+              {quests.map((q) => (
+                <div key={q.id} className="rounded-xl bg-white/5 border border-white/10 p-3">
+                  <div className="flex items-center justify-between text-xs mb-1 gap-2">
+                    <span className="font-bold truncate">{q.label}</span>
+                    <span className="text-slate-300 shrink-0">{q.progress}/{q.total}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-orange-400 to-yellow-300" style={{ width: `${Math.min(100, (q.progress / Math.max(1, q.total)) * 100)}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <div className="text-[11px] text-emerald-300 font-bold">{q.rewardLabel}</div>
+                    {q.completed && !q.claimed && (
+                      <button onClick={() => claimQuest(q)} className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-400">CLAIM</button>
+                    )}
+                    {q.claimed && <span className="text-[10px] text-slate-400 font-black">CLAIMED</span>}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Chat */}
-      <div className="absolute left-4 bottom-4 z-[6] w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900/88 border border-white/20 shadow-2xl text-white overflow-hidden backdrop-blur-md">
-        <div className="px-3 pt-3 flex gap-2 text-xs font-black">
-          <span className="px-3 py-1 rounded-full bg-orange-500">Realm</span>
-          <span className="px-3 py-1 rounded-full bg-white/10 text-slate-300">Global</span>
-          <span className="px-3 py-1 rounded-full bg-white/10 text-slate-300">Trade</span>
-        </div>
-        <div className="px-4 py-2 space-y-1 max-h-24 overflow-y-auto text-xs">
-          {chatMessages.length === 0 && <div className="text-slate-400">No realm messages yet. Say hello.</div>}
-          {chatMessages.map((m, idx) => (
-            <div key={m.id || `${m.user}-${idx}`}><span className="text-sky-300 font-black">[{m.channel}] {m.user}:</span> <span className="text-slate-100">{m.msg}</span></div>
-          ))}
-        </div>
-        <form className="px-3 pb-3" onSubmit={sendChat}>
-          <input
-            value={chatInput}
-            onChange={(event) => setChatInput(event.target.value)}
-            maxLength={240}
-            className="h-9 w-full rounded-xl bg-slate-800 border border-white/10 px-3 text-xs text-slate-100 placeholder:text-slate-400 outline-none focus:border-orange-400"
-            placeholder="Type realm message..."
-          />
-        </form>
+      {/* Chat: minimized bar by default so it does not compete with movement/hotbar controls. */}
+      <div className="absolute left-4 bottom-4 z-[7] w-[360px] max-w-[calc(100vw-2rem)] pointer-events-none">
+        <button
+          type="button"
+          onClick={() => setHudOpen((prev) => ({ ...prev, chat: !prev.chat }))}
+          className="pointer-events-auto w-full rounded-2xl bg-slate-900/90 border border-white/20 shadow-2xl text-white px-4 py-3 backdrop-blur-md flex items-center gap-3 hover:-translate-y-0.5 transition-transform"
+          aria-expanded={hudOpen.chat}
+        >
+          <MessageCircle className="w-4 h-4 text-sky-300" />
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-300 font-black">Realm Chat</div>
+            <div className="text-sm font-black truncate">{latestChat ? `${latestChat.user}: ${latestChat.msg}` : 'No realm messages yet'}</div>
+          </div>
+          <span className="rounded-full bg-orange-500 px-2 py-1 text-xs font-black">{chatMessages.length}</span>
+          {hudOpen.chat ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        </button>
+        {hudOpen.chat && (
+          <div className="pointer-events-auto mt-2 rounded-2xl bg-slate-900/92 border border-white/20 shadow-2xl text-white overflow-hidden backdrop-blur-md">
+            <div className="px-3 pt-3 flex gap-2 text-xs font-black">
+              <span className="px-3 py-1 rounded-full bg-orange-500">Realm</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-slate-300">Global</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-slate-300">Trade</span>
+            </div>
+            <div className="px-4 py-2 space-y-1 max-h-28 overflow-y-auto text-xs">
+              {chatMessages.length === 0 && <div className="text-slate-400">No realm messages yet. Say hello.</div>}
+              {chatMessages.map((m, idx) => (
+                <div key={m.id || `${m.user}-${idx}`}><span className="text-sky-300 font-black">[{m.channel}] {m.user}:</span> <span className="text-slate-100">{m.msg}</span></div>
+              ))}
+            </div>
+            <form className="px-3 pb-3" onSubmit={sendChat}>
+              <input
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                maxLength={240}
+                className="h-9 w-full rounded-xl bg-slate-800 border border-white/10 px-3 text-xs text-slate-100 placeholder:text-slate-400 outline-none focus:border-orange-400"
+                placeholder="Type realm message..."
+              />
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Hotbar */}
