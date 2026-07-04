@@ -152,7 +152,7 @@ export async function startTraining(input: TrainingInput) {
         .filter((tp: any) => DEFENSIVE_POSITIONS.includes(tp.player.position))
         .map((tp: any) => tp.player);
       break;
-    case 'INDIVIDUAL':
+    case 'INDIVIDUAL': {
       if (!playerId) {
         throw new Error('Individual training requires a player ID');
       }
@@ -162,6 +162,7 @@ export async function startTraining(input: TrainingInput) {
       }
       targetPlayers = [targetPlayer.player];
       break;
+    }
     case 'ALL':
     default:
       targetPlayers = team.teamPlayers.map((tp: any) => tp.player);

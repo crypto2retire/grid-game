@@ -129,7 +129,7 @@ export class GenericSportSimulator implements SportSimulator {
       stats.rating = Math.round(Math.min(10, Math.max(1, rating)) * 10) / 10;
     }
 
-    events.push({ timestamp: this.profile.regulationTicks * 60 + 120, tick: tick++, type: this.profile.finalEvent, metadata: { sportId: this.sportId, score: `${homeScore}-${awayScore}` } });
+    events.push({ timestamp: this.profile.regulationTicks * 60 + 120, tick, type: this.profile.finalEvent, metadata: { sportId: this.sportId, score: `${homeScore}-${awayScore}` } });
 
     return {
       homeScore,

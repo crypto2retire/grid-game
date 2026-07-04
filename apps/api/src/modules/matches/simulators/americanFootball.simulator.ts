@@ -176,7 +176,7 @@ export class AmericanFootballSimulator implements SportSimulator {
       stats.rating = Math.round(Math.min(10, Math.max(1, rating)) * 10) / 10;
     }
 
-    events.push({ timestamp: 4200, tick: tick++, type: FOOTBALL_EVENTS.FINAL, metadata: { score: `${homeScore}-${awayScore}`, sportId: this.sportId } });
+    events.push({ timestamp: 4200, tick, type: FOOTBALL_EVENTS.FINAL, metadata: { score: `${homeScore}-${awayScore}`, sportId: this.sportId } });
 
     return {
       homeScore,

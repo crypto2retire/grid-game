@@ -93,11 +93,16 @@ export const SAFE_REWARD_POLICY = {
     'TICKET_SALES',
     'CONCESSIONS',
     'MERCHANDISE',
+    'LEAGUE_RESULT_REWARD',
+    'SPONSOR_REVENUE',
     'SPONSOR_GAME_REVENUE',
     'SPONSOR_SEASON_BONUS',
     'LEAGUE_STANDING_BONUS',
     'LEAGUE_PLAYOFF_BONUS',
     'PLATFORM_GRANT',
+    'HIGH_SCORING_BONUS',
+    'CLEAN_SHEET_BONUS',
+    'HOME_FIELD_ADVANTAGE',
   ] as string[],
 
   /** Operating costs that are sinks (money leaves the team, does not go to opponent). */

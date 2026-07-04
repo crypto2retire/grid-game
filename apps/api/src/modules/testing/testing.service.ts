@@ -168,7 +168,9 @@ export async function runTestSeason(gameCount: number = 100): Promise<SeasonResu
   let totalTreasuryInflow = 0, totalPlayerPayouts = 0, totalGameOwnerRevenue = 0;
   let totalWeeklyCosts = 0, weeklyCostRuns = 0;
   let totalSolPurchases = 0, totalSolRevenue = 0;
-  let totalMarketplaceVolume = 0, totalMarketplaceTax = 0, totalMarketplaceBurn = 0;
+  let totalMarketplaceVolume = 0;
+  const totalMarketplaceTax = 0;
+  const totalMarketplaceBurn = 0;
   let totalCashSpent = 0, totalGridSpent = 0;
 
   const matchResults: Array<{ homeScore: number; awayScore: number; homeNet: number; awayNet: number }> = [];
@@ -1145,7 +1147,7 @@ export async function runMegaSimulation(userCount: number = 250, seasonCount: nu
   const seasonResults: MegaSimSeasonResult[] = [];
   const pumpfunState = createPumpFunSimState();
 
-  let totalEconomicFlow: EconomicSummary = {
+  const totalEconomicFlow: EconomicSummary = {
     totalTicketRevenue: 0, totalVenueLeaseFees: 0, totalEntryFees: 0,
     totalTreasuryInflow: 0, totalPlayerPayouts: 0, totalGameOwnerRevenue: 0,
     totalWeeklyCosts: 0, weeklyCostRuns: 0,
@@ -1155,7 +1157,7 @@ export async function runMegaSimulation(userCount: number = 250, seasonCount: nu
     pumpfunRevenue: null,
   };
 
-  let totalMarketplace: MarketplaceSummary = {
+  const totalMarketplace: MarketplaceSummary = {
     venuePurchases: 0, venueSolPurchases: 0,
     transportPurchases: 0, transportSolPurchases: 0,
     teamMarketplaceSales: 0, playerMarketplaceSales: 0,
@@ -1253,9 +1255,11 @@ async function simulateSingleSeason(
   let totalHomeScore = 0, totalAwayScore = 0;
   let gamesPlayed = 0, trainingSessions = 0;
   let playerTrades = 0, venuePurchases = 0, transportPurchases = 0, teamSales = 0;
-  let injuries = 0, promotions = 0, demotions = 0;
+  const promotions = 0;
+  const demotions = 0;
   let weeklyCostsProcessed = 0;
-  let totalCashSpent = 0, totalGridSpent = 0, totalSolSpent = 0;
+  let totalCashSpent = 0, totalSolSpent = 0;
+  const totalGridSpent = 0;
   let treasuryInflow = 0, solTreasuryInflow = 0;
 
   const WEEKS_PER_SEASON = 52;
@@ -1571,8 +1575,7 @@ async function simulateSingleSeason(
   }
 
   // Count injuries
-  const injuredPlayers = await prisma.player.count({ where: { injuryStatus: { not: 'HEALTHY' } } });
-  injuries = injuredPlayers;
+  const injuries = await prisma.player.count({ where: { injuryStatus: { not: 'HEALTHY' } } });
 
   // Pump.fun simulation for this season
   const activeUserCount = activeUsers.length;

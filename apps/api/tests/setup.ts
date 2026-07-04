@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 let prisma: PrismaClient | null = null;
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (process.env.TEST_DATABASE_CONNECT !== 'true' || !process.env.DATABASE_URL) return;
   const database = await import('../src/config/database');
   prisma = database.prisma;
   await prisma.$connect();

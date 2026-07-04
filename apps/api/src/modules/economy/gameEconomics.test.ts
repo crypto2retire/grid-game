@@ -112,7 +112,7 @@ describe('calculateGameEconomics', () => {
       (k) => homeResult.breakdown[k] > 0
     );
     for (const key of homeRevenueKeys) {
-      expect(SAFE_REWARD_POLICY.safeRevenueSources.map((s) => s.toLowerCase())).toContain(
+      expect(SAFE_REWARD_POLICY.safeRevenueSources.map((s) => s.toLowerCase())).toContainEqual(
         expect.stringContaining(key.toLowerCase().replace(/\s/g, '_'))
       );
     }

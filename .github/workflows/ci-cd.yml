@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -9,16 +9,19 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
       - run: npm install
       - run: npm run lint
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     services:
       postgres:
         image: postgres:16-alpine
@@ -42,70 +45,43 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-
+    env:
+      DATABASE_URL: postgresql://grid:gridpassword@127.0.0.1:5432/gridgame_test
+      REDIS_URL: redis://127.0.0.1:6379
+      JWT_SECRET: ci-test-jwt-secret-at-least-32-characters
+      NODE_ENV: test
+      REQUIRED_DYN_BALANCE: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
       - run: npm install
       - run: cd apps/api && npx prisma generate
       - run: cd apps/api && npx prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://grid:gridpassword@localhost:5432/gridgame_test
       - run: npm run test
-        env:
-          DATABASE_URL: postgresql://grid:gridpassword@localhost:5432/gridgame_test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-jwt-secret-for-ci-only
-          NODE_ENV: test
-        continue-on-error: true
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://grid:gridpassword@127.0.0.1:5432/gridgame_build
+      JWT_SECRET: ci-build-jwt-secret-at-least-32-characters
+      NODE_ENV: production
+      REQUIRED_DYN_BALANCE: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
       - run: npm install
       - run: npm run build
 
-  deploy:
+  render-deploy-note:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [lint, test, build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm install
-      - run: npm run build
-
-      # Deploy to Railway using CLI with account token
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
-        run: |
-          echo "Deploying to Railway..."
-          echo "Using Project Access Token for authentication..."
-          # Project tokens use Project-Access-Token header, not Authorization Bearer
-          # The CLI should pick this up from RAILWAY_TOKEN env var
-          export RAILWAY_TOKEN="fe224778-7649-442e-a795-044236078f7e"
-          railway up --service grid-web --detach --yes --verbose 2>&1
-        timeout-minutes: 15
-        env:
-          RAILWAY_TOKEN: fe224778-7649-442e-a795-044236078f7e
-
-      # Deploy to Render (if RENDER_API_KEY is set)
-      - name: Deploy to Render
-        if: env.RENDER_API_KEY != ''
-        run: |
-          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json"
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      - run: echo "Render auto-deploys GRID from GitHub pushes; GitHub Actions only validates lint, tests, and build."

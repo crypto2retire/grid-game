@@ -225,7 +225,6 @@ export async function resolvePlay(
 
   const aiDefPlay = DEFENSIVE_PLAYS[Math.floor(roll() * DEFENSIVE_PLAYS.length)];
 
-  let offPower = 0;
   let yards = 0;
   let result = 'GAIN';
   let description = '';
@@ -305,20 +304,13 @@ export async function resolvePlay(
 
   // ─── Normal Run/Pass Plays ───
   } else {
-    if (playDef.category === 'RUN') {
-      offPower = (rb?.physical || 50) * 0.4 + (rb?.pace || 50) * 0.3 + (ol[0]?.defending || 50) * 0.2 + (qb?.physical || 50) * 0.1;
-    } else {
-      offPower = (qb?.passing || 50) * 0.35 + (wr?.shooting || 50) * 0.25 + (wr?.pace || 50) * 0.2 + (qb?.physical || 50) * 0.1 + (ol[0]?.defending || 50) * 0.1;
-    }
+    const offPower = playDef.category === 'RUN'
+      ? (rb?.physical || 50) * 0.4 + (rb?.pace || 50) * 0.3 + (ol[0]?.defending || 50) * 0.2 + (qb?.physical || 50) * 0.1
+      : (qb?.passing || 50) * 0.35 + (wr?.shooting || 50) * 0.25 + (wr?.pace || 50) * 0.2 + (qb?.physical || 50) * 0.1 + (ol[0]?.defending || 50) * 0.1;
 
-    let defPower = 0;
-    if (playDef.category === 'RUN') {
-      defPower = (dl?.defending || 50) * 0.4 + (lb?.defending || 50) * 0.3 + (dl?.physical || 50) * 0.2 + (cb?.defending || 50) * 0.1;
-      defPower += aiDefPlay.runPenalty * 2;
-    } else {
-      defPower = (cb?.defending || 50) * 0.35 + (lb?.defending || 50) * 0.25 + (dl?.defending || 50) * 0.2 + (cb?.pace || 50) * 0.2;
-      defPower += aiDefPlay.passPenalty * 2;
-    }
+    const defPower = playDef.category === 'RUN'
+      ? (dl?.defending || 50) * 0.4 + (lb?.defending || 50) * 0.3 + (dl?.physical || 50) * 0.2 + (cb?.defending || 50) * 0.1 + aiDefPlay.runPenalty * 2
+      : (cb?.defending || 50) * 0.35 + (lb?.defending || 50) * 0.25 + (dl?.defending || 50) * 0.2 + (cb?.pace || 50) * 0.2 + aiDefPlay.passPenalty * 2;
 
     const differential = offPower - defPower + 50;
     const normalizedDiff = (differential - 50) / 50;

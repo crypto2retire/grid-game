@@ -66,16 +66,13 @@ export function calculateGameEconomics(input: GameEconomicsInput): GameEconomics
   // --- REVENUE ---
 
   // 1. Fixed league result reward (funded by league budget, not opponent fees)
-  let resultReward = 0;
-  if (didWin) {
-    resultReward = GAME_DAY_FIXED_REWARDS.WIN_BASE;
-  } else if (didTie) {
-    resultReward = GAME_DAY_FIXED_REWARDS.DRAW_BASE;
-  } else {
-    resultReward = GAME_DAY_FIXED_REWARDS.LOSS_BASE;
-  }
+  const baseResultReward = didWin
+    ? GAME_DAY_FIXED_REWARDS.WIN_BASE
+    : didTie
+      ? GAME_DAY_FIXED_REWARDS.DRAW_BASE
+      : GAME_DAY_FIXED_REWARDS.LOSS_BASE;
   const leagueMultiplier = LEAGUE_REWARD_MULTIPLIER[leagueTier] || 1.0;
-  resultReward = Math.round(resultReward * leagueMultiplier);
+  const resultReward = Math.round(baseResultReward * leagueMultiplier);
   breakdown['League Result Reward'] = resultReward;
 
   // 2. Home ticket revenue (only home team)
@@ -134,15 +131,8 @@ export function calculateGameEconomics(input: GameEconomicsInput): GameEconomics
   // --- EXPENSES ---
 
   // 1. Travel/transport operating cost (away team pays more)
-  let travelCost = 0;
-  if (transport) {
-    travelCost = transport.operatingCost;
-  } else {
-    travelCost = isHome ? 50 : 150; // default travel cost
-  }
-  if (!isHome) {
-    travelCost = Math.round(travelCost * 1.5); // away games cost more
-  }
+  const baseTravelCost = transport?.operatingCost ?? (isHome ? 50 : 150); // default travel cost
+  const travelCost = !isHome ? Math.round(baseTravelCost * 1.5) : baseTravelCost; // away games cost more
   breakdown['Travel & Transport'] = -travelCost;
 
   // 2. Venue/staff/referee cost (home team pays)
