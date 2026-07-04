@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -16,16 +16,28 @@ import { fetchApi } from '../../lib/api';
 import { socket } from '../../lib/socket';
 import { useWorld, type LiveMatch, type MyStadium } from './WorldSystem';
 import { usePanels } from './PanelSystem';
-import CityPage from '../../pages/CityPage';
-import MarketplacePage from '../../pages/MarketplacePage';
-import LeaderboardPage from '../../pages/LeaderboardPage';
-import WalletPage from '../../pages/WalletPage';
-import TrainingPage from '../../pages/TrainingPage';
-import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
-import TransportGaragePage from '../../pages/TransportGaragePage';
-import TeamPage from '../../pages/TeamPage';
-import MatchesPage from '../../pages/MatchesPage';
-import PlayerProgressionPage from '../../pages/PlayerProgressionPage';
+const CityPage = lazy(() => import('../../pages/CityPage'));
+const MarketplacePage = lazy(() => import('../../pages/MarketplacePage'));
+const LeaderboardPage = lazy(() => import('../../pages/LeaderboardPage'));
+const WalletPage = lazy(() => import('../../pages/WalletPage'));
+const TrainingPage = lazy(() => import('../../pages/TrainingPage'));
+const StadiumInteriorPage = lazy(() => import('../../pages/StadiumInteriorPage'));
+const TransportGaragePage = lazy(() => import('../../pages/TransportGaragePage'));
+const TeamPage = lazy(() => import('../../pages/TeamPage'));
+const MatchesPage = lazy(() => import('../../pages/MatchesPage'));
+const PlayerProgressionPage = lazy(() => import('../../pages/PlayerProgressionPage'));
+
+function InteriorPageFallback({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-white/10 bg-slate-950/70 p-6 text-center text-white">
+      <div>
+        <div className="mx-auto mb-3 h-12 w-12 animate-pulse rounded-2xl bg-amber-300/20 ring-2 ring-amber-200/40" />
+        <div className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">Loading station</div>
+        <div className="mt-1 text-lg font-black">{label}</div>
+      </div>
+    </div>
+  );
+}
 
 const TILE_W = 74;
 const TILE_H = 38;
@@ -446,6 +458,19 @@ function meterProgress(meters: EconomyMeter[], key: string) {
   return meters.find((meter) => meter.key === key)?.progress ?? 0;
 }
 
+function buildingUpgradeStage(buildingId: string, economyLoop: BuildingEconomyLoop | undefined, economyMeters: EconomyMeter[], stadiumLevel = 0) {
+  if (buildingId === 'stadium') return stadiumLevel;
+  const loopProgress = economyLoop?.progress ?? 0;
+  const meterBoost = buildingId === 'market'
+    ? Math.max(meterProgress(economyMeters, 'limitedInventory'), meterProgress(economyMeters, 'inventoryScarcity'))
+    : buildingId === 'commissioner'
+      ? Math.max(meterProgress(economyMeters, 'communityFunding'), meterProgress(economyMeters, 'rewardPool'))
+      : buildingId === 'bank'
+        ? meterProgress(economyMeters, 'rewardPool')
+        : loopProgress;
+  return Math.max(0, Math.min(5, Math.ceil(Math.max(loopProgress, meterBoost) / 20)));
+}
+
 function WorldEconomyEvents({
   myStadium,
   liveMatches,
@@ -747,8 +772,9 @@ function FieldBuilding({ building }: { building: SportsBuilding }) {
   );
 }
 
-function BoxBuilding({ building }: { building: SportsBuilding }) {
+function BoxBuilding({ building, upgradeStage = 0 }: { building: SportsBuilding; upgradeStage?: number }) {
   const { x, y } = iso(building.tx, building.ty);
+  const stage = Math.max(0, Math.min(5, Math.round(upgradeStage)));
   const w = building.kind === 'gym' ? 112 : building.kind === 'garage' ? 132 : building.kind === 'bank' ? 112 : building.kind === 'shop' ? 118 : building.kind === 'medical' ? 100 : building.kind === 'team' ? 104 : 86;
   const h = building.kind === 'clubhouse' ? 96 : building.kind === 'scout' ? 132 : building.kind === 'trophy' ? 92 : building.kind === 'bank' ? 108 : building.kind === 'garage' ? 78 : building.kind === 'team' ? 82 : 72;
   const d = building.kind === 'garage' ? 72 : building.kind === 'shop' ? 62 : building.kind === 'team' ? 58 : 50;
@@ -852,42 +878,102 @@ function BoxBuilding({ building }: { building: SportsBuilding }) {
           <text x={0} y={-56} textAnchor="middle" fill="#422006" fontSize={10} fontWeight={900}>$</text>
         </g>
       )}
+
+      {stage > 0 && (
+        <g className="building-upgrade-state" style={{ pointerEvents: 'none' }}>
+          {building.kind === 'shop' && Array.from({ length: Math.min(5, stage) }).map((_, idx) => (
+            <g key={`market-crate-${idx}`} transform={`translate(${-54 + idx * 27}, ${18 + (idx % 2) * 10})`}>
+              <rect x={-10} y={-10} width={20} height={18} rx={3} fill={idx % 2 ? '#fef08a' : '#fb923c'} stroke="#78350f" strokeWidth={1.5} />
+              <text x={0} y={3} textAnchor="middle" fill="#78350f" fontSize={8} fontWeight={900}>$</text>
+            </g>
+          ))}
+          {building.kind === 'gym' && Array.from({ length: Math.min(4, stage) }).map((_, idx) => (
+            <g key={`gym-lane-${idx}`} transform={`translate(${-48 + idx * 32}, ${10 + idx * 2})`}>
+              <rect x={-10} y={-4} width={20} height={8} rx={4} fill="#bbf7d0" stroke="#14532d" strokeWidth={1} />
+              <circle cx={0} cy={-18} r={7} fill="#fde68a" filter="url(#warmGlow)" />
+            </g>
+          ))}
+          {building.kind === 'team' && Array.from({ length: Math.min(4, stage) }).map((_, idx) => (
+            <path key={`locker-banner-${idx}`} d={`M ${-48 + idx * 31} -104 L ${-32 + idx * 31} -96 L ${-48 + idx * 31} -88 Z`} fill={idx % 2 ? '#fde047' : '#38bdf8'} stroke="#0f172a" strokeWidth={1} />
+          ))}
+          {building.kind === 'medical' && Array.from({ length: Math.min(3, stage) }).map((_, idx) => (
+            <g key={`recovery-pod-${idx}`} transform={`translate(${-40 + idx * 40}, 18)`}>
+              <rect x={-13} y={-12} width={26} height={18} rx={8} fill="#ecfeff" stroke="#ef4444" strokeWidth={1.5} />
+              <text x={0} y={2} textAnchor="middle" fill="#ef4444" fontSize={12} fontWeight={900}>+</text>
+            </g>
+          ))}
+          {building.kind === 'garage' && stage >= 2 && (
+            <g transform="translate(58, 18)">
+              <rect x={-32} y={-18} width={64} height={28} rx={8} fill={stage >= 4 ? '#0ea5e9' : '#fbbf24'} stroke="#0f172a" strokeWidth={2} />
+              <circle cx={-18} cy={12} r={6} fill="#0f172a" /><circle cx={20} cy={12} r={6} fill="#0f172a" />
+              <text x={0} y={0} textAnchor="middle" fill="#0f172a" fontSize={8} fontWeight={900}>{stage >= 4 ? 'JET' : 'BUS+'}</text>
+            </g>
+          )}
+          {building.kind === 'bank' && stage >= 1 && (
+            <g transform="translate(62, -86)">
+              <rect x={-36} y={-13} width={72} height={26} rx={7} fill="#0f172a" stroke="#facc15" strokeWidth={2} />
+              <text x={0} y={4} textAnchor="middle" fill="#facc15" fontSize={9} fontWeight={900}>DYN x{stage}</text>
+            </g>
+          )}
+          {building.kind === 'scout' && stage >= 1 && (
+            <g transform="translate(54,-120)">
+              <rect x={-32} y={-12} width={64} height={24} rx={7} fill="#042f2e" stroke="#5eead4" strokeWidth={2} />
+              <text x={0} y={4} textAnchor="middle" fill="#ccfbf1" fontSize={8} fontWeight={900}>FUND {stage}</text>
+            </g>
+          )}
+          {building.kind === 'trophy' && Array.from({ length: Math.min(5, stage) }).map((_, idx) => (
+            <circle key={`prestige-light-${idx}`} cx={-48 + idx * 24} cy={-108} r={6} fill="#fde047" filter="url(#warmGlow)" />
+          ))}
+          {building.kind === 'clubhouse' && stage >= 1 && (
+            <g transform="translate(54,-62)">
+              <rect x={-30} y={-16} width={60} height={32} rx={7} fill="#422006" stroke="#fde68a" strokeWidth={2} />
+              <text x={0} y={4} textAnchor="middle" fill="#fde68a" fontSize={8} fontWeight={900}>OPS +{stage}</text>
+            </g>
+          )}
+        </g>
+      )}
     </g>
   );
 }
 
-function BuildingPhysicalSign({ building, questTarget = false }: { building: SportsBuilding; questTarget?: boolean }) {
+function BuildingPhysicalSign({ building, questTarget = false, emphasized = false, upgradeStage = 0 }: { building: SportsBuilding; questTarget?: boolean; emphasized?: boolean; upgradeStage?: number }) {
   const { x, y } = iso(building.tx, building.ty);
   const sign = BUILDING_SIGNS[building.id] || { code: building.label.slice(0, 4).toUpperCase(), icon: '◆', fill: building.accent, text: building.subtitle };
   const yOffset = building.kind === 'stadium' ? -154 : building.kind === 'field' ? -70 : building.kind === 'scout' ? -162 : building.kind === 'bank' ? -120 : -112;
-  const signWidth = Math.max(68, sign.code.length * 9 + 24);
+  const labelScale = emphasized ? 1.22 : 1.04;
+  const signWidth = Math.max(emphasized ? 96 : 78, sign.code.length * (emphasized ? 11 : 10) + 32);
+  const signHeight = emphasized ? 34 : 30;
+  const subLabel = upgradeStage > 0 ? `${sign.text} • tier ${upgradeStage}` : sign.text;
   return (
-    <g transform={`translate(${x}, ${y + yOffset})`} style={{ pointerEvents: 'none' }}>
+    <g transform={`translate(${x}, ${y + yOffset}) scale(${labelScale})`} style={{ pointerEvents: 'none' }}>
       {questTarget && (
-        <g transform="translate(0,-34)">
-          <circle r={17} fill="#fde047" stroke="#92400e" strokeWidth={2.5} filter="url(#warmGlow)" />
-          <text x={0} y={6} textAnchor="middle" fill="#422006" fontSize={18} fontWeight={900}>!</text>
+        <g transform="translate(0,-38)">
+          <circle r={19} fill="#fde047" stroke="#92400e" strokeWidth={2.5} filter="url(#warmGlow)" />
+          <text x={0} y={7} textAnchor="middle" fill="#422006" fontSize={20} fontWeight={900}>!</text>
         </g>
       )}
-      <rect x={-signWidth / 2} y={-14} width={signWidth} height={28} rx={8} fill={sign.fill} stroke="#fff7ed" strokeWidth={2} />
-      <text x={-signWidth / 2 + 13} y={5} textAnchor="middle" fill="#fff7ed" fontSize={13} fontWeight={900}>{sign.icon}</text>
-      <text x={8} y={4} textAnchor="middle" fill="#fff7ed" fontSize={sign.code.length > 5 ? 9 : 11} fontWeight={900}>{sign.code}</text>
-      <text x={0} y={26} textAnchor="middle" fill="#0f172a" fontSize={8} fontWeight={900}>{sign.text}</text>
+      <rect x={-signWidth / 2} y={-signHeight / 2} width={signWidth} height={signHeight} rx={10} fill={sign.fill} stroke="#fff7ed" strokeWidth={2.25} />
+      <text x={-signWidth / 2 + 16} y={5} textAnchor="middle" fill="#fff7ed" fontSize={emphasized ? 15 : 14} fontWeight={900}>{sign.icon}</text>
+      <text x={8} y={5} textAnchor="middle" fill="#fff7ed" fontSize={sign.code.length > 5 ? (emphasized ? 10 : 9) : (emphasized ? 12 : 11)} fontWeight={900}>{sign.code}</text>
+      <rect x={-signWidth / 2 + 6} y={signHeight / 2 + 3} width={signWidth - 12} height={14} rx={7} fill="rgba(255,247,237,.88)" />
+      <text x={0} y={signHeight / 2 + 14} textAnchor="middle" fill="#0f172a" fontSize={emphasized ? 8.5 : 8} fontWeight={900}>{subLabel}</text>
     </g>
   );
 }
 
-function BuildingLabel({ building, economyLoop, selected = false, questTarget = false }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; selected?: boolean; questTarget?: boolean }) {
+function BuildingLabel({ building, economyLoop, selected = false, questTarget = false, upgradeStage = 0 }: { building: SportsBuilding; economyLoop?: BuildingEconomyLoop; selected?: boolean; questTarget?: boolean; upgradeStage?: number }) {
   const { x, y } = iso(building.tx, building.ty);
   const progress = Math.max(0, Math.min(100, economyLoop?.progress ?? 0));
+  const status = upgradeStage > 0 ? `Visible upgrade tier ${upgradeStage}` : economyLoop?.status || building.subtitle;
+  const width = selected || questTarget ? 206 : 184;
   return (
-    <g transform={`translate(${x}, ${y + 72})`} style={{ pointerEvents: 'none' }}>
-      <rect x={-86} y={-24} width={172} height={56} rx={14} fill="rgba(15,23,42,0.92)" stroke={selected ? '#fde047' : building.accent} strokeWidth={selected ? 2.5 : 1.5} />
-      <text x={0} y={-8} textAnchor="middle" fill="#fff" fontSize={12} fontWeight={900}>{building.label}</text>
-      <text x={0} y={7} textAnchor="middle" fill="#cbd5e1" fontSize={9} fontWeight={800}>{economyLoop?.label || building.subtitle}</text>
-      <rect x={-58} y={17} width={116} height={5} rx={3} fill="rgba(148,163,184,0.45)" />
-      <rect x={-58} y={17} width={(116 * progress) / 100} height={5} rx={3} fill={building.color} />
-      <text x={0} y={34} textAnchor="middle" fill={selected ? '#fde047' : '#e2e8f0'} fontSize={8} fontWeight={900}>{selected ? 'PRESS E TO ENTER' : questTarget ? 'QUEST TARGET' : economyLoop?.status || building.subtitle}</text>
+    <g transform={`translate(${x}, ${y + 78})`} style={{ pointerEvents: 'none' }}>
+      <rect x={-width / 2} y={-28} width={width} height={66} rx={16} fill="rgba(15,23,42,0.94)" stroke={selected ? '#fde047' : questTarget ? '#fb923c' : building.accent} strokeWidth={selected || questTarget ? 2.75 : 1.75} />
+      <text x={0} y={-10} textAnchor="middle" fill="#fff" fontSize={selected || questTarget ? 14 : 13} fontWeight={900}>{building.label}</text>
+      <text x={0} y={7} textAnchor="middle" fill="#cbd5e1" fontSize={10} fontWeight={800}>{economyLoop?.label || building.subtitle}</text>
+      <rect x={-66} y={19} width={132} height={6} rx={3} fill="rgba(148,163,184,0.45)" />
+      <rect x={-66} y={19} width={(132 * progress) / 100} height={6} rx={3} fill={building.color} />
+      <text x={0} y={38} textAnchor="middle" fill={selected ? '#fde047' : questTarget ? '#fed7aa' : '#e2e8f0'} fontSize={9} fontWeight={900}>{selected ? 'PRESS E TO ENTER' : questTarget ? 'QUEST TARGET' : status}</text>
     </g>
   );
 }
@@ -910,6 +996,7 @@ function SportsBuildingView({
   hovered = false,
   onHover,
   stadiumUpgradeLevel = 0,
+  visualStage = 0,
   questTarget = false,
 }: {
   building: SportsBuilding;
@@ -919,10 +1006,13 @@ function SportsBuildingView({
   hovered?: boolean;
   onHover: (id: string | null) => void;
   stadiumUpgradeLevel?: number;
+  visualStage?: number;
   questTarget?: boolean;
 }) {
   const { x, y } = iso(building.tx, building.ty);
   const showLabel = active || hovered || questTarget;
+  const emphasized = active || hovered || questTarget;
+  const buildingStage = building.kind === 'stadium' ? stadiumUpgradeLevel : visualStage;
   return (
     <g
       onClick={(e) => { e.stopPropagation(); onClick(building); }}
@@ -930,11 +1020,12 @@ function SportsBuildingView({
       onMouseLeave={() => onHover(null)}
       className="cursor-pointer"
     >
+      <title>{`${building.label}: ${economyLoop?.label || building.subtitle}${buildingStage > 0 ? `, visible tier ${buildingStage}` : ''}`}</title>
       <BuildingFootprint building={building} active={active || hovered} />
       <g className="transition-transform duration-150 hover:scale-105" style={{ transformOrigin: `${x}px ${y}px` }}>
-        {building.kind === 'stadium' ? <StadiumBuilding building={building} upgradeLevel={stadiumUpgradeLevel} /> : building.kind === 'field' ? <FieldBuilding building={building} /> : <BoxBuilding building={building} />}
-        <BuildingPhysicalSign building={building} questTarget={questTarget} />
-        {showLabel && <BuildingLabel building={building} economyLoop={economyLoop} selected={active} questTarget={questTarget} />}
+        {building.kind === 'stadium' ? <StadiumBuilding building={building} upgradeLevel={stadiumUpgradeLevel} /> : building.kind === 'field' ? <FieldBuilding building={building} /> : <BoxBuilding building={building} upgradeStage={visualStage} />}
+        <BuildingPhysicalSign building={building} questTarget={questTarget} emphasized={emphasized} upgradeStage={buildingStage} />
+        {showLabel && <BuildingLabel building={building} economyLoop={economyLoop} selected={active} questTarget={questTarget} upgradeStage={buildingStage} />}
       </g>
     </g>
   );
@@ -1193,11 +1284,13 @@ function CommissionerPanel({
   );
 }
 
-function InteriorSceneProps({ building, stadiumUpgradeLevel = 0 }: { building: SportsBuilding; stadiumUpgradeLevel?: number }) {
+function InteriorSceneProps({ building, stadiumUpgradeLevel = 0, visualStage = 0 }: { building: SportsBuilding; stadiumUpgradeLevel?: number; visualStage?: number }) {
+  const stage = Math.max(0, Math.min(5, Math.round(Math.max(stadiumUpgradeLevel, visualStage))));
   const commonCase = (label: string, x: number, y: number, color = building.color) => (
     <g key={label} transform={`translate(${x}, ${y})`}>
       <rect x={-34} y={-22} width={68} height={44} rx={8} fill="rgba(15,23,42,.88)" stroke={color} strokeWidth={2} />
-      <text x={0} y={4} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={900}>{label}</text>
+      <text x={0} y={-1} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={900}>{label}</text>
+      {stage > 0 && <text x={0} y={11} textAnchor="middle" fill="#fde047" fontSize={6.5} fontWeight={900}>TIER {stage}</text>}
     </g>
   );
 
@@ -1328,12 +1421,14 @@ function BuildingInteriorShell({
   children,
   onExit,
   stadiumUpgradeLevel = 0,
+  visualStage = 0,
 }: {
   building: SportsBuilding;
   title: string;
   children: ReactNode;
   onExit: () => void;
   stadiumUpgradeLevel?: number;
+  visualStage?: number;
 }) {
   const isComputerLed = ['market', 'bank', 'commissioner', 'garage', 'stadium'].includes(building.id);
   const roomLabel = building.id === 'team'
@@ -1379,7 +1474,7 @@ function BuildingInteriorShell({
           <div className="relative overflow-hidden border-r border-white/10 bg-slate-900/80 p-5">
             <div className="absolute inset-0 opacity-35" style={{ backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
             <div className="relative z-10 h-full min-h-[360px] rounded-[2rem] border border-white/10 bg-gradient-to-b from-white/10 to-white/[0.03] p-5 shadow-2xl overflow-hidden">
-              <InteriorSceneProps building={building} stadiumUpgradeLevel={stadiumUpgradeLevel} />
+              <InteriorSceneProps building={building} stadiumUpgradeLevel={stadiumUpgradeLevel} visualStage={visualStage} />
               <div className="relative z-20 flex items-start justify-between gap-3">
                 <div>
                   <div className="text-xs uppercase tracking-[0.24em] text-slate-300 font-black">Room Stations</div>
@@ -1446,7 +1541,9 @@ function BuildingInteriorShell({
 
           <div className="min-w-0 overflow-y-auto bg-slate-950 p-4 md:p-6">
             <div className="building-interior-content mx-auto max-w-6xl rounded-[1.75rem] border border-white/10 bg-slate-900/75 p-3 text-white shadow-2xl md:p-4">
-              {children}
+              <Suspense fallback={<InteriorPageFallback label={title} />}>
+                {children}
+              </Suspense>
             </div>
           </div>
         </div>
@@ -1457,13 +1554,13 @@ function BuildingInteriorShell({
 
 function MiniMap({ player }: { player: { x: number; y: number } }) {
   const toMini = (x: number, y: number) => ({
-    left: Math.max(13, Math.min(139, 76 + x / 15)),
-    top: Math.max(13, Math.min(139, 76 + y / 10)),
+    left: Math.max(14, Math.min(130, 80 + x / 16)),
+    top: Math.max(14, Math.min(130, 80 + y / 11)),
   });
   const playerPoint = toMini(player.x, player.y);
   return (
-    <div className="absolute top-4 right-4 z-[6]">
-      <div className="relative w-44 h-44 rounded-full border-[5px] border-slate-900 bg-gradient-to-b from-sky-300 to-sky-600 shadow-2xl overflow-hidden ring-2 ring-white/40">
+    <div className="absolute top-5 right-5 z-[6] hidden sm:block">
+      <div className="relative w-40 h-40 rounded-full border-[5px] border-slate-900 bg-gradient-to-b from-sky-300 to-sky-600 shadow-2xl overflow-hidden ring-2 ring-white/40">
         <div className="absolute inset-0 opacity-45" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,.65) 0 2px, transparent 3px)', backgroundSize: '18px 18px' }} />
         <div className="absolute inset-[18px] bg-[#69bd47] shadow-inner" style={{ clipPath: 'polygon(50% 0%, 100% 41%, 50% 100%, 0% 41%)' }} />
         <div className="absolute left-[83px] top-[20px] h-[126px] w-3 rounded-full bg-amber-800/60 rotate-45" />
@@ -1648,6 +1745,7 @@ export default function KintaraSportsWorld() {
   const openBuilding = (building: SportsBuilding) => {
     const panel = panelForBuilding(building);
     const visualLevel = stadiumVisualLevel(myStadium);
+    const visualStage = buildingUpgradeStage(building.id, loopByBuilding.get(building.id), economyMeters, visualLevel);
     openPanel({
       id: building.panelId,
       title: panel.title,
@@ -1664,6 +1762,7 @@ export default function KintaraSportsWorld() {
           building={building}
           title={panel.title}
           stadiumUpgradeLevel={visualLevel}
+          visualStage={visualStage}
           onExit={() => closePanel(building.panelId)}
         >
           {panel.content}
@@ -1904,19 +2003,24 @@ export default function KintaraSportsWorld() {
         {CROWD_CLUSTERS.map((cluster, idx) => <CrowdCluster key={`crowd-${idx}`} tx={cluster.tx} ty={cluster.ty} color={cluster.color} />)}
         <WorldEconomyEvents myStadium={myStadium} liveMatches={liveMatches} commissionerOverview={commissionerOverview} economyMeters={economyMeters} />
 
-        {BUILDINGS.map((building) => (
-          <SportsBuildingView
-            key={building.id}
-            building={building}
-            economyLoop={loopByBuilding.get(building.id)}
-            onClick={openBuilding}
-            active={nearby?.id === building.id}
-            hovered={hoveredBuildingId === building.id}
-            onHover={setHoveredBuildingId}
-            stadiumUpgradeLevel={building.id === 'stadium' ? stadiumLevel : 0}
-            questTarget={guidedBuildingIds.has(building.id)}
-          />
-        ))}
+        {BUILDINGS.map((building) => {
+          const economyLoop = loopByBuilding.get(building.id);
+          const visualStage = buildingUpgradeStage(building.id, economyLoop, economyMeters, stadiumLevel);
+          return (
+            <SportsBuildingView
+              key={building.id}
+              building={building}
+              economyLoop={economyLoop}
+              onClick={openBuilding}
+              active={nearby?.id === building.id}
+              hovered={hoveredBuildingId === building.id}
+              onHover={setHoveredBuildingId}
+              stadiumUpgradeLevel={building.id === 'stadium' ? stadiumLevel : 0}
+              visualStage={visualStage}
+              questTarget={guidedBuildingIds.has(building.id)}
+            />
+          );
+        })}
 
         {NPCS.map((npc) => {
           const p = iso(npc.tx, npc.ty);
@@ -2026,8 +2130,8 @@ export default function KintaraSportsWorld() {
         </button>
       )}
 
-      {/* Collapsible HUD dock: support widgets stay out of the play space until opened. */}
-      <div className="absolute right-4 top-28 z-[7] flex flex-col items-end gap-2 pointer-events-none">
+      {/* Collapsible HUD dock: support widgets sit below the minimap on desktop and above it on phones. */}
+      <div className="absolute right-4 top-28 sm:top-[12.75rem] z-[7] flex flex-col items-end gap-2 pointer-events-none">
         <button
           type="button"
           onClick={() => setHudOpen((prev) => ({ ...prev, economy: !prev.economy }))}

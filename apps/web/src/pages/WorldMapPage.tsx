@@ -124,8 +124,6 @@ export default function WorldMapPage() {
     ])
       .then(async ([teamsRes, matchesRes]) => {
         let teamsData: TeamData[] = [];
-        let matchesData: UpcomingMatch[] = [];
-
         if (teamsRes.status === 'fulfilled' && teamsRes.value.ok) {
           const json = await teamsRes.value.json();
           teamsData = json.data || [];
@@ -138,14 +136,13 @@ export default function WorldMapPage() {
         if (matchesRes.status === 'fulfilled' && matchesRes.value.ok) {
           const json = await matchesRes.value.json();
           const matches = (json.data?.matches || []) as any[];
-          matchesData = matches.map((m) => ({
+          setUpcomingMatches(matches.map((m) => ({
             id: m.id,
             homeTeam: m.homeTeam,
             awayTeam: m.awayTeam,
             scheduledAt: m.scheduledAt,
             isHome: m.homeTeam?.id === teamsData[0]?.id,
-          }));
-          setUpcomingMatches(matchesData);
+          })));
         }
       })
       .catch(console.error)

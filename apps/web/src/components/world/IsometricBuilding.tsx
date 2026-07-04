@@ -163,17 +163,6 @@ export default function IsometricBuilding({
             <rect x={-8} y={-height * 0.4} width={16} height={height * 0.4} rx={2} fill={`${color}cc`} stroke={accent} strokeWidth={1} />
           </g>
         );
-      case 'training':
-        return (
-          <g>
-            {/* Dumbbell rack icon */}
-            <rect x={-12} y={-height * 0.7} width={24} height={4} rx={2} fill={accent} />
-            <rect x={-14} y={-height * 0.75} width={4} height={10} rx={2} fill={accent} />
-            <rect x={10} y={-height * 0.75} width={4} height={10} rx={2} fill={accent} />
-            {/* Open gym front */}
-            <rect x={-w2 + 4} y={-height * 0.5} width={width - 8} height={height * 0.5} rx={2} fill={`${color}88`} stroke={accent} strokeWidth={1} />
-          </g>
-        );
       default:
         return (
           <g>
