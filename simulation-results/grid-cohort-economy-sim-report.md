@@ -1,10 +1,24 @@
-# GRID Cohort Economy Stress Simulation — 50/25/25 Player Mix
+# GRID Kintara-Style Cohort Economy Stress Simulation — 50/25/25 Player Mix
 
 **Run date:** 2026-07-04  
 **Environment:** local repo simulation script, no production database writes  
-**Data type:** hypothetical in-game economy simulation using current source-code constants, **not real financial/accounting data**  
-**Source coverage:** daily quests, game-day rewards/expenses, venue/transport constants, training/equipment cost ranges  
+**Data type:** hypothetical in-game economy simulation using current source-code constants plus Kevin's corrected Kintara-style payout rules, **not real financial/accounting data**  
+**Source coverage:** game-day rewards/expenses, venue/transport constants, training/equipment cost ranges, current daily quest values as a legacy comparison only  
 **Output JSON:** `simulation-results/grid-cohort-economy-sim.json`
+
+## Important correction from Kevin
+
+The previous simulation treated daily quests as direct CASH rewards because the current source code still defines daily quest `rewardCash` values. That is **not the intended Kintara-style economy**.
+
+Correct target design:
+
+1. **CASH should only be awarded for playing games / game-economy actions.**
+2. **Daily quests should be required to become eligible to redeem CASH rewards.**
+3. **Completing daily tasks unlocks access to a daily payout.**
+4. **That daily payout scales based on holdings / DYN status.**
+5. **The traveling merchant gives additional gold/CASH access only after donating materials, then selling to the merchant.**
+
+This revised sim models that target design. It does **not** claim production code has already been changed.
 
 ## Source files used
 
@@ -17,110 +31,122 @@
 
 Cohort mix requested:
 
-| Cohort | Share | Modeled behavior |
+| Cohort | Share | Revised modeled behavior |
 |---|---:|---|
-| Payout extractors | 50% | Complete all daily quests + 1 LOCAL_REC match, then extract/hoard all positive daily retained CASH. No upgrades. |
-| Free grinders | 25% | Complete all daily quests + 2 active matches/day. No external purchases. Reinvest up to 70% of retained CASH into training. |
-| Payer-holders | 25% | Complete all daily quests + 3 active matches/day. Buy/hold DYN/upgrades. Spend on training/equipment. No extraction in this model. |
-
-Current daily quest CASH reward from source code:
-
-```txt
-Complete 3 team drills:       750 CASH
-Play 1 stadium scrimmage:   1,500 CASH
-Scout 2 athletes:             500 CASH
-TOTAL:                      2,750 CASH/player/day
-```
+| Payout extractors | 50% | Complete eligibility tasks + 1 LOCAL_REC match, low DYN holdings, optional tiny merchant sale, redeem only up to holder cap, no upgrades. |
+| Free grinders | 25% | Complete eligibility tasks + 2 matches/day, donate materials to merchant often, no external purchases, reinvest up to 75% into training. |
+| Payer-holders | 25% | Complete eligibility tasks + 3 matches/day, higher DYN holdings, external purchase equivalent 5k-25k CASH/day, spend on training/equipment/upgrades, no extraction in this base case. |
 
 Simulation parameters:
 
 ```txt
 Player counts: 100, 500, 1,000, 5,000, 10,000
 Days: 30
-Trials per player count: 100
+Trials per player count: 25
 Seed: 20260704
 ```
 
-## Main result table
+25 trials were used for the revised model because the 100-trial run exceeded the 10-minute local execution cap after adding holder and merchant behavior. Results are stable enough for directional stress modeling; rerun with more trials in a longer-running job before locking final tokenomics.
 
-| Players | Extracted / day | CASH emissions / day | Sinks / day | Net CASH created / day | External purchase equiv / day | Sink coverage | External / Extracted |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 100 | 251,145 | 1,594,631 | 746,622 | 848,009 | 311,673 | 46.8% | 1.24x |
-| 500 | 1,255,763 | 7,945,579 | 3,736,462 | 4,209,117 | 1,560,750 | 47.0% | 1.24x |
-| 1,000 | 2,512,747 | 15,903,878 | 7,474,595 | 8,429,283 | 3,124,369 | 47.0% | 1.24x |
-| 5,000 | 12,562,222 | 79,550,928 | 37,361,534 | 42,189,394 | 15,620,993 | 47.0% | 1.24x |
-| 10,000 | 25,122,138 | 159,086,911 | 74,732,439 | 84,354,472 | 31,242,576 | 47.0% | 1.24x |
+## Holder-scaled daily redemption caps modeled
+
+These are design assumptions for the sim, not production constants yet:
+
+| DYN held | Daily redeem cap |
+|---:|---:|
+| 0 | 500 CASH |
+| 100 | 1,000 CASH |
+| 500 | 2,000 CASH |
+| 1,000 | 3,500 CASH |
+| 2,500 | 5,000 CASH |
+| 5,000+ | 7,500 CASH |
+
+## Main revised result table
+
+| Players | Extracted/day | Claimable unlocked/day | Game CASH/day | Merchant CASH/day | Direct quest CASH avoided/day | Sinks/day | Net CASH created/day | External / Extracted |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 100 | 28,505 | 181,783 | 1,318,764 | 55,250 | 275,000 | 720,543 | 653,470 | 10.98x |
+| 500 | 142,456 | 907,999 | 6,580,764 | 276,864 | 1,375,000 | 3,586,771 | 3,270,858 | 10.94x |
+| 1,000 | 284,967 | 1,815,516 | 13,162,790 | 552,432 | 2,750,000 | 7,171,814 | 6,543,407 | 10.98x |
+| 5,000 | 1,425,673 | 9,076,605 | 65,839,083 | 2,761,915 | 13,750,000 | 35,855,696 | 32,745,303 | 10.96x |
+| 10,000 | 2,849,501 | 18,155,276 | 131,601,431 | 5,526,209 | 27,500,000 | 71,692,270 | 65,435,371 | 10.96x |
 
 ## Per-player/day averages
 
-| Players | Emission / player / day | Extracted / player / day | Net-created / player / day | External purchase equiv / player / day |
-|---:|---:|---:|---:|---:|
-| 100 | 15,946 | 2,511 | 8,480 | 3,117 |
-| 500 | 15,891 | 2,512 | 8,418 | 3,122 |
-| 1,000 | 15,904 | 2,513 | 8,429 | 3,124 |
-| 5,000 | 15,910 | 2,512 | 8,438 | 3,124 |
-| 10,000 | 15,909 | 2,512 | 8,435 | 3,124 |
+| Players | Game CASH/player/day | Merchant/player/day | Claimable/player/day | Extracted/player/day | Direct quest CASH avoided/player/day |
+|---:|---:|---:|---:|---:|---:|
+| 100 | 13,188 | 552 | 1,818 | 285 | 2,750 |
+| 500 | 13,162 | 554 | 1,816 | 285 | 2,750 |
+| 1,000 | 13,163 | 552 | 1,816 | 285 | 2,750 |
+| 5,000 | 13,168 | 552 | 1,815 | 285 | 2,750 |
+| 10,000 | 13,160 | 553 | 1,816 | 285 | 2,750 |
 
-## Daily quest extraction pressure
+## Difference versus the old direct-daily-CASH assumption
 
-| Players | Daily quest CASH if all active | Extractor cohort daily quest CASH | Extracted/day total | Match/business extra extracted/day |
+| Players | Revised extracted/day | Old direct-daily-CASH extracted/day | Reduction | Direct quest CASH avoided/day |
 |---:|---:|---:|---:|---:|
-| 100 | 275,000 | 137,500 | 251,145 | 113,645 |
-| 500 | 1,375,000 | 687,500 | 1,255,763 | 568,263 |
-| 1,000 | 2,750,000 | 1,375,000 | 2,512,747 | 1,137,747 |
-| 5,000 | 13,750,000 | 6,875,000 | 12,562,222 | 5,687,222 |
-| 10,000 | 27,500,000 | 13,750,000 | 25,122,138 | 11,372,138 |
+| 100 | 28,505 | 251,145 | 88.6% | 275,000 |
+| 500 | 142,456 | 1,255,763 | 88.7% | 1,375,000 |
+| 1,000 | 284,967 | 2,512,747 | 88.7% | 2,750,000 |
+| 5,000 | 1,425,673 | 12,562,222 | 88.7% | 13,750,000 |
+| 10,000 | 2,849,501 | 25,122,138 | 88.7% | 27,500,000 |
 
 ## 30-day totals for reference
 
-| Players | CASH emissions | Operating sinks | Upgrade sinks | Extracted CASH | External purchase equiv | Net CASH created after sinks |
-|---:|---:|---:|---:|---:|---:|---:|
-| 1,000 | 477,116,336 | 31,208,962 | 193,028,886 | 75,382,420 | 93,731,075 | 252,878,487 |
-| 10,000 | 4,772,607,327 | 312,173,800 | 1,929,799,381 | 753,664,152 | 937,277,275 | 2,530,634,145 |
+| Players | Game CASH awarded | Merchant CASH awarded | Direct quest CASH avoided | Claimable unlocked | Extracted CASH | External purchase equiv | Net CASH created after sinks |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1,000 | 394,883,686 | 16,572,954 | 82,500,000 | 54,465,470 | 8,549,018 | 93,840,000 | 196,302,213 |
+| 10,000 | 3,948,042,945 | 165,786,280 | 825,000,000 | 544,658,280 | 85,485,027 | 937,235,800 | 1,963,061,129 |
 
 ## Readout
 
-1. **The current daily reward loop is too extractable if CASH has any real-value payout path.**  
-   At 10,000 active players, daily quests alone emit 27.5M CASH/day. With 50% extractors plus one match, the extractor cohort pulls about 25.1M CASH/day out of the active economy.
+1. **Kevin's corrected Kintara-style rule fixes the biggest extraction faucet.**  
+   Removing direct daily quest CASH lowers modeled extractor withdrawals by about **88.7%** across the tested player counts.
 
-2. **Payer-holder external purchase activity covers extractor withdrawals in this model, but not total CASH emissions.**  
-   External purchase equivalent is about 1.24x extracted CASH, but total net CASH created after sinks remains large because grinders and payers also receive rewards.
+2. **Daily quests should be eligibility, not payment.**  
+   The task loop should answer: `Did you earn access to claim today?` not `Here is 2,750 CASH for clicking tasks.`
 
-3. **Sinks cover only about 47% of CASH emissions.**  
-   That leaves roughly 53% net new CASH after modeled operating/training/equipment sinks.
+3. **Holder-scaled redemption creates the right incentive.**  
+   Low-holding extractors can only redeem small amounts. Active holders unlock more claimable value, but they are also the users funding upgrades and keeping DYN in the economy.
 
-4. **Scaling is nearly linear.**  
-   The per-player averages barely change from 100 to 10,000 players, meaning the economy does not naturally self-balance as population grows.
+4. **Traveling merchant works as an active-grind bridge.**  
+   Free grinders can create additional CASH access by donating materials, but this requires active participation and can be throttled by merchant inventory, daily caps, resource type, and event timing.
 
-## Recommendations before any real payout/redemption path
+5. **The remaining issue is total CASH creation from game play.**  
+   The sim still shows large net CASH creation because games, fan revenue, sponsor revenue, and merchant sales all emit CASH. That can be fine if CASH is game-only operating currency, but it is dangerous if CASH becomes broadly redeemable without source-funded caps.
 
-1. **Do not make daily CASH directly redeemable.**  
-   Daily quest CASH should be game operating money, not something a minimum-effort user can claim and withdraw.
+## Implementation implications
 
-2. **Split rewards into spend-bound vs withdrawable buckets.**  
-   Suggested buckets:
-   - `CASH`: game-only operating currency.
-   - `DYN`: holder/ownership/status currency.
-   - `CLAIMABLE`: scarce, capped, delayed, and funded only by actual treasury/revenue.
+Production code currently still has direct daily quest CASH values in `daily-quests.service.ts`. To align the game with this model, implement these mechanics:
 
-3. **Move extractor rewards toward non-cash progression.**  
-   Convert much of the daily quest value to XP, training tickets, scouting tickets, fatigue recovery, item fragments, or non-transferable boosts.
+1. **Daily quests**
+   - Change daily quest rewards from direct `rewardCash` to eligibility/progression rewards.
+   - Store `dailyPayoutEligible = true` or equivalent after required tasks are complete.
+   - Keep XP/items/tickets as daily quest rewards if desired.
 
-4. **Add daily claim throttles.**  
-   Examples:
-   - first 1-3 days: no withdrawable reward
-   - claimable reward unlocks after retention streak + minimum team upgrade spend
-   - lower payout if user sells/extracts without reinvesting
+2. **Game CASH**
+   - Award CASH only from completed games and safe game-economy sources.
+   - Keep all credits/debits through central `currency.service.ts` and ledger rows.
 
-5. **Make payouts treasury-funded, not emissions-funded.**  
-   Claimable value should be capped by real inflows: marketplace fees, upgrade purchases, sponsor/season budgets, and token-sale treasury allocations.
+3. **Claimable payout**
+   - Add a `ClaimableReward` / `DailyPayoutClaim` concept separate from wallet CASH.
+   - Daily claim amount should be capped by DYN holdings / luck tier / status.
+   - Claimable payout should be funded by treasury/source-of-funds, not unlimited emissions.
 
-6. **Add a source-of-funds simulation gate to CI/admin tools.**  
-   Before launch, every reward type should answer: `who funded this? platform, sponsor, treasury, user spend, or minted?`
+4. **Traveling merchant**
+   - Add donated material counters.
+   - Unlock merchant sale offers only after donation thresholds.
+   - Give merchant daily inventory/caps so grinders cannot farm unlimited CASH.
+
+5. **Anti-extractor rules**
+   - No direct payout without completing daily tasks.
+   - No high payout without holdings.
+   - No merchant boost without material donation.
+   - Add streak/retention and bot/fraud throttles before any real-value redemption.
 
 ## Caveats
 
 - This is not a real financial audit. It does not use production transaction history, real deposits, real token purchases, or real payout records.
-- It is a stress model from current source-code constants and explicit behavioral assumptions.
-- The model intentionally treats 50% of users as extractive because that was the requested stress case.
-- Real outcomes will depend on retention, fraud controls, bot resistance, actual payer conversion, actual payout rules, and whether CASH is ever redeemable.
+- It is a stress model from source-code constants and explicit design assumptions.
+- The current production code does not yet fully match the corrected Kintara-style design; this sim models the target rule set.
+- Real outcomes depend on actual payout caps, DYN pricing, retention, fraud controls, bot resistance, payer conversion, and whether CASH is ever redeemable.
