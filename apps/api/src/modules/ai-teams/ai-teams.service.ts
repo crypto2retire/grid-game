@@ -122,11 +122,13 @@ export async function getAIOpponents(userTeamId: string, tier: string) {
   });
   const busyTeamIds = new Set<string>();
   existingMatches.forEach((m) => { busyTeamIds.add(m.homeTeamId); busyTeamIds.add(m.awayTeamId); });
-  return prisma.team.findMany({
+  const candidates = await prisma.team.findMany({
     where: { isAI: true, tier, id: { notIn: Array.from(busyTeamIds) }, isForSale: false },
     include: { teamPlayers: { include: { player: true } }, venue: true },
     orderBy: { aiDifficulty: 'asc' },
   });
+  const availability = await Promise.all(candidates.map((team) => canTeamPlayToday(team.id)));
+  return candidates.filter((_, index) => availability[index]);
 }
 
 export async function getLiveOpponents(userTeamId: string, tier: string) {
@@ -136,12 +138,14 @@ export async function getLiveOpponents(userTeamId: string, tier: string) {
   });
   const busyTeamIds = new Set<string>();
   existingMatches.forEach((m) => { busyTeamIds.add(m.homeTeamId); busyTeamIds.add(m.awayTeamId); });
-  return prisma.team.findMany({
+  const candidates = await prisma.team.findMany({
     where: { isAI: false, tier, id: { not: userTeamId, notIn: Array.from(busyTeamIds) }, isForSale: false },
     include: { owner: { select: { id: true, username: true, displayName: true } }, teamPlayers: { include: { player: true } }, venue: true },
     orderBy: { createdAt: 'desc' },
     take: 20,
   });
+  const availability = await Promise.all(candidates.map((team) => canTeamPlayToday(team.id)));
+  return candidates.filter((_, index) => availability[index]);
 }
 
 export async function scheduleAIMatch(userTeamId: string, aiTeamId: string) {
