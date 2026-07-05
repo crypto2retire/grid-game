@@ -1,10 +1,12 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
+export type TripVehicleType = 'van' | 'bus' | 'coach' | 'team-bus' | 'jet';
+
 export interface Trip {
   id: string;
   fromBuildingId: string;
   toBuildingId: string;
-  vehicleType: 'bus' | 'van' | 'jet' | 'coach';
+  vehicleType: TripVehicleType;
   status: 'departing' | 'traveling' | 'arrived' | 'returning';
   progress: number; // 0-100
   startTime: number;
@@ -34,10 +36,11 @@ export function useTravel() {
 
 // Default travel durations by vehicle type (in milliseconds)
 const TRAVEL_SPEEDS: Record<string, number> = {
-  van: 8000,    // 8 seconds per road segment
-  bus: 6000,    // 6 seconds
-  coach: 5000,  // 5 seconds
-  jet: 2000,    // 2 seconds
+  van: 8000,       // 8 seconds per road segment
+  bus: 6500,       // yellow school bus — starter bus tier
+  coach: 5500,     // road coach before air travel
+  'team-bus': 4500, // custom team-logo bus before planes
+  jet: 2000,       // air travel
 };
 
 export function TravelProvider({ children }: { children: ReactNode }) {

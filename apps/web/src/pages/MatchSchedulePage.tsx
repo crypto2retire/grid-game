@@ -9,9 +9,10 @@ import {
 } from 'lucide-react';
 
 const VEHICLE_INFO: Record<VehicleType, { icon: any; name: string; speed: number; color: string }> = {
-  van: { icon: Car, name: 'Team Van', speed: 80, color: '#94a3b8' },
-  bus: { icon: Bus, name: 'Tour Bus', speed: 90, color: '#3b82f6' },
-  coach: { icon: Bus, name: 'Luxury Coach', speed: 100, color: '#a855f7' },
+  van: { icon: Car, name: 'Carpool Van', speed: 80, color: '#94a3b8' },
+  bus: { icon: Bus, name: 'School Bus', speed: 85, color: '#facc15' },
+  coach: { icon: Bus, name: 'Coach Bus', speed: 95, color: '#64748b' },
+  'team-bus': { icon: Bus, name: 'Custom Team Logo Bus', speed: 110, color: '#3b82f6' },
   jet: { icon: Plane, name: 'Private Jet', speed: 800, color: '#fbbf24' },
 };
 

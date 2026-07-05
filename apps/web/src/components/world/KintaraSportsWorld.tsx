@@ -943,13 +943,32 @@ function BoxBuilding({ building, upgradeStage = 0 }: { building: SportsBuilding;
               <text x={0} y={2} textAnchor="middle" fill="#ef4444" fontSize={12} fontWeight={900}>+</text>
             </g>
           ))}
-          {building.kind === 'garage' && stage >= 2 && (
-            <g transform="translate(58, 18)">
-              <rect x={-32} y={-18} width={64} height={28} rx={8} fill={stage >= 4 ? '#0ea5e9' : '#fbbf24'} stroke="#0f172a" strokeWidth={2} />
-              <circle cx={-18} cy={12} r={6} fill="#0f172a" /><circle cx={20} cy={12} r={6} fill="#0f172a" />
-              <text x={0} y={0} textAnchor="middle" fill="#0f172a" fontSize={8} fontWeight={900}>{stage >= 4 ? 'JET' : 'BUS+'}</text>
-            </g>
-          )}
+          {building.kind === 'garage' && stage >= 2 && (() => {
+            const isAir = stage >= 5;
+            const isCustomBus = stage >= 4;
+            const isCoach = stage === 3;
+            const label = isAir ? 'JET' : isCustomBus ? 'LOGO' : isCoach ? 'COACH' : 'SCHOOL';
+            const fill = isAir ? '#0ea5e9' : isCustomBus ? '#1d4ed8' : isCoach ? '#64748b' : '#facc15';
+            return (
+              <g transform="translate(58, 18)">
+                {isAir ? (
+                  <>
+                    <ellipse cx={0} cy={0} rx={34} ry={11} fill={fill} stroke="#0f172a" strokeWidth={2} />
+                    <polygon points="-8,-4 18,-4 26,-18 -18,-18" fill={fill} opacity="0.75" stroke="#0f172a" strokeWidth={1} />
+                  </>
+                ) : (
+                  <>
+                    <rect x={-36} y={-18} width={72} height={30} rx={isCoach || isCustomBus ? 7 : 3} fill={fill} stroke="#0f172a" strokeWidth={2} />
+                    <rect x={-32} y={-24} width={50} height={11} rx={3} fill={isCustomBus ? '#0f172a' : isCoach ? '#cbd5e1' : '#fde047'} stroke="#0f172a" strokeWidth={1} />
+                    <path d="M 18 -24 L 36 -12 L 36 12 L 18 12 Z" fill={fill} stroke="#0f172a" strokeWidth={1} />
+                    <circle cx={-22} cy={14} r={6} fill="#0f172a" /><circle cx={22} cy={14} r={6} fill="#0f172a" />
+                    {isCustomBus && <text x={-6} y={5} textAnchor="middle" fill="#fde047" fontSize={8} fontWeight={900}>G</text>}
+                  </>
+                )}
+                <text x={0} y={isAir ? 4 : 1} textAnchor="middle" fill={isAir || isCustomBus ? '#e0f2fe' : '#0f172a'} fontSize={7} fontWeight={900}>{label}</text>
+              </g>
+            );
+          })()}
           {building.kind === 'bank' && stage >= 1 && (
             <g transform="translate(62, -86)">
               <rect x={-36} y={-13} width={72} height={26} rx={7} fill="#0f172a" stroke="#facc15" strokeWidth={2} />

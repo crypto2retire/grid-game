@@ -3,7 +3,7 @@ import { fetchApi } from '../../lib/api';
 import { usePlayerProgression } from '../player/PlayerProgressionSystem';
 
 export type MatchPhase = 'SCHEDULING' | 'SCHEDULED' | 'TRAVELING' | 'PREGAME' | 'PLAYING' | 'COMPLETED';
-export type VehicleType = 'van' | 'bus' | 'coach' | 'jet';
+export type VehicleType = 'van' | 'bus' | 'coach' | 'team-bus' | 'jet';
 
 export interface AIOpponent {
   id: string;
@@ -84,8 +84,9 @@ function determineResult(isHome: boolean, homeScore: number, awayScore: number):
 
 const VEHICLE_SPEEDS: Record<VehicleType, number> = {
   van: 80,
-  bus: 90,
-  coach: 100,
+  bus: 85,
+  coach: 95,
+  'team-bus': 110,
   jet: 800,
 };
 

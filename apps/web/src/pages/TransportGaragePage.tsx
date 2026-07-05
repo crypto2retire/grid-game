@@ -22,9 +22,9 @@ import TransportGarage, { type VehicleAsset } from '../components/garage/Transpo
 
 const TIER_LABELS: Record<string, string> = {
   CARPOOL: 'Carpool Van',
-  USED_BUS: 'Used Bus',
-  TEAM_BUS: 'Team Bus',
-  LUXURY_COACH: 'Luxury Coach',
+  USED_BUS: 'Used School Bus',
+  TEAM_BUS: 'Coach Bus',
+  LUXURY_COACH: 'Custom Team Logo Bus',
   CHARTER_FLIGHT: 'Charter Flight',
   TEAM_AIRCRAFT: 'Team Aircraft',
   CUSTOM_JET: 'Custom Jet',
@@ -32,9 +32,9 @@ const TIER_LABELS: Record<string, string> = {
 
 const TIER_BG_COLORS: Record<string, string> = {
   CARPOOL: '#64748b',
-  USED_BUS: '#94a3b8',
-  TEAM_BUS: '#3b82f6',
-  LUXURY_COACH: '#fbbf24',
+  USED_BUS: '#facc15',
+  TEAM_BUS: '#64748b',
+  LUXURY_COACH: '#2563eb',
   CHARTER_FLIGHT: '#a78bfa',
   TEAM_AIRCRAFT: '#06b6d4',
   CUSTOM_JET: '#E94560',

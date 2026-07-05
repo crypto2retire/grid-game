@@ -7,86 +7,112 @@ interface TravelVehicleProps {
 }
 
 function VehicleSVG({ type }: { type: string }) {
-  const color = type === 'jet' ? '#06b6d4' : type === 'coach' ? '#fbbf24' : '#3b82f6';
-  
   if (type === 'jet') {
     return (
       <g>
-        <ellipse cx="0" cy="0" rx="14" ry="6" fill={color} opacity="0.9" />
-        <polygon points="0,-5 12,-2 14,0 12,2 0,5" fill={color} opacity="0.8" />
-        <polygon points="-8,-2 -14,0 -8,2" fill={color} opacity="0.6" />
-        <circle cx="-5" cy="0" r="1.5" fill="#fff" opacity="0.6" />
-        <circle cx="0" cy="0" r="1.5" fill="#fff" opacity="0.6" />
-        <circle cx="5" cy="0" r="1.5" fill="#fff" opacity="0.6" />
-        {/* Contrail */}
+        <ellipse cx="0" cy="0" rx="14" ry="6" fill="#06b6d4" opacity="0.9" />
+        <polygon points="0,-5 12,-2 14,0 12,2 0,5" fill="#06b6d4" opacity="0.8" />
+        <polygon points="-8,-2 -14,0 -8,2" fill="#0891b2" opacity="0.65" />
+        <circle cx="-5" cy="0" r="1.5" fill="#fff" opacity="0.65" />
+        <circle cx="0" cy="0" r="1.5" fill="#fff" opacity="0.65" />
+        <circle cx="5" cy="0" r="1.5" fill="#fff" opacity="0.65" />
+        {/* Air travel starts only after the road-bus progression. */}
         <line x1="-20" y1="0" x2="-35" y2="0" stroke="#fff" strokeWidth="0.5" opacity="0.3">
           <animate attributeName="x2" values="-35;-50;-35" dur="0.5s" repeatCount="indefinite" />
         </line>
       </g>
     );
   }
-  
-  if (type === 'coach') {
+
+  if (type === 'team-bus') {
     return (
       <g>
-        <rect x="-16" y="-7" width="32" height="14" rx="3" fill={color} opacity="0.9" />
-        <rect x="-14" y="-5" width="8" height="5" rx="1" fill="#1a1a1a" opacity="0.4" />
-        <rect x="-4" y="-5" width="8" height="5" rx="1" fill="#1a1a1a" opacity="0.4" />
-        <rect x="6" y="-5" width="8" height="5" rx="1" fill="#1a1a1a" opacity="0.4" />
-        <circle cx="-10" cy="7" r="4" fill="#1a1a1a" />
-        <circle cx="10" cy="7" r="4" fill="#1a1a1a" />
-        <circle cx="-10" cy="7" r="2" fill="#475569" />
-        <circle cx="10" cy="7" r="2" fill="#475569" />
-        <rect x="-17" y="-2" width="2" height="3" rx="1" fill="#fbbf24" opacity="0.6" />
-      </g>
-    );
-  }
-  
-  if (type === 'bus') {
-    return (
-      <g>
-        {/* Long, flat team bus silhouette — deliberately squared off so it does not read like a blimp. */}
-        <rect x="-24" y="-11" width="48" height="20" rx="3" fill="#1d4ed8" stroke="#0f172a" strokeWidth="1.4" />
-        <rect x="-23" y="-15" width="39" height="8" rx="2" fill="#2563eb" stroke="#0f172a" strokeWidth="1" />
-        <path d="M 16 -14 L 24 -9 L 24 9 L 16 9 Z" fill="#1e40af" stroke="#0f172a" strokeWidth="1" />
-        <rect x="-20" y="-13" width="8" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
-        <rect x="-10" y="-13" width="8" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
-        <rect x="0" y="-13" width="8" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
-        <rect x="10" y="-13" width="7" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
-        <rect x="17" y="-7" width="5" height="9" rx="1" fill="#0f172a" opacity="0.55" />
-        <rect x="-18" y="-3" width="25" height="5" rx="2" fill="#facc15" opacity="0.95" />
-        <text x="-5.5" y="1.2" textAnchor="middle" fill="#0f172a" fontSize="4.5" fontWeight="900">TEAM BUS</text>
-        <rect x="21" y="-4" width="3" height="3" rx="1" fill="#fef08a" />
-        <rect x="-25" y="2" width="3" height="3" rx="1" fill="#ef4444" />
-        <circle cx="-15" cy="10" r="4.2" fill="#0f172a" />
-        <circle cx="12" cy="10" r="4.2" fill="#0f172a" />
-        <circle cx="-15" cy="10" r="2" fill="#94a3b8" />
-        <circle cx="12" cy="10" r="2" fill="#94a3b8" />
-        <line x1="-21" y1="6" x2="21" y2="6" stroke="#bfdbfe" strokeWidth="1" opacity="0.75" />
-        {/* Road exhaust, kept low and behind the vehicle so it reads as diesel smoke, not a balloon tail. */}
-        <circle cx="-29" cy="6" r="2" fill="#64748b" opacity="0.22">
-          <animate attributeName="cx" values="-29;-35;-29" dur="0.8s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.22;0;0.22" dur="0.8s" repeatCount="indefinite" />
-        </circle>
+        {/* Top road tier: custom team-logo bus, still clearly a bus before air travel. */}
+        <rect x="-27" y="-12" width="54" height="22" rx="4" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.2" />
+        <rect x="-25" y="-16" width="45" height="9" rx="2" fill="#1d4ed8" stroke="#0f172a" strokeWidth="0.8" />
+        <rect x="20" y="-10" width="5" height="12" rx="1" fill="#bae6fd" opacity="0.75" />
+        {[-20, -11, -2, 7, 16].map((x) => (
+          <rect key={x} x={x} y="-14" width="7" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.45" />
+        ))}
+        <path d="M -15 -2 h18 l5 4 -5 4 h-18 l-5 -4 Z" fill="#facc15" stroke="#0f172a" strokeWidth="0.7" />
+        <text x="-6" y="4" textAnchor="middle" fill="#0f172a" fontSize="4.5" fontWeight="900">GRID</text>
+        <circle cx="-16" cy="10" r="4.4" fill="#020617" />
+        <circle cx="14" cy="10" r="4.4" fill="#020617" />
+        <circle cx="-16" cy="10" r="2" fill="#e0f2fe" />
+        <circle cx="14" cy="10" r="2" fill="#e0f2fe" />
+        <rect x="23" y="-4" width="3" height="3" rx="1" fill="#fef08a" />
+        <rect x="-28" y="2" width="3" height="3" rx="1" fill="#ef4444" />
       </g>
     );
   }
 
-  // Small starter van
+  if (type === 'coach') {
+    return (
+      <g>
+        <rect x="-25" y="-11" width="50" height="21" rx="5" fill="#334155" stroke="#0f172a" strokeWidth="1.1" />
+        <rect x="-23" y="-15" width="42" height="8" rx="3" fill="#64748b" stroke="#0f172a" strokeWidth="0.8" />
+        <path d="M 18 -14 L 25 -8 L 25 8 L 18 9 Z" fill="#475569" stroke="#0f172a" strokeWidth="0.8" />
+        {[-18, -9, 0, 9].map((x) => (
+          <rect key={x} x={x} y="-13" width="7" height="5" rx="1" fill="#dbeafe" stroke="#0f172a" strokeWidth="0.45" />
+        ))}
+        <rect x="-18" y="-1" width="30" height="3" rx="1.5" fill="#fbbf24" />
+        <rect x="15" y="-5" width="6" height="8" rx="1" fill="#0f172a" opacity="0.42" />
+        <circle cx="-15" cy="10" r="4.2" fill="#0f172a" />
+        <circle cx="14" cy="10" r="4.2" fill="#0f172a" />
+        <circle cx="-15" cy="10" r="1.9" fill="#94a3b8" />
+        <circle cx="14" cy="10" r="1.9" fill="#94a3b8" />
+      </g>
+    );
+  }
+
+  if (type === 'bus') {
+    return (
+      <g>
+        {/* Low-level bus: yellow school bus, not a spaceship/blimp. */}
+        <rect x="-25" y="-10" width="50" height="20" rx="2" fill="#facc15" stroke="#422006" strokeWidth="1.2" />
+        <rect x="-23" y="-14" width="39" height="8" rx="2" fill="#fde047" stroke="#422006" strokeWidth="0.8" />
+        <path d="M 16 -13 L 25 -7 L 25 9 L 16 9 Z" fill="#eab308" stroke="#422006" strokeWidth="0.8" />
+        {[-20, -12, -4, 4, 12].map((x) => (
+          <rect key={x} x={x} y="-12" width="6" height="5" rx="1" fill="#1e3a8a" opacity="0.7" />
+        ))}
+        <line x1="-24" y1="-2" x2="23" y2="-2" stroke="#422006" strokeWidth="1.1" />
+        <line x1="-24" y1="4" x2="23" y2="4" stroke="#422006" strokeWidth="0.8" opacity="0.75" />
+        <rect x="-4" y="-1" width="10" height="5" rx="1.5" fill="#422006" />
+        <text x="1" y="3" textAnchor="middle" fill="#fde68a" fontSize="4" fontWeight="900">BUS</text>
+        <circle cx="-15" cy="10" r="4.2" fill="#111827" />
+        <circle cx="14" cy="10" r="4.2" fill="#111827" />
+        <circle cx="-15" cy="10" r="1.8" fill="#94a3b8" />
+        <circle cx="14" cy="10" r="1.8" fill="#94a3b8" />
+        <rect x="22" y="-3" width="3" height="3" rx="1" fill="#fef08a" />
+        <rect x="-27" y="2" width="3" height="3" rx="1" fill="#ef4444" />
+        <rect x="-29" y="-5" width="5" height="5" rx="1" fill="#ef4444" stroke="#422006" strokeWidth="0.5" />
+      </g>
+    );
+  }
+
+  // Starter carpool/rental van: visibly smaller than the bus tiers.
   return (
     <g>
-      <rect x="-12" y="-6" width="24" height="12" rx="2" fill={color} opacity="0.9" />
-      <rect x="-10" y="-4" width="6" height="4" rx="1" fill="#1a1a1a" opacity="0.4" />
-      <rect x="-2" y="-4" width="6" height="4" rx="1" fill="#1a1a1a" opacity="0.4" />
-      <rect x="6" y="-4" width="4" height="4" rx="1" fill="#1a1a1a" opacity="0.4" />
-      <circle cx="-7" cy="6" r="3" fill="#1a1a1a" />
-      <circle cx="7" cy="6" r="3" fill="#1a1a1a" />
-      <circle cx="-7" cy="6" r="1.5" fill="#475569" />
-      <circle cx="7" cy="6" r="1.5" fill="#475569" />
-      <rect x="-13" y="-1" width="2" height="2" rx="1" fill="#fbbf24" opacity="0.5" />
+      <rect x="-14" y="-7" width="28" height="14" rx="3" fill="#64748b" stroke="#0f172a" strokeWidth="1" />
+      <path d="M 5 -7 L 14 -2 L 14 7 L 5 7 Z" fill="#475569" stroke="#0f172a" strokeWidth="0.8" />
+      <rect x="-11" y="-5" width="7" height="4" rx="1" fill="#bfdbfe" opacity="0.75" />
+      <rect x="-2" y="-5" width="7" height="4" rx="1" fill="#bfdbfe" opacity="0.75" />
+      <circle cx="-8" cy="7" r="3.2" fill="#111827" />
+      <circle cx="8" cy="7" r="3.2" fill="#111827" />
+      <circle cx="-8" cy="7" r="1.4" fill="#94a3b8" />
+      <circle cx="8" cy="7" r="1.4" fill="#94a3b8" />
+      <rect x="13" y="-2" width="2" height="2" rx="1" fill="#fef08a" />
     </g>
   );
 }
+
+const TRAVEL_VEHICLE_LABELS: Record<Trip['vehicleType'], string> = {
+  van: 'Carpool Van',
+  bus: 'School Bus',
+  coach: 'Coach',
+  'team-bus': 'Team Logo Bus',
+  jet: 'Jet',
+};
 
 export default function TravelVehicles({ buildingPositions, roadPaths }: TravelVehicleProps) {
   const { trips } = useTravel();
@@ -198,7 +224,7 @@ export function TravelScheduler({ fromBuildingId, toBuildingId }: { fromBuilding
     <div className="rounded-xl bg-white/5 border border-white/10 p-3">
       <div className="text-sm font-bold text-white mb-2">Travel</div>
       <div className="flex gap-2 mb-3">
-        {(['van', 'bus', 'coach', 'jet'] as const).map((type) => (
+        {(['van', 'bus', 'coach', 'team-bus', 'jet'] as const).map((type) => (
           <button
             key={type}
             onClick={() => setVehicleType(type)}
@@ -208,7 +234,7 @@ export function TravelScheduler({ fromBuildingId, toBuildingId }: { fromBuilding
                 : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
-            {type.charAt(0).toUpperCase() + type.slice(1)}
+            {TRAVEL_VEHICLE_LABELS[type]}
           </button>
         ))}
       </div>
