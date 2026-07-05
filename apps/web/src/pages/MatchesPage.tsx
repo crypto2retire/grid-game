@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Swords,
   Calendar,
@@ -14,6 +13,9 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  X,
+  Play,
+  Trophy as TrophyIcon,
 } from 'lucide-react';
 import { getSportLabel, useGameStore } from '../store/gameStore';
 
@@ -63,8 +65,37 @@ interface MatchmakingData {
   aiOpponents: AIOpponent[];
 }
 
+interface MatchDetail {
+  id: string;
+  homeTeam: { id: string; name: string; formation?: string | null; wins: number; draws: number; losses: number; points: number };
+  awayTeam: { id: string; name: string; formation?: string | null; wins: number; draws: number; losses: number; points: number };
+  homeScore: number;
+  awayScore: number;
+  status: string;
+  scheduledAt: string;
+  completedAt: string | null;
+  events?: any[];
+  playerStats?: any[];
+}
+
+interface PlayState {
+  matchId: string;
+  quarter: number;
+  clock: string;
+  down: number;
+  distance: number;
+  yardLine: number;
+  possession: 'home' | 'away';
+  homeScore: number;
+  awayScore: number;
+  homeTeamName: string;
+  awayTeamName: string;
+  lastPlay?: string;
+  gameOver?: boolean;
+  log?: string[];
+}
+
 export default function MatchesPage() {
-  const navigate = useNavigate();
   const { activeSportId } = useGameStore();
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -77,6 +108,14 @@ export default function MatchesPage() {
   const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null);
   const [showLive, setShowLive] = useState(true);
   const [showAI, setShowAI] = useState(true);
+  const [detailMatchId, setDetailMatchId] = useState<string | null>(null);
+  const [matchDetail, setMatchDetail] = useState<MatchDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [playMatchId, setPlayMatchId] = useState<string | null>(null);
+  const [playState, setPlayState] = useState<PlayState | null>(null);
+  const [playLoading, setPlayLoading] = useState(false);
+  const [playError, setPlayError] = useState<string | null>(null);
+  const [selectedPlay, setSelectedPlay] = useState<string>('');
 
   useEffect(() => {
     fetchMatches();
@@ -201,6 +240,142 @@ export default function MatchesPage() {
     }
   };
 
+  const fetchMatchDetail = async (matchId: string) => {
+    setDetailLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/matches/${matchId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMatchDetail(data.data);
+      } else {
+        setMatchDetail(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch match detail:', err);
+      setMatchDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const startPlaying = async (matchId: string) => {
+    setPlayMatchId(matchId);
+    setPlayState(null);
+    setPlayError(null);
+    setSelectedPlay('');
+    setPlayLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      // Initialize playable match
+      const initRes = await fetch(`/api/play-game/${matchId}/init`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!initRes.ok) {
+        const data = await initRes.json();
+        throw new Error(data.message || 'Failed to initialize game');
+      }
+      // Set default lineup and styles (balanced)
+      const lineupRes = await fetch(`/api/play-game/${matchId}/lineup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          offensiveLineup: [],
+          defensiveLineup: [],
+          offensiveStyle: 'balanced',
+          defensiveStyle: 'balanced',
+        }),
+      });
+      if (!lineupRes.ok) {
+        const data = await lineupRes.json();
+        throw new Error(data.message || 'Failed to set lineup');
+      }
+      await refreshPlayState(matchId);
+    } catch (err: any) {
+      setPlayError(err.message || 'Failed to start game');
+    } finally {
+      setPlayLoading(false);
+    }
+  };
+
+  const refreshPlayState = async (matchId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/play-game/${matchId}/state`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPlayState(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to refresh play state:', err);
+    }
+  };
+
+  const submitPlay = async () => {
+    if (!playMatchId || !selectedPlay) return;
+    setPlayLoading(true);
+    setPlayError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/play-game/${playMatchId}/play`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ playType: selectedPlay }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Play failed');
+      }
+      setPlayState(data.data);
+      if (data.data?.gameOver) {
+        await completeGame(playMatchId);
+      }
+    } catch (err: any) {
+      setPlayError(err.message || 'Play failed');
+    } finally {
+      setPlayLoading(false);
+    }
+  };
+
+  const simRemainder = async () => {
+    if (!playMatchId) return;
+    setPlayLoading(true);
+    setPlayError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/play-game/${playMatchId}/sim`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Simulation failed');
+      setPlayState(data.data);
+      await completeGame(playMatchId);
+    } catch (err: any) {
+      setPlayError(err.message || 'Simulation failed');
+    } finally {
+      setPlayLoading(false);
+    }
+  };
+
+  const completeGame = async (matchId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`/api/play-game/${matchId}/complete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchMatches();
+    } catch (err) {
+      console.error('Failed to complete game:', err);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'COMPLETED':
@@ -273,12 +448,9 @@ export default function MatchesPage() {
             <p className="text-muted-foreground text-sm mb-4">
               Create a team to start playing
             </p>
-            <button
-              onClick={() => navigate('/team')}
-              className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90"
-            >
-              Create Team →
-            </button>
+            <p className="text-muted-foreground text-sm">
+              Create a team from the Locker Room to start playing
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -447,7 +619,7 @@ export default function MatchesPage() {
             {matches.map((match) => (
               <div
                 key={match.id}
-                onClick={() => navigate(`/matches/${match.id}`)}
+                onClick={() => { setDetailMatchId(match.id); fetchMatchDetail(match.id); }}
                 className="flex items-center justify-between p-4 bg-secondary rounded-lg hover:bg-secondary/80 cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-4 flex-1">
@@ -473,7 +645,7 @@ export default function MatchesPage() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/matches/${match.id}/play`);
+                        startPlaying(match.id);
                       }}
                       className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-xs font-medium rounded-lg transition-colors"
                     >
@@ -487,6 +659,174 @@ export default function MatchesPage() {
           </div>
         )}
       </div>
+
+      {/* Match Detail Modal */}
+      {detailMatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0f1a] p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <TrophyIcon className="w-5 h-5 text-accent" /> Game Details
+              </h3>
+              <button
+                onClick={() => setDetailMatchId(null)}
+                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {detailLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+              </div>
+            ) : matchDetail ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-secondary rounded-xl">
+                  <div className="text-center flex-1">
+                    <div className="font-bold text-white">{matchDetail.homeTeam.name}</div>
+                    <div className="text-xs text-muted-foreground">{matchDetail.homeTeam.wins}-{matchDetail.homeTeam.losses}</div>
+                  </div>
+                  <div className="text-center px-6">
+                    <div className="text-2xl font-black text-white">{matchDetail.homeScore} - {matchDetail.awayScore}</div>
+                    <div className="mt-1">{getStatusBadge(matchDetail.status)}</div>
+                  </div>
+                  <div className="text-center flex-1">
+                    <div className="font-bold text-white">{matchDetail.awayTeam.name}</div>
+                    <div className="text-xs text-muted-foreground">{matchDetail.awayTeam.wins}-{matchDetail.awayTeam.losses}</div>
+                  </div>
+                </div>
+                {matchDetail.events && matchDetail.events.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-white">Game Log</h4>
+                    <div className="max-h-60 overflow-y-auto space-y-1 rounded-xl bg-secondary p-3">
+                      {matchDetail.events.map((ev, i) => (
+                        <div key={i} className="text-xs text-slate-300">Q{ev.quarter || '?'} {ev.clock || ''} — {ev.description || ev.type}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {matchDetail.playerStats && matchDetail.playerStats.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-white">Player Stats</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {matchDetail.playerStats.map((ps, i) => (
+                        <div key={i} className="p-2 rounded-lg bg-secondary text-xs text-slate-300">
+                          <span className="font-medium text-white">{ps.player?.name || 'Player'}</span> — {ps.player?.position || 'N/A'}: {Object.entries(ps).filter(([k]) => !['player','id','matchId','playerId'].includes(k)).map(([k,v]) => `${k}: ${v}`).join(', ')}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">Failed to load game details.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Play Game Modal */}
+      {playMatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a0f1a] p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Play className="w-5 h-5 text-accent" /> Play Game
+              </h3>
+              <button
+                onClick={() => setPlayMatchId(null)}
+                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {playLoading && !playState ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+              </div>
+            ) : playError ? (
+              <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">{playError}</div>
+            ) : playState ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-secondary rounded-xl">
+                  <div className="text-center flex-1">
+                    <div className="font-bold text-white">{playState.homeTeamName}</div>
+                    <div className="text-2xl font-black text-white">{playState.homeScore}</div>
+                  </div>
+                  <div className="text-center px-6">
+                    <div className="text-sm text-muted-foreground">Q{playState.quarter}</div>
+                    <div className="text-lg font-bold text-white">{playState.clock}</div>
+                    <div className="text-xs text-muted-foreground">{playState.down} & {playState.distance}</div>
+                  </div>
+                  <div className="text-center flex-1">
+                    <div className="font-bold text-white">{playState.awayTeamName}</div>
+                    <div className="text-2xl font-black text-white">{playState.awayScore}</div>
+                  </div>
+                </div>
+                <div className="text-center text-sm text-slate-300">
+                  Ball at {playState.yardLine} yard line • {playState.possession === 'home' ? playState.homeTeamName : playState.awayTeamName} possession
+                </div>
+                {playState.lastPlay && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200">
+                    Last play: {playState.lastPlay}
+                  </div>
+                )}
+                {playState.gameOver ? (
+                  <div className="text-center py-6">
+                    <div className="text-2xl font-black text-white mb-2">Game Over</div>
+                    <div className="text-lg text-slate-300">Final: {playState.homeScore} - {playState.awayScore}</div>
+                    <button
+                      onClick={() => setPlayMatchId(null)}
+                      className="mt-4 px-4 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/90"
+                    >
+                      Close
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {[
+                        'RUN_LEFT', 'RUN_MIDDLE', 'RUN_RIGHT', 'QB_DRAW',
+                        'SHORT_PASS', 'MEDIUM_PASS', 'DEEP_BALL', 'SCREEN', 'PUNT', 'FIELD_GOAL'
+                      ].map((play) => (
+                        <button
+                          key={play}
+                          onClick={() => setSelectedPlay(play)}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                            selectedPlay === play
+                              ? 'bg-accent text-white'
+                              : 'bg-secondary text-slate-300 hover:bg-white/10'
+                          }`}
+                        >
+                          {play.replace(/_/g, ' ')}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        onClick={submitPlay}
+                        disabled={playLoading || !selectedPlay}
+                        className="flex-1 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg font-medium disabled:opacity-50"
+                      >
+                        {playLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Run Play'}
+                      </button>
+                      <button
+                        onClick={simRemainder}
+                        disabled={playLoading}
+                        className="flex-1 px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent rounded-lg font-medium disabled:opacity-50"
+                      >
+                        Sim Rest
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">Preparing game...</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

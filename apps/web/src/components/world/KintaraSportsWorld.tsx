@@ -1845,9 +1845,14 @@ export default function KintaraSportsWorld() {
     setNearbyGate(nearestLeagueGate);
   }, [player.x, player.y]);
 
+  const openBuildingById = useCallback((buildingId: string) => {
+    const building = BUILDINGS.find((b) => b.id === buildingId);
+    if (building) openBuilding(building);
+  }, []);
+
   const panelForBuilding = (building: SportsBuilding) => {
     switch (building.panelId) {
-      case 'dashboard': return { title: 'Clubhouse HQ', content: <CityPage /> };
+      case 'dashboard': return { title: 'Clubhouse HQ', content: <CityPage embedded onOpenBuilding={openBuildingById} /> };
       case 'team': return { title: 'Locker Room', content: <TeamPage /> };
       case 'market': return { title: 'Sports Market', content: <MarketplacePage /> };
       case 'leaderboard': return { title: 'Trophy Hall', content: <LeaderboardPage /> };
@@ -1858,7 +1863,7 @@ export default function KintaraSportsWorld() {
       case 'transport': return { title: 'Team Garage', content: <TransportGaragePage /> };
       case 'matches': return { title: 'Practice Field', content: <MatchesPage /> };
       case 'progression': return { title: 'Medical Center', content: <TeamPage initialTab="medical" /> };
-      default: return { title: building.label, content: <CityPage /> };
+      default: return { title: building.label, content: <CityPage embedded onOpenBuilding={openBuildingById} /> };
     }
   };
 

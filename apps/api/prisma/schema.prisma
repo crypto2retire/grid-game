@@ -467,6 +467,13 @@ model TransportationAsset {
   prestige         Int       @default(0)
   purchasePrice    Int?
   solPrice         Float? // SOL price (discounted vs CASH equivalent)
+  // ─── Upgrade/Condition State ───
+  condition        Int       @default(70)
+  speed            Float     @default(1.0)
+  capacity         Int       @default(12)
+  upgradeCount     Int       @default(0)
+  maxUpgrade       Int       @default(5)
+  tripsTaken       Int       @default(0)
   // ─── P2P Marketplace ───
   isForSale        Boolean   @default(false)
   salePrice        Int?

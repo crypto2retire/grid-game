@@ -119,43 +119,56 @@ export default function TransportGaragePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleUpgrade = (vehicleId: string) => {
+  const handleUpgrade = async (vehicleId: string) => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
-    if (!vehicle) return;
+    if (!vehicle || vehicle.upgradeCount >= vehicle.maxUpgrade) return;
+    const upgradeCost = Math.floor(vehicle.operatingCost * 2 * (vehicle.upgradeCount + 1));
+    if (wallet.cash < upgradeCost) return;
 
     setUpgrading((prev) => ({ ...prev, [vehicleId]: true }));
-
-    setTimeout(() => {
-      setVehicles((prev) =>
-        prev.map((v) =>
-          v.id === vehicleId
-            ? {
-                ...v,
-                upgradeCount: Math.min(v.upgradeCount + 1, v.maxUpgrade),
-                condition: Math.min(v.condition + 10, 100),
-                fatigueReduction: Math.min(v.fatigueReduction + 1, 10),
-                prestige: v.prestige + 1,
-                speed: Math.min(v.speed + 0.5, 10),
-                tripsTaken: v.tripsTaken + 1,
-              }
-            : v
-        )
-      );
-
-      setUpgradeMessages((prev) => ({
-        ...prev,
-        [vehicleId]: `${vehicle.name} upgraded! +1 fatigue reduction, +10 condition`,
-      }));
-      setTimeout(() => {
-        setUpgradeMessages((prev) => {
-          const next = { ...prev };
-          delete next[vehicleId];
-          return next;
-        });
-      }, 3000);
-
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`/api/teams/transportation/${vehicleId}/upgrade`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.status === 'success') {
+        setWallet((prev) => ({ ...prev, cash: Math.max(0, prev.cash - upgradeCost) }));
+        setVehicles((prev) =>
+          prev.map((v) =>
+            v.id === vehicleId
+              ? {
+                  ...v,
+                  upgradeCount: Math.min(v.upgradeCount + 1, v.maxUpgrade),
+                  condition: Math.min(v.condition + 10, 100),
+                  fatigueReduction: Math.min(v.fatigueReduction + 1, 10),
+                  prestige: v.prestige + 1,
+                  speed: Math.min(v.speed + 0.5, 10),
+                  tripsTaken: v.tripsTaken + 1,
+                }
+              : v
+          )
+        );
+        setUpgradeMessages((prev) => ({
+          ...prev,
+          [vehicleId]: `${vehicle.name} upgraded! +1 fatigue reduction, +10 condition`,
+        }));
+        setTimeout(() => {
+          setUpgradeMessages((prev) => {
+            const next = { ...prev };
+            delete next[vehicleId];
+            return next;
+          });
+        }, 3000);
+      } else {
+        alert(json.message || 'Upgrade failed');
+      }
+    } catch (e) {
+      alert('Network error during upgrade');
+    } finally {
       setUpgrading((prev) => ({ ...prev, [vehicleId]: false }));
-    }, 1200);
+    }
   };
 
   async function listTransportForSale(transportId: string) {

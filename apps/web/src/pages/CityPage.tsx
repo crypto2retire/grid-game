@@ -2,15 +2,28 @@ import { motion } from 'framer-motion';
 import { Building2, TrendingUp, Users, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function CityPage() {
+interface CityPageProps {
+  embedded?: boolean;
+  onOpenBuilding?: (buildingId: string) => void;
+}
+
+export default function CityPage({ embedded = false, onOpenBuilding }: CityPageProps) {
   const navigate = useNavigate();
 
   const quickActions = [
-    { label: 'My Team', route: '/team', icon: Users, color: '#3b82f6', desc: 'Manage roster and players' },
-    { label: 'Stadium', route: '/stadium/interior', icon: Building2, color: '#22c55e', desc: 'Upgrade venue and facilities' },
-    { label: 'Marketplace', route: '/marketplace', icon: TrendingUp, color: '#f59e0b', desc: 'Buy and sell players' },
-    { label: 'Leaderboard', route: '/leaderboard', icon: Trophy, color: '#eab308', desc: 'See top teams' },
+    { label: 'My Team', route: '/team', buildingId: 'team', icon: Users, color: '#3b82f6', desc: 'Manage roster and players' },
+    { label: 'Stadium', route: '/stadium/interior', buildingId: 'stadium', icon: Building2, color: '#22c55e', desc: 'Upgrade venue and facilities' },
+    { label: 'Marketplace', route: '/marketplace', buildingId: 'market', icon: TrendingUp, color: '#f59e0b', desc: 'Buy and sell players' },
+    { label: 'Leaderboard', route: '/leaderboard', buildingId: 'hall', icon: Trophy, color: '#eab308', desc: 'See top teams' },
   ];
+
+  const handleClick = (action: typeof quickActions[number]) => {
+    if (embedded && onOpenBuilding) {
+      onOpenBuilding(action.buildingId);
+    } else {
+      navigate(action.route);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -41,7 +54,7 @@ export default function CityPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 + i * 0.05 }}
-              onClick={() => navigate(action.route)}
+              onClick={() => handleClick(action)}
               className="group rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:bg-white/10 transition-all hover:border-white/20"
             >
               <div className="flex items-center gap-3">

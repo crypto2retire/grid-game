@@ -760,7 +760,75 @@ router.post(
       }
     });
 
-    res.json({ status: 'success', message: `You now own ${transport.name} (${currency})` });
+    res.json({ status: 'success', message: `You now own this transportation (${currency})` });
+  })
+);
+
+// POST /api/teams/transportation/:transportId/upgrade
+router.post(
+  '/transportation/:transportId/upgrade',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const transportId = routeParam(req.params.transportId, 'transportId');
+
+    const transport = await prisma.transportationAsset.findFirst({
+      where: { id: transportId, ownerId: userId },
+    });
+    if (!transport) {
+      throw new AppError(403, 'You do not own this transportation');
+    }
+    if ((transport.upgradeCount || 0) >= (transport.maxUpgrade || 5)) {
+      throw new AppError(400, 'This vehicle is already fully upgraded');
+    }
+
+    const upgradeCost = Math.floor(transport.operatingCost * 2 * ((transport.upgradeCount || 0) + 1));
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) {
+      throw new AppError(404, 'Wallet not found');
+    }
+    if (wallet.cash < upgradeCost) {
+      throw new AppError(400, `Insufficient CASH. Need ${upgradeCost.toLocaleString()} CASH`);
+    }
+
+    const nextUpgradeCount = (transport.upgradeCount || 0) + 1;
+    const nextCondition = Math.min((transport.condition || 70) + 10, 100);
+    const nextFatigueReduction = Math.min((transport.fatigueReduction || 0) + 1, 10);
+    const nextPrestige = (transport.prestige || 0) + 1;
+    const nextSpeed = Math.min((transport.speed || 1) + 0.5, 10);
+    const nextTripsTaken = (transport.tripsTaken || 0) + 1;
+
+    const updated = await prisma.$transaction(async (tx: any) => {
+      await debitCurrency(tx, {
+        userId,
+        currency: 'CASH',
+        amount: upgradeCost,
+        reason: 'TRANSPORT_UPGRADE',
+        sourceType: 'TRANSPORT_UPGRADE',
+        sourceId: transport.id,
+        metadata: {
+          tier: transport.tier,
+          name: transport.name,
+          upgradeCount: nextUpgradeCount,
+          cost: upgradeCost,
+        },
+      });
+
+      return tx.transportationAsset.update({
+        where: { id: transport.id },
+        data: {
+          upgradeCount: nextUpgradeCount,
+          condition: nextCondition,
+          fatigueReduction: nextFatigueReduction,
+          prestige: nextPrestige,
+          speed: nextSpeed,
+          tripsTaken: nextTripsTaken,
+        },
+      });
+    });
+
+    res.json({ status: 'success', data: updated, message: `${updated.name} upgraded for ${upgradeCost.toLocaleString()} CASH` });
   })
 );
 
