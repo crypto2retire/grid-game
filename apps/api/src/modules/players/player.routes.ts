@@ -1,10 +1,14 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { prisma } from '../../config/database';
-import { authMiddleware } from '../../middleware/auth';
+import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { routeParam } from '../../utils/routeParams';
 import { maintainPlayerPool } from './player.generator';
+import { debitCurrency } from '../economy/currency.service';
+import { MEDICAL_COSTS } from '../matches/progression';
+import { tokenGate } from '../../middleware/tokenGate';
 
 const router = Router();
 
@@ -125,6 +129,76 @@ router.get(
     }
 
     res.json({ status: 'success', data: { ...player, currentPrice: calculatePlayerPrice(player) } });
+  })
+);
+
+const treatPlayerSchema = z.object({
+  playerId: z.string().uuid(),
+});
+
+router.post(
+  '/treat',
+  authMiddleware,
+  tokenGate,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.id;
+    const input = treatPlayerSchema.parse(req.body);
+
+    const teamPlayer = await prisma.teamPlayer.findFirst({
+      where: { playerId: input.playerId },
+      include: {
+        team: { select: { id: true, name: true, ownerId: true } },
+        player: true,
+      },
+    });
+
+    if (!teamPlayer || teamPlayer.team.ownerId !== userId) {
+      throw new AppError(403, 'You do not own this player');
+    }
+
+    const player = teamPlayer.player;
+    const severity = player.injuryStatus || 'HEALTHY';
+    if (severity === 'HEALTHY' || (player.injuryWeeks || 0) <= 0) {
+      throw new AppError(400, 'Player is already healthy');
+    }
+
+    const cost = MEDICAL_COSTS[severity] || MEDICAL_COSTS.MINOR;
+
+    const updatedPlayer = await prisma.$transaction(async (tx: any) => {
+      await debitCurrency(tx, {
+        userId,
+        currency: 'CASH',
+        amount: cost,
+        reason: 'MEDICAL_TREATMENT',
+        sourceType: 'INJURY',
+        sourceId: player.id,
+        metadata: {
+          teamId: teamPlayer.team.id,
+          playerName: player.name,
+          severity,
+          cost,
+        },
+      });
+
+      return tx.player.update({
+        where: { id: player.id },
+        data: {
+          health: 100,
+          injuryStatus: 'HEALTHY',
+          injuryType: null,
+          injuryWeeks: 0,
+        },
+      });
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        player: updatedPlayer,
+        cost,
+        message: `${player.name} treated for ${cost.toLocaleString()} CASH and is now healthy.`,
+      },
+    });
   })
 );
 

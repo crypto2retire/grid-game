@@ -20,12 +20,10 @@ const CityPage = lazy(() => import('../../pages/CityPage'));
 const MarketplacePage = lazy(() => import('../../pages/MarketplacePage'));
 const LeaderboardPage = lazy(() => import('../../pages/LeaderboardPage'));
 const WalletPage = lazy(() => import('../../pages/WalletPage'));
-const TrainingPage = lazy(() => import('../../pages/TrainingPage'));
 const StadiumInteriorPage = lazy(() => import('../../pages/StadiumInteriorPage'));
 const TransportGaragePage = lazy(() => import('../../pages/TransportGaragePage'));
 const TeamPage = lazy(() => import('../../pages/TeamPage'));
 const MatchesPage = lazy(() => import('../../pages/MatchesPage'));
-const PlayerProgressionPage = lazy(() => import('../../pages/PlayerProgressionPage'));
 
 function InteriorPageFallback({ label }: { label: string }) {
   return (
@@ -1854,12 +1852,12 @@ export default function KintaraSportsWorld() {
       case 'market': return { title: 'Sports Market', content: <MarketplacePage /> };
       case 'leaderboard': return { title: 'Trophy Hall', content: <LeaderboardPage /> };
       case 'wallet': return { title: 'Sponsor Bank', content: <WalletPage /> };
-      case 'training': return { title: 'Training Gym', content: <TrainingPage /> };
+      case 'training': return { title: 'Training Gym', content: <TeamPage initialTab="training" /> };
       case 'stadium': return { title: 'Home Stadium', content: <StadiumInteriorPage embedded /> };
       case 'commissioner': return { title: 'Commissioner Office', content: <CommissionerPanel initialOverview={commissionerOverview} onWallet={setWalletOverride} onStatus={setWorldStatus} onOverview={setCommissionerOverview} /> };
       case 'transport': return { title: 'Team Garage', content: <TransportGaragePage /> };
       case 'matches': return { title: 'Practice Field', content: <MatchesPage /> };
-      case 'progression': return { title: 'Medical Center', content: <PlayerProgressionPage /> };
+      case 'progression': return { title: 'Medical Center', content: <TeamPage initialTab="medical" /> };
       default: return { title: building.label, content: <CityPage /> };
     }
   };

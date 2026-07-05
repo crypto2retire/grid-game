@@ -12,8 +12,7 @@ import CityPage from '../../pages/CityPage';
 import MarketplacePage from '../../pages/MarketplacePage';
 import LeaderboardPage from '../../pages/LeaderboardPage';
 import WalletPage from '../../pages/WalletPage';
-import TrainingPage from '../../pages/TrainingPage';
-import EquipmentPage from '../../pages/EquipmentPage';
+import TeamPage from '../../pages/TeamPage';
 import LeagueIslandPage from '../../pages/LeagueIslandPage';
 import StadiumInteriorPage from '../../pages/StadiumInteriorPage';
 import {
@@ -133,10 +132,10 @@ interface WorldBuilding {
 const BUILDINGS: WorldBuilding[] = [
   { id: 'hq', label: 'HQ', islandId: 'hub', x: -180, y: -80, w: 70, h: 55, d: 35, color: '#0f172a', accent: '#E94560', variant: 'hq', panelWidth: 700, panelHeight: 500, getContent: () => <CityPage /> },
   { id: 'market', label: 'Market', islandId: 'hub', x: -60, y: -100, w: 70, h: 50, d: 35, color: '#3f2e0f', accent: '#f59e0b', variant: 'shop', panelWidth: 800, panelHeight: 600, getContent: () => <MarketplacePage /> },
-  { id: 'training', label: 'Training', islandId: 'hub', x: 60, y: -100, w: 70, h: 52, d: 35, color: '#3f0f3f', accent: '#a855f7', variant: 'training', panelWidth: 700, panelHeight: 550, getContent: () => <TrainingPage /> },
+  { id: 'training', label: 'Training', islandId: 'hub', x: 60, y: -100, w: 70, h: 52, d: 35, color: '#3f0f3f', accent: '#a855f7', variant: 'training', panelWidth: 700, panelHeight: 550, getContent: () => <TeamPage initialTab="training" /> },
   { id: 'hof', label: 'Hall of Fame', islandId: 'hub', x: 180, y: -80, w: 75, h: 58, d: 38, color: '#2a1a0a', accent: '#fbbf24', variant: 'generic', panelWidth: 700, panelHeight: 550, getContent: () => <LeaderboardPage /> },
   { id: 'bank', label: 'Bank', islandId: 'hub', x: 180, y: 60, w: 70, h: 55, d: 35, color: '#3f2e0f', accent: '#eab308', variant: 'bank', panelWidth: 600, panelHeight: 500, getContent: () => <WalletPage /> },
-  { id: 'locker', label: 'Locker', islandId: 'hub', x: 60, y: 80, w: 70, h: 50, d: 35, color: '#1a1a2e', accent: '#64748b', variant: 'generic', panelWidth: 800, panelHeight: 600, getContent: () => <EquipmentPage /> },
+  { id: 'locker', label: 'Locker', islandId: 'hub', x: 60, y: 80, w: 70, h: 50, d: 35, color: '#1a1a2e', accent: '#64748b', variant: 'generic', panelWidth: 800, panelHeight: 600, getContent: () => <TeamPage initialTab="equipment" /> },
   { id: 'travel', label: 'Travel', islandId: 'hub', x: -60, y: 80, w: 70, h: 50, d: 35, color: '#0c2e4e', accent: '#06b6d4', variant: 'generic', panelWidth: 900, panelHeight: 600, getContent: () => <CityPage /> },
 
   // League stadiums (admin/market buildings on league islands)
