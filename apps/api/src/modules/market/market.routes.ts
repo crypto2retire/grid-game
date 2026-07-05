@@ -62,7 +62,9 @@ router.post(
   authMiddleware,
   asyncHandler(async (req: any, res) => {
     const schema = z.object({
-      itemId: z.string().uuid(),
+      // Catalog items are seeded with stable IDs in some environments and UUIDs in others.
+      // Accept either shape; ownership/security is enforced by the marketItem lookup below.
+      itemId: z.string().min(1),
       playerId: z.string().uuid(),
       currency: z.enum(['CASH', 'DYN']).default('CASH'),
     });

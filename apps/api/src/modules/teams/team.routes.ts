@@ -149,6 +149,30 @@ router.get(
 );
 
 router.get(
+  '/:id/venue',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+      include: { venue: { include: { upgrades: true } } },
+    });
+
+    if (!team) {
+      throw new AppError(404, 'Team not found');
+    }
+
+    if (!team.venue) {
+      throw new AppError(404, 'Venue not found for this team');
+    }
+
+    res.json({ status: 'success', data: team.venue });
+  })
+);
+
+router.get(
   '/:id',
   authMiddleware,
   asyncHandler(async (req, res) => {
