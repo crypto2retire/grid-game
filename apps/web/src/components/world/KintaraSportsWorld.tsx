@@ -679,19 +679,62 @@ function WaterfrontDetails() {
   );
 }
 
-function VoxelAvatar({ x, y, name, level, color, isPlayer = false }: { x: number; y: number; name: string; level: number; color: string; isPlayer?: boolean }) {
+function VoxelAvatar({
+  x,
+  y,
+  name,
+  level,
+  color,
+  isPlayer = false,
+  isMoving = false,
+  facing = 'down',
+}: {
+  x: number;
+  y: number;
+  name: string;
+  level: number;
+  color: string;
+  isPlayer?: boolean;
+  isMoving?: boolean;
+  facing?: 'left' | 'right' | 'up' | 'down';
+}) {
+  const faceScale = facing === 'left' ? -1 : 1;
+  const eyeX = facing === 'left' ? -3 : facing === 'right' ? 3 : 0;
+
   return (
     <g transform={`translate(${x}, ${y})`} style={{ pointerEvents: 'none' }}>
-      <ellipse cx={0} cy={10} rx={15} ry={7} fill="rgba(0,0,0,0.25)" />
-      <g className={isPlayer ? 'animate-pulse' : ''}>
-        <rect x={-7} y={-16} width={14} height={20} rx={3} fill={color} stroke="#0f172a" strokeWidth={1.4} />
-        <rect x={-9} y={-31} width={18} height={18} rx={4} fill="#f7c89d" stroke="#0f172a" strokeWidth={1.4} />
-        <rect x={-10} y={-35} width={20} height={6} rx={2} fill={isPlayer ? '#2563eb' : '#334155'} />
-        <rect x={-13} y={-13} width={5} height={15} rx={2} fill={darker(color, 18)} />
-        <rect x={8} y={-13} width={5} height={15} rx={2} fill={darker(color, 18)} />
-        <rect x={-6} y={3} width={5} height={14} rx={2} fill="#1e293b" />
-        <rect x={1} y={3} width={5} height={14} rx={2} fill="#1e293b" />
+      <ellipse cx={0} cy={10} rx={isMoving ? 17 : 15} ry={7} fill="rgba(0,0,0,0.25)" />
+      <g transform={`scale(${faceScale} 1)`}>
+        <g className={isPlayer && !isMoving ? 'animate-pulse' : ''}>
+          {isMoving && <animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="0.36s" repeatCount="indefinite" />}
+          <rect x={-7} y={-16} width={14} height={20} rx={3} fill={color} stroke="#0f172a" strokeWidth={1.4} />
+          <rect x={-9} y={-31} width={18} height={18} rx={4} fill="#f7c89d" stroke="#0f172a" strokeWidth={1.4} />
+          <rect x={-10} y={-35} width={20} height={6} rx={2} fill={isPlayer ? '#2563eb' : '#334155'} />
+          <circle cx={eyeX} cy={-24} r={1.4} fill="#0f172a" opacity={0.85} />
+          <rect x={-13} y={-13} width={5} height={15} rx={2} fill={darker(color, 18)}>
+            {isMoving && <animate attributeName="y" values="-13;-17;-13" dur="0.36s" repeatCount="indefinite" />}
+          </rect>
+          <rect x={8} y={-13} width={5} height={15} rx={2} fill={darker(color, 18)}>
+            {isMoving && <animate attributeName="y" values="-17;-13;-17" dur="0.36s" repeatCount="indefinite" />}
+          </rect>
+          <rect x={-7} y={3} width={5} height={14} rx={2} fill="#1e293b">
+            {isMoving && <animate attributeName="y" values="3;8;3" dur="0.36s" repeatCount="indefinite" />}
+          </rect>
+          <rect x={2} y={3} width={5} height={14} rx={2} fill="#1e293b">
+            {isMoving && <animate attributeName="y" values="8;3;8" dur="0.36s" repeatCount="indefinite" />}
+          </rect>
+        </g>
       </g>
+      {isMoving && (
+        <g opacity="0.5">
+          <circle cx={-16} cy={11} r={2} fill="#d6a25d">
+            <animate attributeName="opacity" values="0.5;0;0.5" dur="0.5s" repeatCount="indefinite" />
+          </circle>
+          <circle cx={13} cy={12} r={1.4} fill="#d6a25d">
+            <animate attributeName="opacity" values="0;0.45;0" dur="0.5s" repeatCount="indefinite" />
+          </circle>
+        </g>
+      )}
       <g transform="translate(0, -58)">
         <rect x={-47} y={-14} width={94} height={28} rx={10} fill="rgba(15,23,42,0.88)" stroke={isPlayer ? '#60a5fa' : '#475569'} />
         <text x={0} y={-2} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={800}>{name}</text>
@@ -1725,7 +1768,15 @@ export default function KintaraSportsWorld() {
   const { user } = useAuthStore();
   const { onlinePlayers, myStadium, liveMatches, moveAvatar, refreshWorld } = useWorld();
   const { openPanel, closePanel } = usePanels();
-  const [player, setPlayer] = useState(() => ({ x: 0, y: 95 }));
+  const [player, setPlayer] = useState(() => ({
+    x: 0,
+    y: 95,
+    targetX: 0,
+    targetY: 95,
+    isMoving: false,
+    facing: 'down' as 'left' | 'right' | 'up' | 'down',
+  }));
+  const playerAnimationRef = useRef<number | null>(null);
   const [nearby, setNearby] = useState<SportsBuilding | null>(null);
   const [nearbyGate, setNearbyGate] = useState<LeagueGate | null>(null);
   const [hoveredBuildingId, setHoveredBuildingId] = useState<string | null>(null);
@@ -1827,8 +1878,47 @@ export default function KintaraSportsWorld() {
   }, []);
 
   useEffect(() => {
-    moveAvatar(player.x, player.y);
-  }, [moveAvatar, player.x, player.y]);
+    let lastTime = performance.now();
+    const walkFrame = (now: number) => {
+      const delta = Math.min(48, now - lastTime) / 16.67;
+      lastTime = now;
+
+      setPlayer((prev) => {
+        const dx = prev.targetX - prev.x;
+        const dy = prev.targetY - prev.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 1.2) {
+          if (!prev.isMoving && Math.abs(prev.x - prev.targetX) < 0.5 && Math.abs(prev.y - prev.targetY) < 0.5) return prev;
+          return { ...prev, x: prev.targetX, y: prev.targetY, isMoving: false };
+        }
+
+        const step = Math.min(dist, 5.2 * delta);
+        const facing = Math.abs(dx) > Math.abs(dy)
+          ? (dx > 0 ? 'right' : 'left')
+          : (dy > 0 ? 'down' : 'up');
+
+        return {
+          ...prev,
+          x: prev.x + (dx / dist) * step,
+          y: prev.y + (dy / dist) * step,
+          isMoving: true,
+          facing,
+        };
+      });
+
+      playerAnimationRef.current = requestAnimationFrame(walkFrame);
+    };
+
+    playerAnimationRef.current = requestAnimationFrame(walkFrame);
+    return () => {
+      if (playerAnimationRef.current) cancelAnimationFrame(playerAnimationRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    moveAvatar(player.targetX, player.targetY);
+  }, [moveAvatar, player.targetX, player.targetY]);
 
   useEffect(() => {
     const nearest = BUILDINGS
@@ -1918,7 +2008,21 @@ export default function KintaraSportsWorld() {
     if (pointsChanged(point, clamped)) {
       setWorldStatus('Map edge reached — use a league gate path to travel to another league.');
     }
-    setPlayer(clamped);
+    setPlayer((prev) => {
+      const dx = clamped.x - prev.x;
+      const dy = clamped.y - prev.y;
+      const facing = Math.abs(dx) > Math.abs(dy)
+        ? (dx > 0 ? 'right' : 'left')
+        : (dy > 0 ? 'down' : 'up');
+
+      return {
+        ...prev,
+        targetX: clamped.x,
+        targetY: clamped.y,
+        isMoving: Math.hypot(dx, dy) > 1.2,
+        facing,
+      };
+    });
   }, []);
 
   const moveToSvgPoint = (clientX: number, clientY: number) => {
@@ -1950,14 +2054,14 @@ export default function KintaraSportsWorld() {
       }
       const step = 44;
       event.preventDefault();
-      if (key === 'w' || key === 'arrowup') movePlayerTo({ x: player.x, y: player.y - step });
-      if (key === 's' || key === 'arrowdown') movePlayerTo({ x: player.x, y: player.y + step });
-      if (key === 'a' || key === 'arrowleft') movePlayerTo({ x: player.x - step, y: player.y });
-      if (key === 'd' || key === 'arrowright') movePlayerTo({ x: player.x + step, y: player.y });
+      if (key === 'w' || key === 'arrowup') movePlayerTo({ x: player.targetX, y: player.targetY - step });
+      if (key === 's' || key === 'arrowdown') movePlayerTo({ x: player.targetX, y: player.targetY + step });
+      if (key === 'a' || key === 'arrowleft') movePlayerTo({ x: player.targetX - step, y: player.targetY });
+      if (key === 'd' || key === 'arrowright') movePlayerTo({ x: player.targetX + step, y: player.targetY });
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [movePlayerTo, nearby, nearbyGate, player.x, player.y]);
+  }, [movePlayerTo, nearby, nearbyGate, player.targetX, player.targetY]);
 
   const sendChat = async (event: FormEvent) => {
     event.preventDefault();
@@ -2161,11 +2265,11 @@ export default function KintaraSportsWorld() {
         })}
 
         {onlinePlayers.slice(0, 8).map((p) => (
-          <VoxelAvatar key={p.userId} x={p.x} y={p.y} name={p.username} level={9} color={p.avatarColor || '#3b82f6'} />
+          <VoxelAvatar key={p.userId} x={p.x} y={p.y} name={p.username} level={9} color={p.avatarColor || '#3b82f6'} isMoving={p.isMoving} facing={p.facing} />
         ))}
 
-        <g style={{ transition: 'transform 700ms cubic-bezier(.2,.8,.2,1)' }} transform={`translate(${player.x}, ${player.y})`}>
-          <VoxelAvatar x={0} y={0} name={username} level={18} color="#2563eb" isPlayer />
+        <g transform={`translate(${player.x}, ${player.y})`}>
+          <VoxelAvatar x={0} y={0} name={username} level={18} color="#2563eb" isPlayer isMoving={player.isMoving} facing={player.facing} />
         </g>
       </svg>
 

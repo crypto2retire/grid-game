@@ -42,7 +42,37 @@ function VehicleSVG({ type }: { type: string }) {
     );
   }
   
-  // Default bus/van
+  if (type === 'bus') {
+    return (
+      <g>
+        {/* Long, flat team bus silhouette — deliberately squared off so it does not read like a blimp. */}
+        <rect x="-24" y="-11" width="48" height="20" rx="3" fill="#1d4ed8" stroke="#0f172a" strokeWidth="1.4" />
+        <rect x="-23" y="-15" width="39" height="8" rx="2" fill="#2563eb" stroke="#0f172a" strokeWidth="1" />
+        <path d="M 16 -14 L 24 -9 L 24 9 L 16 9 Z" fill="#1e40af" stroke="#0f172a" strokeWidth="1" />
+        <rect x="-20" y="-13" width="8" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
+        <rect x="-10" y="-13" width="8" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
+        <rect x="0" y="-13" width="8" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
+        <rect x="10" y="-13" width="7" height="5" rx="1" fill="#bae6fd" stroke="#0f172a" strokeWidth="0.6" />
+        <rect x="17" y="-7" width="5" height="9" rx="1" fill="#0f172a" opacity="0.55" />
+        <rect x="-18" y="-3" width="25" height="5" rx="2" fill="#facc15" opacity="0.95" />
+        <text x="-5.5" y="1.2" textAnchor="middle" fill="#0f172a" fontSize="4.5" fontWeight="900">TEAM BUS</text>
+        <rect x="21" y="-4" width="3" height="3" rx="1" fill="#fef08a" />
+        <rect x="-25" y="2" width="3" height="3" rx="1" fill="#ef4444" />
+        <circle cx="-15" cy="10" r="4.2" fill="#0f172a" />
+        <circle cx="12" cy="10" r="4.2" fill="#0f172a" />
+        <circle cx="-15" cy="10" r="2" fill="#94a3b8" />
+        <circle cx="12" cy="10" r="2" fill="#94a3b8" />
+        <line x1="-21" y1="6" x2="21" y2="6" stroke="#bfdbfe" strokeWidth="1" opacity="0.75" />
+        {/* Road exhaust, kept low and behind the vehicle so it reads as diesel smoke, not a balloon tail. */}
+        <circle cx="-29" cy="6" r="2" fill="#64748b" opacity="0.22">
+          <animate attributeName="cx" values="-29;-35;-29" dur="0.8s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.22;0;0.22" dur="0.8s" repeatCount="indefinite" />
+        </circle>
+      </g>
+    );
+  }
+
+  // Small starter van
   return (
     <g>
       <rect x="-12" y="-6" width="24" height="12" rx="2" fill={color} opacity="0.9" />
@@ -54,11 +84,6 @@ function VehicleSVG({ type }: { type: string }) {
       <circle cx="-7" cy="6" r="1.5" fill="#475569" />
       <circle cx="7" cy="6" r="1.5" fill="#475569" />
       <rect x="-13" y="-1" width="2" height="2" rx="1" fill="#fbbf24" opacity="0.5" />
-      {/* Exhaust smoke */}
-      <circle cx="-16" cy="2" r="2" fill="#64748b" opacity="0.2">
-        <animate attributeName="cx" values="-16;-20;-16" dur="0.8s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.2;0;0.2" dur="0.8s" repeatCount="indefinite" />
-      </circle>
     </g>
   );
 }
