@@ -207,12 +207,23 @@ export async function resolvePlay(
   const offenseLineupIds = (match.offensiveLineup as string[]) || [];
   const defenseLineupIds = (match.defensiveLineup as string[]) || [];
 
-  const offensePlayers = offenseTeam.teamPlayers
+  let offensePlayers = offenseTeam.teamPlayers
     .filter((tp) => offenseLineupIds.includes(tp.player.id))
     .map((tp) => tp.player);
-  const defensePlayers = defenseTeam.teamPlayers
+  let defensePlayers = defenseTeam.teamPlayers
     .filter((tp) => defenseLineupIds.includes(tp.player.id))
     .map((tp) => tp.player);
+
+  // The player-controlled lineup belongs to the user's side. Once possession
+  // flips to an AI/live opponent, those lineup IDs may not match the current
+  // offense or defense roster. Fall back to each team's full roster so simming
+  // the remainder cannot crash on empty AI lineups.
+  if (offensePlayers.length === 0) {
+    offensePlayers = offenseTeam.teamPlayers.map((tp) => tp.player);
+  }
+  if (defensePlayers.length === 0) {
+    defensePlayers = defenseTeam.teamPlayers.map((tp) => tp.player);
+  }
 
   const qb = offensePlayers.find((p) => p.position === 'QB') || offensePlayers[0];
   const rb = offensePlayers.find((p) => p.position === 'RB') || offensePlayers[1];
