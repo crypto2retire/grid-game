@@ -51,5 +51,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3000
 
-# Run migrations before starting server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Run migrations and an idempotent additive-column repair before starting server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/scripts/ensureProductionSchema.js && node dist/server.js"]
