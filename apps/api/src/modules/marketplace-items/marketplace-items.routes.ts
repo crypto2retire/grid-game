@@ -4,7 +4,8 @@ import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { tokenGate } from '../../middleware/tokenGate';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
-import { settleMarketplaceSale } from '../economy/currency.service';
+import { debitCurrency, settleMarketplaceSale } from '../economy/currency.service';
+import { ECONOMY_BALANCE_POLICY } from '../economy/balance.service';
 
 const router = Router();
 
@@ -90,25 +91,44 @@ router.post(
       throw new AppError(409, 'This item is already listed for sale');
     }
 
-    const listing = await prisma.marketplaceItemListing.create({
-      data: {
-        sellerId: userId,
-        playerItemId: input.playerItemId,
-        price: input.price,
-        status: 'ACTIVE',
-      },
-      include: {
-        seller: { select: { id: true, username: true } },
-        playerItem: {
-          include: {
-            item: true,
-            player: { select: { id: true, name: true, position: true, overall: true } },
+    const listingFee = Math.max(1, Math.floor(input.price * ECONOMY_BALANCE_POLICY.marketplaceListingFeeRate));
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) throw new AppError(404, 'Wallet not found');
+    if (wallet.cash < listingFee) {
+      throw new AppError(400, `Listing fee requires ${listingFee.toLocaleString()} CASH`);
+    }
+
+    const listing = await prisma.$transaction(async (tx: any) => {
+      await debitCurrency(tx, {
+        userId,
+        currency: 'CASH',
+        amount: listingFee,
+        reason: 'MARKETPLACE_ITEM_LISTING_FEE',
+        sourceType: 'MARKETPLACE_ITEM',
+        sourceId: input.playerItemId,
+        metadata: { playerItemId: input.playerItemId, price: input.price, feeRate: ECONOMY_BALANCE_POLICY.marketplaceListingFeeRate },
+      });
+
+      return tx.marketplaceItemListing.create({
+        data: {
+          sellerId: userId,
+          playerItemId: input.playerItemId,
+          price: input.price,
+          status: 'ACTIVE',
+        },
+        include: {
+          seller: { select: { id: true, username: true } },
+          playerItem: {
+            include: {
+              item: true,
+              player: { select: { id: true, name: true, position: true, overall: true } },
+            },
           },
         },
-      },
+      });
     });
 
-    res.status(201).json({ status: 'success', data: listing });
+    res.status(201).json({ status: 'success', data: { ...listing, listingFee } });
   })
 );
 

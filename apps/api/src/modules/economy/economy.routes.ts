@@ -4,8 +4,10 @@ import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { env } from '../../config/env';
-import { creditCurrency, exchangeCurrency } from './currency.service';
+import { creditCurrency, debitCurrency, exchangeCurrency } from './currency.service';
 import { getLuckBreakdown } from '../luck/luck.service';
+import { calculateWithdrawalLimit, getEconomyHealthSnapshot } from './balance.service';
+import { processBurn } from '../treasury/treasury.service';
 
 const router = Router();
 
@@ -166,6 +168,100 @@ router.post(
       status: 'success',
       data: updated,
       message: `Exchanged ${input.amount.toLocaleString()} CASH for ${gridReceived.toLocaleString()} DYN`,
+    });
+  })
+);
+
+router.get(
+  '/health',
+  authMiddleware,
+  asyncHandler(async (_req: AuthRequest, res) => {
+    const health = await getEconomyHealthSnapshot(prisma);
+    res.json({
+      status: 'success',
+      data: {
+        ...health,
+        policy: {
+          unifiedCashBalance: true,
+          cashSplit: false,
+          note: 'CASH remains one wallet balance; faucets, fees, limits, and treasury reserves control withdrawal pressure.',
+        },
+      },
+    });
+  })
+);
+
+router.post(
+  '/withdraw/quote',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({ amount: z.number().int().positive().max(10_000_000) });
+    const input = schema.parse(req.body);
+    const quote = await calculateWithdrawalLimit(prisma, req.user!.id, input.amount);
+    res.json({
+      status: 'success',
+      data: quote,
+      message: 'Unified CASH withdrawal quote. No claimable/unclaimable split is used.',
+    });
+  })
+);
+
+router.post(
+  '/withdraw',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({ amount: z.number().int().positive().max(10_000_000) });
+    const input = schema.parse(req.body);
+    const result = await prisma.$transaction(async (tx: any) => {
+      const quote = await calculateWithdrawalLimit(tx, req.user!.id, input.amount);
+      if (quote.approvedAmount <= 0) {
+        throw new AppError(400, 'Withdrawal limit is currently 0 for this account/economy state');
+      }
+      if (quote.approvedAmount < input.amount) {
+        throw new AppError(
+          400,
+          `Requested ${input.amount.toLocaleString()} CASH but current approved limit is ${quote.approvedAmount.toLocaleString()} CASH`
+        );
+      }
+
+      const { wallet } = await debitCurrency(tx, {
+        userId: req.user!.id,
+        currency: 'CASH',
+        amount: quote.approvedAmount,
+        reason: 'CASH_WITHDRAWAL_REQUEST',
+        sourceType: 'WITHDRAWAL',
+        metadata: {
+          unifiedCashBalance: true,
+          requestedAmount: input.amount,
+          approvedAmount: quote.approvedAmount,
+          feeAmount: quote.feeAmount,
+          netAmount: quote.netAmount,
+          feeRate: quote.feeRate,
+          dynHeld: quote.dynHeld,
+          accountAgeDays: quote.accountAgeDays,
+          teamInvestmentScore: quote.teamInvestmentScore,
+          economyMultiplier: quote.economyMultiplier,
+          treasuryReserve: quote.treasuryReserve,
+          status: 'APPROVED_PENDING_EXTERNAL_PAYOUT',
+        },
+      });
+
+      if (quote.feeAmount > 0) {
+        await processBurn(tx, 'CASH', quote.feeAmount, 'CASH_WITHDRAWAL_FEE_BURN', undefined, 'WITHDRAWAL', {
+          userId: req.user!.id,
+          approvedAmount: quote.approvedAmount,
+          netAmount: quote.netAmount,
+          feeRate: quote.feeRate,
+        });
+      }
+
+      return { wallet, quote };
+    });
+
+    res.json({
+      status: 'success',
+      data: result,
+      message: `Withdrawal approved for ${result.quote.approvedAmount.toLocaleString()} CASH; ${result.quote.feeAmount.toLocaleString()} CASH fee burned; net ${result.quote.netAmount.toLocaleString()} CASH equivalent pending external payout.`,
     });
   })
 );

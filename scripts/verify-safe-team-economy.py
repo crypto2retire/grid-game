@@ -208,7 +208,7 @@ def check_safe_revenue_sources() -> bool:
     import re
     all_lines = content.splitlines()
     breakdown_keys = []
-    known_expenses = {'Travel & Transport', 'Venue Staff & Referees', 'Player Recovery', 'League Dues'}
+    known_expenses = {'Travel & Transport', 'Venue Staff & Referees', 'Player Recovery', 'Player Recovery & Medical Staff', 'League Dues', 'Equipment Wear Reserve'}
     for line in all_lines:
         m = re.search(r"breakdown\['([^']+)'\]\s*=", line)
         if m:
@@ -262,7 +262,9 @@ def check_operating_cost_sinks() -> bool:
         'Travel & Transport',
         'Venue Staff & Referees',
         'Player Recovery',
+        'Player Recovery & Medical Staff',
         'League Dues',
+        'Equipment Wear Reserve',
     }
 
     all_sink = True

@@ -1,6 +1,7 @@
 import { AppError } from '../../middleware/errorHandler';
 import { recordCurrencyLedger } from './ledger';
 import { processBurn, processTreasuryInflow } from '../treasury/treasury.service';
+import { ECONOMY_BALANCE_POLICY } from './balance.service';
 
 export type WalletCurrency = 'CASH' | 'DYN' | 'SOL';
 
@@ -16,7 +17,7 @@ const CURRENCY_LABEL: Record<WalletCurrency, string> = {
   SOL: 'SOL',
 };
 
-export const MARKETPLACE_FEE_RATE = 0.05;
+export const MARKETPLACE_FEE_RATE = ECONOMY_BALANCE_POLICY.marketplaceSaleFeeRate;
 export const SINK_BURN_RATE = 0.10;
 
 export interface CurrencyMovementInput {
@@ -411,7 +412,7 @@ export async function processCurrencySink(
   return { treasuryAmount, burnAmount };
 }
 
-export function calculateMarketplaceFee(priceInput: number, currencyInput: WalletCurrency | string, feeRate = MARKETPLACE_FEE_RATE) {
+export function calculateMarketplaceFee(priceInput: number, currencyInput: WalletCurrency | string, feeRate: number = MARKETPLACE_FEE_RATE) {
   const currency = normalizeCurrency(currencyInput);
   const price = normalizeAmountForCurrency(currency, priceInput);
   const feeAmount = currency === 'SOL' ? roundSol(price * feeRate) : Math.ceil(price * feeRate);

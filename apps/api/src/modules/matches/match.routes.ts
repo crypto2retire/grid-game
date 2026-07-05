@@ -10,6 +10,7 @@ import { routeParam } from '../../utils/routeParams';
 import { legacyAttributesFromPlayer } from '../economy/ledger';
 import { applyCurrencyDelta } from '../economy/currency.service';
 import { calculateGameEconomics } from '../economy/gameEconomics';
+import { ECONOMY_BALANCE_POLICY, getEconomyHealthSnapshot } from '../economy/balance.service';
 import { applyPostGameProgression } from './progression';
 import { canTeamPlayToday } from '../game-time/game-time.routes';
 import { applyPostMatchStadiumWear } from '../economy/maintenance.service';
@@ -258,6 +259,8 @@ router.post(
       ? { ...awayTransport, operatingCost: awayTransport.ownerId === match.awayTeam.ownerId ? Math.round(awayTransport.operatingCost * 0.5) : awayTransport.operatingCost }
       : null;
 
+    const economyHealth = await getEconomyHealthSnapshot(prisma);
+
     const homeEconomics = calculateGameEconomics({
       team: match.homeTeam,
       opponent: match.awayTeam,
@@ -270,6 +273,7 @@ router.post(
       scoreFor: result.homeScore,
       scoreAgainst: result.awayScore,
       leagueTier: homeLeagueTier,
+      economyHealthMultiplier: economyHealth.rewardMultiplier,
     });
 
     const awayEconomics = calculateGameEconomics({
@@ -284,6 +288,7 @@ router.post(
       scoreFor: result.awayScore,
       scoreAgainst: result.homeScore,
       leagueTier: awayLeagueTier,
+      economyHealthMultiplier: economyHealth.rewardMultiplier,
     });
 
     // Update match with results
@@ -353,6 +358,18 @@ router.post(
           },
         })),
       });
+
+      const activePlayerIds = Object.keys(result.playerStats);
+      if (activePlayerIds.length > 0) {
+        await tx.playerItem.updateMany({
+          where: {
+            playerId: { in: activePlayerIds },
+            equipped: true,
+            durability: { gte: ECONOMY_BALANCE_POLICY.matchEquipmentWear },
+          },
+          data: { durability: { decrement: ECONOMY_BALANCE_POLICY.matchEquipmentWear } },
+        });
+      }
 
       const progResult = await applyPostGameProgression(tx, {
         sportId: match.sportId,
@@ -433,6 +450,12 @@ router.post(
           expenses: homeEconomics.expenses,
           net: homeEconomics.net,
           breakdown: homeEconomics.breakdown,
+          economyHealth: {
+            rewardMultiplier: economyHealth.rewardMultiplier,
+            sinkCoveragePct: economyHealth.sinkCoveragePct,
+            treasuryReserve: economyHealth.treasuryReserve,
+          },
+          progressRewards: homeEconomics.progressRewards,
         },
       });
 
@@ -452,6 +475,12 @@ router.post(
           expenses: awayEconomics.expenses,
           net: awayEconomics.net,
           breakdown: awayEconomics.breakdown,
+          economyHealth: {
+            rewardMultiplier: economyHealth.rewardMultiplier,
+            sinkCoveragePct: economyHealth.sinkCoveragePct,
+            treasuryReserve: economyHealth.treasuryReserve,
+          },
+          progressRewards: awayEconomics.progressRewards,
         },
       });
 
@@ -474,6 +503,12 @@ router.post(
             side: 'HOME',
             sportId: match.sportId,
             breakdown: homeEconomics.breakdown,
+            economyHealth: {
+              rewardMultiplier: economyHealth.rewardMultiplier,
+              sinkCoveragePct: economyHealth.sinkCoveragePct,
+              treasuryReserve: economyHealth.treasuryReserve,
+            },
+            progressRewards: homeEconomics.progressRewards,
           },
         },
       });
@@ -490,6 +525,12 @@ router.post(
             side: 'AWAY',
             sportId: match.sportId,
             breakdown: awayEconomics.breakdown,
+            economyHealth: {
+              rewardMultiplier: economyHealth.rewardMultiplier,
+              sinkCoveragePct: economyHealth.sinkCoveragePct,
+              treasuryReserve: economyHealth.treasuryReserve,
+            },
+            progressRewards: awayEconomics.progressRewards,
           },
         },
       });

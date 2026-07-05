@@ -4,6 +4,7 @@ import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth'
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { creditCurrency } from '../economy/currency.service';
 import { logger } from '../../config/logger';
+import { applyEconomyHealthMultiplier, getEconomyHealthSnapshot } from '../economy/balance.service';
 
 const router = Router();
 
@@ -211,22 +212,25 @@ router.post(
     let totalPaid = 0;
     let recipients = 0;
 
+    const health = await getEconomyHealthSnapshot(prisma);
+
     for (const reward of pendingRewards) {
       await prisma.$transaction(async (tx: any) => {
+        const adjustedReward = applyEconomyHealthMultiplier(reward.rewardAmount, health);
         await creditCurrency(tx, {
           userId: reward.ownerId,
           currency: 'CASH',
-          amount: reward.rewardAmount,
+          amount: adjustedReward,
           reason: 'LEADERBOARD_REWARD',
           sourceType: 'LEADERBOARD_SNAPSHOT',
           sourceId: reward.snapshotId,
-          metadata: { rank: reward.rank },
+          metadata: { rank: reward.rank, originalRewardAmount: reward.rewardAmount, economyMultiplier: health.rewardMultiplier },
         });
         await tx.leaderboardReward.update({
           where: { id: reward.id },
           data: { status: 'PAID', paidAt: new Date() },
         });
-        totalPaid += reward.rewardAmount;
+        totalPaid += adjustedReward;
         recipients++;
       });
     }

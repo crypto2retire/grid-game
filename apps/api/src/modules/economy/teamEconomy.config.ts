@@ -110,7 +110,9 @@ export const SAFE_REWARD_POLICY = {
     'TRAVEL_TRANSPORT',
     'VENUE_STAFF_REFEREES',
     'PLAYER_RECOVERY',
+    'MEDICAL_STAFF',
     'FACILITY_WEAR',
+    'EQUIPMENT_WEAR',
     'LEAGUE_DUES',
   ] as string[],
 } as const;

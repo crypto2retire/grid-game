@@ -3,6 +3,7 @@ import { AppError } from '../../middleware/errorHandler';
 import { creditCurrency, debitCurrency, processCurrencySink } from '../economy/currency.service';
 import { processTreasuryOutflow } from '../treasury/treasury.service';
 import { ensureDefaultDailyQuests, recordDailyQuestProgress } from '../daily-quests/daily-quests.service';
+import { applyEconomyHealthMultiplier, getEconomyHealthSnapshot } from '../economy/balance.service';
 
 export type MiniGameType = 'TEAM_DRILL' | 'SCOUTING' | 'STADIUM_MATCH';
 
@@ -333,11 +334,14 @@ export async function playMiniGame(userId: string, rawType: string) {
       where: { miniGameType, createdAt: { gte: dayStart }, id: { not: attempt.id } },
       _sum: { rewardCash: true },
     });
+    const economyHealth = await getEconomyHealthSnapshot(tx);
+    const healthAdjustedReward = applyEconomyHealthMultiplier(proposedRewardCash, economyHealth);
     const rewardPaidToday = Number(paidToday._sum.rewardCash ?? 0);
-    const dailyRewardRemaining = Math.max(0, config.dailyRewardBudget - rewardPaidToday);
+    const healthAdjustedDailyBudget = applyEconomyHealthMultiplier(config.dailyRewardBudget, economyHealth);
+    const dailyRewardRemaining = Math.max(0, healthAdjustedDailyBudget - rewardPaidToday);
     const treasury = await tx.gameTreasury.findUnique({ where: { currency: 'CASH' } });
     const treasuryCashAvailable = Math.max(0, Math.floor(Number(treasury?.balance ?? 0)));
-    const rewardCash = Math.min(proposedRewardCash, dailyRewardRemaining, treasuryCashAvailable);
+    const rewardCash = Math.min(healthAdjustedReward, dailyRewardRemaining, treasuryCashAvailable);
 
     if (rewardCash > 0) {
       await processTreasuryOutflow(tx, 'CASH', rewardCash, 'MINI_GAME_REWARD', attempt.id, 'MINI_GAME', {

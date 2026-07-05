@@ -1,0 +1,384 @@
+{
+  "model_type": "hypothetical_unified_cash_in_game_economy_simulation_not_real_financial_data",
+  "source_files": [
+    "apps/api/src/modules/economy/balance.service.ts",
+    "apps/api/src/modules/economy/teamEconomy.config.ts",
+    "apps/api/src/modules/economy/gameEconomics.ts",
+    "apps/api/src/modules/economy/maintenance.service.ts",
+    "apps/api/src/modules/mini-games/mini-games.service.ts"
+  ],
+  "cohort_mix": {
+    "extractor": 0.5,
+    "free_grinder": 0.25,
+    "payer_holder": 0.25
+  },
+  "unified_cash_rules": {
+    "one_wallet_cash_balance": true,
+    "cash_directly_awarded_by_daily_quests": false,
+    "all_cash_eligible_for_withdrawal_request": true,
+    "claimable_unclaimable_split": false,
+    "local_match_faucet_cut_pct": 0.4,
+    "loss_reward_cut_pct": 0.75,
+    "withdrawal_limits": [
+      "daily account limit",
+      "DYN holding",
+      "account age",
+      "team investment score",
+      "economy health",
+      "treasury reserve availability"
+    ],
+    "withdrawal_fee_range": [
+      0.03,
+      0.4
+    ],
+    "merchant_daily_cash_pool_per_player": 125,
+    "legacy_daily_quest_cash_now_avoided_per_player_day": 2750
+  },
+  "key_assumptions": {
+    "extractors": "1 LOCAL_REC match; low DYN/age/investment; optional small merchant sale; requests all retained CASH through withdrawal rail; no upgrades",
+    "free_grinders": "2 matches; frequent merchant sale; spend up to 75% of retained CASH on training; occasional small withdrawal",
+    "payer_holders": "3 matches; external purchase equivalent 5k-25k CASH/day; higher DYN/age/investment; spend on training/equipment/upgrades; rare small withdrawal"
+  },
+  "results": [
+    {
+      "players": 100,
+      "days": 30,
+      "trials": 10,
+      "cohorts": {
+        "extractor": 50,
+        "free_grinder": 25,
+        "payer_holder": 25
+      },
+      "avg_totals": {
+        "game_cash_awarded": 26651027.8,
+        "merchant_cash_awarded": 375000.0,
+        "cash_emissions": 27026027.8,
+        "legacy_direct_daily_quest_cash_avoided": 8250000,
+        "operating_sinks": 5095595.7,
+        "upgrade_sinks": 13086730.35,
+        "withdrawal_gross_removed": 189733.69999999998,
+        "withdrawal_fees": 43604.1,
+        "net_paid_out": 146129.6,
+        "retained_cash": 10393472.049999999,
+        "external_purchase_cash_equiv": 9392500.0,
+        "net_cash_created_after_sinks_and_withdrawals": 8610363.95,
+        "matches": 5250,
+        "training_sessions": 3355.6,
+        "upgrades": 112.4,
+        "merchant_donations": 747.5
+      },
+      "avg_per_day": {
+        "game_cash_awarded": 888367.5933333334,
+        "merchant_cash_awarded": 12500.0,
+        "cash_emissions": 900867.5933333334,
+        "legacy_direct_daily_quest_cash_avoided": 275000.0,
+        "operating_sinks": 169853.19,
+        "upgrade_sinks": 436224.345,
+        "withdrawal_gross_removed": 6324.456666666666,
+        "withdrawal_fees": 1453.47,
+        "net_paid_out": 4870.986666666667,
+        "retained_cash": 346449.0683333333,
+        "external_purchase_cash_equiv": 313083.3333333333,
+        "net_cash_created_after_sinks_and_withdrawals": 287012.13166666665
+      },
+      "avg_per_player_per_day": {
+        "game_cash_awarded": 8883.675933333334,
+        "merchant_cash_awarded": 125.0,
+        "cash_emissions": 9008.675933333334,
+        "legacy_direct_daily_quest_cash_avoided": 2750.0,
+        "withdrawal_gross_removed": 63.24456666666666,
+        "withdrawal_fees": 14.5347,
+        "net_paid_out": 48.70986666666667,
+        "net_cash_created_after_sinks_and_withdrawals": 2870.1213166666666,
+        "external_purchase_cash_equiv": 3130.833333333333
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 67.43843484835016,
+        "external_purchase_to_net_paid_ratio": 64.2751365910808,
+        "daily_net_paid_p50": 4535.7,
+        "daily_net_paid_p95": 7892.950000000001,
+        "daily_gross_withdrawal_p50": 5933.0,
+        "daily_gross_withdrawal_p95": 9784.0,
+        "daily_net_emission_p50": 277820.95,
+        "daily_net_emission_p95": 495918.3,
+        "daily_external_purchase_p50": 312500.0,
+        "daily_external_purchase_p95": 375000.0,
+        "economy_multiplier_avg": 0.7801666666666667,
+        "treasury_reserve_p50": 1227727.75,
+        "treasury_reserve_p95": 2240358.35
+      }
+    },
+    {
+      "players": 500,
+      "days": 30,
+      "trials": 10,
+      "cohorts": {
+        "extractor": 250,
+        "free_grinder": 125,
+        "payer_holder": 125
+      },
+      "avg_totals": {
+        "game_cash_awarded": 131192518.0,
+        "merchant_cash_awarded": 1875000.0,
+        "cash_emissions": 133067518.0,
+        "legacy_direct_daily_quest_cash_avoided": 41250000,
+        "operating_sinks": 25519407.5,
+        "upgrade_sinks": 64611044.55,
+        "withdrawal_gross_removed": 933630.3725,
+        "withdrawal_fees": 208608.3,
+        "net_paid_out": 725022.0725,
+        "retained_cash": 50629106.4775,
+        "external_purchase_cash_equiv": 46838250.0,
+        "net_cash_created_after_sinks_and_withdrawals": 41794827.2775,
+        "matches": 26250,
+        "training_sessions": 16550.4,
+        "upgrades": 561.8,
+        "merchant_donations": 3685.2
+      },
+      "avg_per_day": {
+        "game_cash_awarded": 4373083.933333334,
+        "merchant_cash_awarded": 62500.0,
+        "cash_emissions": 4435583.933333334,
+        "legacy_direct_daily_quest_cash_avoided": 1375000.0,
+        "operating_sinks": 850646.9166666666,
+        "upgrade_sinks": 2153701.485,
+        "withdrawal_gross_removed": 31121.01241666667,
+        "withdrawal_fees": 6953.61,
+        "net_paid_out": 24167.402416666668,
+        "retained_cash": 1687636.8825833334,
+        "external_purchase_cash_equiv": 1561275.0,
+        "net_cash_created_after_sinks_and_withdrawals": 1393160.90925
+      },
+      "avg_per_player_per_day": {
+        "game_cash_awarded": 8746.167866666667,
+        "merchant_cash_awarded": 125.0,
+        "cash_emissions": 8871.167866666667,
+        "legacy_direct_daily_quest_cash_avoided": 2750.0,
+        "withdrawal_gross_removed": 62.24202483333334,
+        "withdrawal_fees": 13.907219999999999,
+        "net_paid_out": 48.33480483333334,
+        "net_cash_created_after_sinks_and_withdrawals": 2786.3218185,
+        "external_purchase_cash_equiv": 3122.55
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 67.88964106928033,
+        "external_purchase_to_net_paid_ratio": 64.60251594616108,
+        "daily_net_paid_p50": 23507.5625,
+        "daily_net_paid_p95": 31983.100000000002,
+        "daily_gross_withdrawal_p50": 30337.1875,
+        "daily_gross_withdrawal_p95": 39874.6375,
+        "daily_net_emission_p50": 1349958.9,
+        "daily_net_emission_p95": 2024753.0,
+        "daily_external_purchase_p50": 1560000.0,
+        "daily_external_purchase_p95": 1692500.0,
+        "economy_multiplier_avg": 0.7615,
+        "treasury_reserve_p50": 6199672.925,
+        "treasury_reserve_p95": 11152620.412500001
+      }
+    },
+    {
+      "players": 1000,
+      "days": 30,
+      "trials": 10,
+      "cohorts": {
+        "extractor": 500,
+        "free_grinder": 250,
+        "payer_holder": 250
+      },
+      "avg_totals": {
+        "game_cash_awarded": 258660901.5,
+        "merchant_cash_awarded": 3750000.0,
+        "cash_emissions": 262410901.5,
+        "legacy_direct_daily_quest_cash_avoided": 82500000,
+        "operating_sinks": 50920714.3,
+        "upgrade_sinks": 129040299.55,
+        "withdrawal_gross_removed": 1849448.7775,
+        "withdrawal_fees": 411826.3,
+        "net_paid_out": 1437622.4775,
+        "retained_cash": 98272303.77250001,
+        "external_purchase_cash_equiv": 93684750.0,
+        "net_cash_created_after_sinks_and_withdrawals": 80188612.57249999,
+        "matches": 52500,
+        "training_sessions": 33005.8,
+        "upgrades": 1130.3,
+        "merchant_donations": 7339.6
+      },
+      "avg_per_day": {
+        "game_cash_awarded": 8622030.05,
+        "merchant_cash_awarded": 125000.0,
+        "cash_emissions": 8747030.05,
+        "legacy_direct_daily_quest_cash_avoided": 2750000.0,
+        "operating_sinks": 1697357.1433333333,
+        "upgrade_sinks": 4301343.318333333,
+        "withdrawal_gross_removed": 61648.292583333336,
+        "withdrawal_fees": 13727.543333333333,
+        "net_paid_out": 47920.74925,
+        "retained_cash": 3275743.4590833336,
+        "external_purchase_cash_equiv": 3122825.0,
+        "net_cash_created_after_sinks_and_withdrawals": 2672953.752416666
+      },
+      "avg_per_player_per_day": {
+        "game_cash_awarded": 8622.030050000001,
+        "merchant_cash_awarded": 125.0,
+        "cash_emissions": 8747.030050000001,
+        "legacy_direct_daily_quest_cash_avoided": 2750.0,
+        "withdrawal_gross_removed": 61.64829258333334,
+        "withdrawal_fees": 13.727543333333333,
+        "net_paid_out": 47.92074925,
+        "net_cash_created_after_sinks_and_withdrawals": 2672.9537524166662,
+        "external_purchase_cash_equiv": 3122.825
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 68.73679375321227,
+        "external_purchase_to_net_paid_ratio": 65.16644770532255,
+        "daily_net_paid_p50": 47700.025,
+        "daily_net_paid_p95": 58126.325,
+        "daily_gross_withdrawal_p50": 61257.95,
+        "daily_gross_withdrawal_p95": 72514.4,
+        "daily_net_emission_p50": 2600550.7875,
+        "daily_net_emission_p95": 3379955.15,
+        "daily_external_purchase_p50": 3120000.0,
+        "daily_external_purchase_p95": 3325000.0,
+        "economy_multiplier_avg": 0.7568333333333334,
+        "treasury_reserve_p50": 12585828.2875,
+        "treasury_reserve_p95": 22324203.937499993
+      }
+    },
+    {
+      "players": 5000,
+      "days": 30,
+      "trials": 10,
+      "cohorts": {
+        "extractor": 2500,
+        "free_grinder": 1250,
+        "payer_holder": 1250
+      },
+      "avg_totals": {
+        "game_cash_awarded": 1297973803.6,
+        "merchant_cash_awarded": 18750000.0,
+        "cash_emissions": 1316723803.6,
+        "legacy_direct_daily_quest_cash_avoided": 412500000,
+        "operating_sinks": 254720836.2,
+        "upgrade_sinks": 647385988.825,
+        "withdrawal_gross_removed": 9211067.272499999,
+        "withdrawal_fees": 2064482.1,
+        "net_paid_out": 7146585.172499999,
+        "retained_cash": 493413927.8025,
+        "external_purchase_cash_equiv": 469183750.0,
+        "net_cash_created_after_sinks_and_withdrawals": 403341429.2024998,
+        "matches": 262500,
+        "training_sessions": 165378.3,
+        "upgrades": 5650.9,
+        "merchant_donations": 36725.6
+      },
+      "avg_per_day": {
+        "game_cash_awarded": 43265793.45333333,
+        "merchant_cash_awarded": 625000.0,
+        "cash_emissions": 43890793.45333333,
+        "legacy_direct_daily_quest_cash_avoided": 13750000.0,
+        "operating_sinks": 8490694.54,
+        "upgrade_sinks": 21579532.960833333,
+        "withdrawal_gross_removed": 307035.57574999996,
+        "withdrawal_fees": 68816.07,
+        "net_paid_out": 238219.50574999998,
+        "retained_cash": 16447130.92675,
+        "external_purchase_cash_equiv": 15639458.333333334,
+        "net_cash_created_after_sinks_and_withdrawals": 13444714.306749994
+      },
+      "avg_per_player_per_day": {
+        "game_cash_awarded": 8653.158690666667,
+        "merchant_cash_awarded": 125.0,
+        "cash_emissions": 8778.158690666667,
+        "legacy_direct_daily_quest_cash_avoided": 2750.0,
+        "withdrawal_gross_removed": 61.40711514999999,
+        "withdrawal_fees": 13.763214000000001,
+        "net_paid_out": 47.64390115,
+        "net_cash_created_after_sinks_and_withdrawals": 2688.9428613499986,
+        "external_purchase_cash_equiv": 3127.891666666667
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 68.66825864717741,
+        "external_purchase_to_net_paid_ratio": 65.65145991758627,
+        "daily_net_paid_p50": 235426.0625,
+        "daily_net_paid_p95": 279902.91250000003,
+        "daily_gross_withdrawal_p50": 303042.2125,
+        "daily_gross_withdrawal_p95": 359248.91250000003,
+        "daily_net_emission_p50": 13087271.7875,
+        "daily_net_emission_p95": 17657799.35,
+        "daily_external_purchase_p50": 15630000.0,
+        "daily_external_purchase_p95": 16047500.0,
+        "economy_multiplier_avg": 0.759,
+        "treasury_reserve_p50": 63147241.5125,
+        "treasury_reserve_p95": 111984723.25000001
+      }
+    },
+    {
+      "players": 10000,
+      "days": 30,
+      "trials": 10,
+      "cohorts": {
+        "extractor": 5000,
+        "free_grinder": 2500,
+        "payer_holder": 2500
+      },
+      "avg_totals": {
+        "game_cash_awarded": 2593404444.1,
+        "merchant_cash_awarded": 37500000.0,
+        "cash_emissions": 2630904444.1,
+        "legacy_direct_daily_quest_cash_avoided": 825000000,
+        "operating_sinks": 509465517.8,
+        "upgrade_sinks": 1291876675.075,
+        "withdrawal_gross_removed": 18419516.55375,
+        "withdrawal_fees": 4132559.8,
+        "net_paid_out": 14286956.75375,
+        "retained_cash": 986813240.27125,
+        "external_purchase_cash_equiv": 937338500.0,
+        "net_cash_created_after_sinks_and_withdrawals": 807010174.8712499,
+        "matches": 525000,
+        "training_sessions": 330454.4,
+        "upgrades": 11262.2,
+        "merchant_donations": 73468.1
+      },
+      "avg_per_day": {
+        "game_cash_awarded": 86446814.80333333,
+        "merchant_cash_awarded": 1250000.0,
+        "cash_emissions": 87696814.80333333,
+        "legacy_direct_daily_quest_cash_avoided": 27500000.0,
+        "operating_sinks": 16982183.926666666,
+        "upgrade_sinks": 43062555.83583333,
+        "withdrawal_gross_removed": 613983.885125,
+        "withdrawal_fees": 137751.99333333332,
+        "net_paid_out": 476231.8917916667,
+        "retained_cash": 32893774.675708335,
+        "external_purchase_cash_equiv": 31244616.666666668,
+        "net_cash_created_after_sinks_and_withdrawals": 26900339.162374996
+      },
+      "avg_per_player_per_day": {
+        "game_cash_awarded": 8644.681480333333,
+        "merchant_cash_awarded": 125.0,
+        "cash_emissions": 8769.681480333333,
+        "legacy_direct_daily_quest_cash_avoided": 2750.0,
+        "withdrawal_gross_removed": 61.398388512500006,
+        "withdrawal_fees": 13.775199333333331,
+        "net_paid_out": 47.623189179166665,
+        "net_cash_created_after_sinks_and_withdrawals": 2690.0339162374994,
+        "external_purchase_cash_equiv": 3124.4616666666666
+      },
+      "risk_metrics": {
+        "sink_coverage_pct": 68.62563012213964,
+        "external_purchase_to_net_paid_ratio": 65.607988891964,
+        "daily_net_paid_p50": 469600.30000000016,
+        "daily_net_paid_p95": 513586.97500000003,
+        "daily_gross_withdrawal_p50": 604875.3624999997,
+        "daily_gross_withdrawal_p95": 652543.9749999999,
+        "daily_net_emission_p50": 26233251.8875,
+        "daily_net_emission_p95": 28860530.7125,
+        "daily_external_purchase_p50": 31235000.0,
+        "daily_external_purchase_p95": 31872500.0,
+        "economy_multiplier_avg": 0.7581666666666667,
+        "treasury_reserve_p50": 126505695.28749998,
+        "treasury_reserve_p95": 223540745.58749995
+      }
+    }
+  ]
+}

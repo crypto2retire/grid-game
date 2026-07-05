@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { debitCurrency } from '../economy/currency.service';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
+import { ECONOMY_BALANCE_POLICY } from '../economy/balance.service';
 
 // ─── Training Package Catalog ───
 
@@ -237,6 +238,16 @@ export async function startTraining(input: TrainingInput) {
       // Cash also goes to treasury (no burn for cash)
       await processTreasuryInflow(tx, 'CASH', package_.costCash, 'TRAINING_PURCHASE', packageId);
     }
+
+    const targetPlayerIds = targetPlayers.map((player: any) => player.id);
+    await tx.playerItem.updateMany({
+      where: {
+        playerId: { in: targetPlayerIds },
+        equipped: true,
+        durability: { gte: ECONOMY_BALANCE_POLICY.trainingEquipmentWear },
+      },
+      data: { durability: { decrement: ECONOMY_BALANCE_POLICY.trainingEquipmentWear } },
+    });
 
     // Apply stat improvements immediately
     const trainingRecords = [];

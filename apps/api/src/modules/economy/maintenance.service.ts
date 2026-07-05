@@ -5,11 +5,11 @@ import { logger } from '../../config/logger';
 // ─── Stadium / Venue Maintenance ───
 
 const BASE_VENUE_MAINTENANCE: Record<string, number> = {
-  PARK_FIELD: 250,
-  COMMUNITY_FIELD: 500,
-  SMALL_STADIUM: 1000,
-  REGIONAL_STADIUM: 2500,
-  PRO_STADIUM: 5000,
+  PARK_FIELD: 325,
+  COMMUNITY_FIELD: 650,
+  SMALL_STADIUM: 1300,
+  REGIONAL_STADIUM: 3250,
+  PRO_STADIUM: 6500,
 };
 
 const STADIUM_REPAIR_COSTS: Record<string, { min: number; max: number }> = {
@@ -38,13 +38,13 @@ function rollStadiumRepair(tier: string, condition: number): { needed: boolean; 
 // ─── Transport Maintenance ───
 
 const BASE_TRANSPORT_MAINTENANCE: Record<string, number> = {
-  CARPOOL: 100,
-  USED_BUS: 200,
-  TEAM_BUS: 400,
-  LUXURY_COACH: 800,
-  CHARTER_FLIGHT: 2000,
-  TEAM_AIRCRAFT: 5000,
-  CUSTOM_JET: 10000,
+  CARPOOL: 130,
+  USED_BUS: 260,
+  TEAM_BUS: 520,
+  LUXURY_COACH: 1040,
+  CHARTER_FLIGHT: 2600,
+  TEAM_AIRCRAFT: 6500,
+  CUSTOM_JET: 13000,
 };
 
 const TRANSPORT_REPAIR_MULTIPLIER: Record<string, number> = {
@@ -161,15 +161,21 @@ export async function processWeeklyMaintenance(): Promise<{
       }
     }
 
-    // 3. Player wages
+    // 3. Player wages and medical staff
     const playerCount = await prisma.teamPlayer.count({ where: { teamId: team.id } });
     const wageMap: Record<string, number> = {
-      STATE_COLLEGE: 50, MID_COLLEGE: 100, TOP_COLLEGE: 200,
-      REGIONAL_PRO: 500, PRO_ENTRY: 1000, PRO_ELITE: 2500,
+      STATE_COLLEGE: 65, MID_COLLEGE: 130, TOP_COLLEGE: 260,
+      REGIONAL_PRO: 650, PRO_ENTRY: 1300, PRO_ELITE: 3250,
     };
-    const wagePerPlayer = wageMap[team.tier] || 50;
+    const medicalStaffMap: Record<string, number> = {
+      STATE_COLLEGE: 150, MID_COLLEGE: 300, TOP_COLLEGE: 500,
+      REGIONAL_PRO: 950, PRO_ENTRY: 1600, PRO_ELITE: 3200,
+    };
+    const wagePerPlayer = wageMap[team.tier] || 65;
     const totalWages = playerCount * wagePerPlayer;
+    const medicalStaff = medicalStaffMap[team.tier] || 150;
     regularCosts.push({ type: 'PLAYER_WAGES', amount: totalWages, description: `${playerCount} players × ${wagePerPlayer} CASH` });
+    regularCosts.push({ type: 'MEDICAL_STAFF', amount: medicalStaff, description: `${team.tier} medical/recovery support` });
 
     const totalRegular = regularCosts.reduce((s, c) => s + c.amount, 0);
     const totalRepairs = repairs.reduce((s, r) => s + r.amount, 0);

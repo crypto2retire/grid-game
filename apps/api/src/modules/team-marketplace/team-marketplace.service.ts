@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { creditCurrency, debitCurrency } from '../economy/currency.service';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
+import { ECONOMY_BALANCE_POLICY } from '../economy/balance.service';
 
 const BURN_PCT = 0.05; // 5% burned (static)
 const COOLDOWN_DAYS = 90; // 90-day price floor after initial purchase
@@ -74,8 +75,25 @@ export async function listTeamForSale(
   const foundationTax = Math.floor(price * taxRate);
   const burnAmount = Math.floor(price * BURN_PCT);
   const sellerReceives = price - foundationTax - burnAmount;
+  const listingFee = Math.max(1, Math.floor(price * ECONOMY_BALANCE_POLICY.marketplaceListingFeeRate));
+
+  const sellerWallet = await prisma.wallet.findUnique({ where: { userId: sellerId } });
+  if (!sellerWallet) throw new Error('Seller wallet not found');
+  if (sellerWallet.cash < listingFee) {
+    throw new Error(`Listing fee requires ${listingFee.toLocaleString()} CASH`);
+  }
 
   return prisma.$transaction(async (tx: any) => {
+    await debitCurrency(tx, {
+      userId: sellerId,
+      currency: 'CASH',
+      amount: listingFee,
+      reason: 'MARKETPLACE_TEAM_LISTING_FEE',
+      sourceType: 'MARKETPLACE_TEAM',
+      sourceId: teamId,
+      metadata: { teamId, price, currency, feeRate: ECONOMY_BALANCE_POLICY.marketplaceListingFeeRate },
+    });
+
     // Mark team as for sale
     await tx.team.update({
       where: { id: teamId },
@@ -106,6 +124,7 @@ export async function listTeamForSale(
       daysHeld,
       taxRate: parseFloat((taxRate * 100).toFixed(1)),
       taxTier: getTaxTierLabel(daysHeld),
+      listingFee,
       foundationTax,
       burnAmount,
       sellerReceives,

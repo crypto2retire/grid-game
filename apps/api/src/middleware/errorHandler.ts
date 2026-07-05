@@ -18,8 +18,9 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  if (err instanceof AppError) {
-    res.status(err.statusCode).json({
+  const statusCode = (err as any).statusCode;
+  if (err instanceof AppError || (Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600)) {
+    res.status(statusCode || (err as AppError).statusCode).json({
       status: 'error',
       message: err.message,
     });
