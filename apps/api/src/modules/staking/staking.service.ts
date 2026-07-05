@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database';
 import { creditCurrency, debitCurrency } from '../economy/currency.service';
+import { AppError } from '../../middleware/errorHandler';
 
 const COOLDOWN_HOURS = 24;
 
@@ -155,27 +156,60 @@ export async function stakeGrid(userId: string, amount: number) {
  * Claim accrued rewards without unstaking.
  */
 export async function claimRewards(userId: string) {
-  const stake = await getUserStake(userId);
-  if (!stake) {
-    throw new Error('No active stake found');
-  }
-
-  const pool = await getPool();
-  const claimable = calculateClaimableRewards(stake, pool);
-
-  if (claimable <= 0) {
-    return { claimed: 0, stake };
-  }
-
   return prisma.$transaction(async (tx: any) => {
-    // Deduct from pool
-    await tx.rewardsPool.update({
+    const stake = await tx.userStake.findFirst({
+      where: { userId, status: 'ACTIVE' },
+    });
+    if (!stake) {
+      throw new Error('No active stake found');
+    }
+
+    const pool = await tx.rewardsPool.upsert({
       where: { id: 'main' },
+      create: {
+        id: 'main',
+        totalStaked: 0,
+        rewardRatePerDay: 0.005,
+        totalRewardsDistributed: 0,
+        totalRewardsFunded: 0,
+        lastDistributionAt: new Date(),
+        active: true,
+      },
+      update: {},
+    });
+
+    const claimable = calculateClaimableRewards(stake, pool);
+
+    if (claimable <= 0) {
+      return { claimed: 0, stake };
+    }
+
+    const now = new Date();
+    const locked = await tx.userStake.updateMany({
+      where: {
+        id: stake.id,
+        lastClaimedAt: stake.lastClaimedAt,
+        status: 'ACTIVE',
+      },
+      data: {
+        lastClaimedAt: now,
+        totalClaimed: { increment: claimable },
+      },
+    });
+    if (locked.count !== 1) {
+      throw new AppError(409, 'Rewards already claimed');
+    }
+
+    const funded = await tx.rewardsPool.updateMany({
+      where: { id: 'main', totalRewardsFunded: { gte: claimable } },
       data: {
         totalRewardsFunded: { decrement: claimable },
         totalRewardsDistributed: { increment: claimable },
       },
     });
+    if (funded.count !== 1) {
+      throw new AppError(409, 'Rewards pool has insufficient funded rewards');
+    }
 
     // Add to wallet
     await creditCurrency(tx, {
@@ -188,13 +222,8 @@ export async function claimRewards(userId: string) {
       metadata: { amount: claimable, poolId: 'main' },
     });
 
-    // Update stake
-    const updatedStake = await tx.userStake.update({
+    const updatedStake = await tx.userStake.findUnique({
       where: { id: stake.id },
-      data: {
-        lastClaimedAt: new Date(),
-        totalClaimed: { increment: claimable },
-      },
     });
 
     return { claimed: claimable, stake: updatedStake };
@@ -223,36 +252,74 @@ export async function requestUnstake(userId: string) {
  * Complete unstake after cooldown. Returns DYN to wallet.
  */
 export async function completeUnstake(userId: string) {
-  const stake = await prisma.userStake.findFirst({
-    where: { userId, status: 'UNSTAKING' },
-  });
-
-  if (!stake) {
-    throw new Error('No unstaking request found');
-  }
-
-  const hoursSinceRequest =
-    (new Date().getTime() - new Date(stake.unstakeRequestedAt!).getTime()) /
-    (1000 * 60 * 60);
-
-  if (hoursSinceRequest < COOLDOWN_HOURS) {
-    const remainingHours = Math.ceil(COOLDOWN_HOURS - hoursSinceRequest);
-    throw new Error(`Unstake cooldown: ${remainingHours} hours remaining`);
-  }
-
-  const pool = await getPool();
-  const claimable = calculateClaimableRewards(stake, pool);
-
   return prisma.$transaction(async (tx: any) => {
+    const stake = await tx.userStake.findFirst({
+      where: { userId, status: 'UNSTAKING' },
+    });
+
+    if (!stake) {
+      throw new Error('No unstaking request found');
+    }
+
+    const hoursSinceRequest =
+      (new Date().getTime() - new Date(stake.unstakeRequestedAt!).getTime()) /
+      (1000 * 60 * 60);
+
+    if (hoursSinceRequest < COOLDOWN_HOURS) {
+      const remainingHours = Math.ceil(COOLDOWN_HOURS - hoursSinceRequest);
+      throw new Error(`Unstake cooldown: ${remainingHours} hours remaining`);
+    }
+
+    const pool = await tx.rewardsPool.upsert({
+      where: { id: 'main' },
+      create: {
+        id: 'main',
+        totalStaked: 0,
+        rewardRatePerDay: 0.005,
+        totalRewardsDistributed: 0,
+        totalRewardsFunded: 0,
+        lastDistributionAt: new Date(),
+        active: true,
+      },
+      update: {},
+    });
+    const claimable = calculateClaimableRewards(stake, pool);
+
+    const locked = await tx.userStake.updateMany({
+      where: {
+        id: stake.id,
+        status: 'UNSTAKING',
+        unstakeRequestedAt: stake.unstakeRequestedAt,
+      },
+      data: {
+        status: 'COMPLETED',
+        totalClaimed: { increment: claimable },
+      },
+    });
+    if (locked.count !== 1) {
+      throw new AppError(409, 'Unstake already completed');
+    }
+
     // Claim any pending rewards first
     if (claimable > 0) {
-      await tx.rewardsPool.update({
-        where: { id: 'main' },
+      const funded = await tx.rewardsPool.updateMany({
+        where: { id: 'main', totalRewardsFunded: { gte: claimable } },
         data: {
           totalRewardsFunded: { decrement: claimable },
           totalRewardsDistributed: { increment: claimable },
         },
       });
+      if (funded.count !== 1) {
+        throw new AppError(409, 'Rewards pool has insufficient funded rewards');
+      }
+    }
+
+    const staked = await tx.rewardsPool.updateMany({
+      where: { id: 'main', totalStaked: { gte: stake.amount } },
+      data: { totalStaked: { decrement: stake.amount } },
+    });
+    if (staked.count !== 1) {
+      throw new AppError(409, 'Rewards pool has insufficient staked balance');
     }
 
     // Return stake + rewards to wallet
@@ -267,19 +334,8 @@ export async function completeUnstake(userId: string) {
       metadata: { stakeAmount: stake.amount, rewards: claimable, poolId: 'main' },
     });
 
-    // Update pool
-    await tx.rewardsPool.update({
-      where: { id: 'main' },
-      data: { totalStaked: { decrement: stake.amount } },
-    });
-
-    // Mark stake completed
-    const updatedStake = await tx.userStake.update({
+    const updatedStake = await tx.userStake.findUnique({
       where: { id: stake.id },
-      data: {
-        status: 'COMPLETED',
-        totalClaimed: { increment: claimable },
-      },
     });
 
     return { returned: totalReturn, stakeAmount: stake.amount, rewards: claimable, stake: updatedStake };

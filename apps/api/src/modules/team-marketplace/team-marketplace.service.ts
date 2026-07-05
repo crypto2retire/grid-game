@@ -2,6 +2,7 @@ import { prisma } from '../../config/database';
 import { creditCurrency, debitCurrency } from '../economy/currency.service';
 import { processTreasuryInflow, processBurn } from '../treasury/treasury.service';
 import { ECONOMY_BALANCE_POLICY } from '../economy/balance.service';
+import { AppError } from '../../middleware/errorHandler';
 
 const BURN_PCT = 0.05; // 5% burned (static)
 const COOLDOWN_DAYS = 90; // 90-day price floor after initial purchase
@@ -136,35 +137,29 @@ export async function listTeamForSale(
  * Buy a team from the marketplace (player-to-player).
  */
 export async function buyTeamFromMarketplace(buyerId: string, listingId: string) {
-  const listing = await prisma.teamMarketplaceListing.findFirst({
-    where: { id: listingId, status: 'ACTIVE' },
-    include: { team: true, seller: { include: { wallet: true } } },
-  });
-
-  if (!listing) {
-    throw new Error('Listing not found or no longer active');
-  }
-
-  if (listing.sellerId === buyerId) {
-    throw new Error('Cannot buy your own team');
-  }
-
-  const buyerWallet = await prisma.wallet.findUnique({ where: { userId: buyerId } });
-  if (!buyerWallet) {
-    throw new Error('Buyer wallet not found');
-  }
-
-  const price = listing.price;
-  const currency = listing.currency as 'DYN' | 'SOL';
-
-  if (currency === 'DYN' && buyerWallet.dynTokens < price) {
-    throw new Error(`Insufficient DYN. Need ${price.toLocaleString()} DYN`);
-  }
-  if (currency === 'SOL' && buyerWallet.solBalance < price) {
-    throw new Error(`Insufficient SOL. Need ${price.toLocaleString()} SOL`);
-  }
-
   return prisma.$transaction(async (tx: any) => {
+    const claimed = await tx.teamMarketplaceListing.updateMany({
+      where: { id: listingId, status: 'ACTIVE' },
+      data: { status: 'PENDING_SETTLEMENT' },
+    });
+    if (claimed.count !== 1) {
+      throw new AppError(409, 'Listing already sold');
+    }
+
+    const listing = await tx.teamMarketplaceListing.findUnique({
+      where: { id: listingId },
+      include: { team: true, seller: { include: { wallet: true } } },
+    });
+    if (!listing) {
+      throw new AppError(404, 'Listing not found');
+    }
+    if (listing.sellerId === buyerId) {
+      throw new AppError(400, 'Cannot buy your own team');
+    }
+
+    const price = listing.price;
+    const currency = listing.currency as 'DYN' | 'SOL';
+
     // Deduct from buyer. Marketplace transfers are token movements, not
     // lifetime earned/spent for the luck system.
     await debitCurrency(tx, {
@@ -217,7 +212,6 @@ export async function buyTeamFromMarketplace(buyerId: string, listingId: string)
       },
     });
 
-    // Update listing
     const updatedListing = await tx.teamMarketplaceListing.update({
       where: { id: listingId },
       data: { status: 'SOLD', soldAt: new Date() },

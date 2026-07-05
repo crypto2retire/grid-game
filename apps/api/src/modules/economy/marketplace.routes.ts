@@ -119,25 +119,26 @@ router.post(
     const listingId = routeParam(req.params.id, 'id');
     const userId = req.user!.id;
 
-    const listing = await prisma.marketplaceListing.findUnique({
-      where: { id: listingId },
-      include: { player: true },
-    });
-
-    if (!listing || listing.status !== 'ACTIVE') {
-      throw new AppError(404, 'Listing not found or already sold');
-    }
-
-    if (listing.sellerId === userId) {
-      throw new AppError(400, 'Cannot buy your own listing');
-    }
-
-    const buyerWallet = await prisma.wallet.findUnique({ where: { userId } });
-    if (!buyerWallet || buyerWallet.cash < listing.price) {
-      throw new AppError(400, 'Insufficient CASH');
-    }
-
     await prisma.$transaction(async (tx: any) => {
+      const claimed = await tx.marketplaceListing.updateMany({
+        where: { id: listingId, status: 'ACTIVE' },
+        data: { status: 'PENDING_SETTLEMENT' },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError(409, 'Listing already sold');
+      }
+
+      const listing = await tx.marketplaceListing.findUnique({
+        where: { id: listingId },
+        include: { player: true },
+      });
+      if (!listing) {
+        throw new AppError(404, 'Listing not found');
+      }
+      if (listing.sellerId === userId) {
+        throw new AppError(400, 'Cannot buy your own listing');
+      }
+
       await settleMarketplaceSale(tx, {
         buyerId: userId,
         sellerId: listing.sellerId,
@@ -147,10 +148,6 @@ router.post(
         sourceType: 'MARKETPLACE_LISTING',
         sourceId: listingId,
         metadata: { playerId: listing.playerId, sportId: listing.sportId, sellerId: listing.sellerId },
-      });
-      await tx.marketplaceListing.update({
-        where: { id: listingId },
-        data: { status: 'SOLD', soldAt: new Date() },
       });
       // Remove player from seller's team only (not all teams)
       await tx.teamPlayer.deleteMany({
@@ -169,6 +166,10 @@ router.post(
       await tx.player.update({
         where: { id: listing.playerId },
         data: { lastSoldPrice: listing.price, priceUpdatedAt: new Date() },
+      });
+      await tx.marketplaceListing.update({
+        where: { id: listingId },
+        data: { status: 'SOLD', soldAt: new Date() },
       });
     });
 
@@ -289,12 +290,23 @@ router.post(
       throw new AppError(403, 'You do not own this listing');
     }
 
-    const buyerWallet = await prisma.wallet.findUnique({ where: { userId: offer.buyerId } });
-    if (!buyerWallet || buyerWallet.cash < offer.price) {
-      throw new AppError(400, 'Buyer has insufficient CASH');
-    }
-
     await prisma.$transaction(async (tx: any) => {
+      const claimed = await tx.marketplaceListing.updateMany({
+        where: { id: offer.listingId, status: 'ACTIVE' },
+        data: { status: 'PENDING_SETTLEMENT' },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError(409, 'Listing already sold');
+      }
+
+      const accepted = await tx.marketplaceOffer.updateMany({
+        where: { id: offerId, status: 'PENDING' },
+        data: { status: 'ACCEPTED', respondedAt: new Date() },
+      });
+      if (accepted.count !== 1) {
+        throw new AppError(409, 'Offer already handled');
+      }
+
       await settleMarketplaceSale(tx, {
         buyerId: offer.buyerId,
         sellerId: userId,
@@ -304,14 +316,6 @@ router.post(
         sourceType: 'MARKETPLACE_OFFER',
         sourceId: offerId,
         metadata: { listingId: offer.listingId, playerId: offer.listing.playerId, sportId: offer.listing.sportId },
-      });
-      await tx.marketplaceOffer.update({
-        where: { id: offerId },
-        data: { status: 'ACCEPTED' },
-      });
-      await tx.marketplaceListing.update({
-        where: { id: offer.listingId },
-        data: { status: 'SOLD', soldAt: new Date() },
       });
       // Remove player from seller's team only
       await tx.teamPlayer.deleteMany({
@@ -330,6 +334,10 @@ router.post(
       await tx.player.update({
         where: { id: offer.listing.playerId },
         data: { lastSoldPrice: offer.price, priceUpdatedAt: new Date() },
+      });
+      await tx.marketplaceListing.update({
+        where: { id: offer.listingId },
+        data: { status: 'SOLD', soldAt: new Date() },
       });
     });
 

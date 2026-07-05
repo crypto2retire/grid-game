@@ -142,23 +142,25 @@ router.post(
     const listingId = req.params.id;
     const userId = req.user!.id;
 
-    const listing = await prisma.marketplaceItemListing.findFirst({
-      where: { id: listingId, status: 'ACTIVE' },
-      include: {
-        seller: true,
-        playerItem: { include: { item: true, player: true } },
-      },
-    });
-    if (!listing) throw new AppError(404, 'Listing not found or already sold');
-    if (listing.sellerId === userId) throw new AppError(400, 'Cannot buy your own item');
-
-    const wallet = await prisma.wallet.findUnique({ where: { userId } });
-    if (!wallet) throw new AppError(404, 'Wallet not found');
-    if (wallet.cash < listing.price) {
-      throw new AppError(400, `Insufficient CASH. Need ${listing.price.toLocaleString()} CASH`);
-    }
-
     const result = await prisma.$transaction(async (tx: any) => {
+      const claimed = await tx.marketplaceItemListing.updateMany({
+        where: { id: listingId, status: 'ACTIVE' },
+        data: { status: 'PENDING_SETTLEMENT' },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError(409, 'Listing already sold');
+      }
+
+      const listing = await tx.marketplaceItemListing.findUnique({
+        where: { id: listingId },
+        include: {
+          seller: true,
+          playerItem: { include: { item: true, player: true } },
+        },
+      });
+      if (!listing) throw new AppError(404, 'Listing not found');
+      if (listing.sellerId === userId) throw new AppError(400, 'Cannot buy your own item');
+
       await settleMarketplaceSale(tx, {
         buyerId: userId,
         sellerId: listing.sellerId,
@@ -168,12 +170,6 @@ router.post(
         sourceType: 'MARKETPLACE_ITEM',
         sourceId: listingId,
         metadata: { itemName: listing.playerItem.item.name, sellerId: listing.sellerId },
-      });
-
-      // Mark listing as sold
-      const soldListing = await tx.marketplaceItemListing.update({
-        where: { id: listingId },
-        data: { status: 'SOLD', soldAt: new Date() },
       });
 
       // Transfer PlayerItem to buyer's team player
@@ -236,13 +232,18 @@ router.post(
         }
       }
 
+      const soldListing = await tx.marketplaceItemListing.update({
+        where: { id: listingId },
+        data: { status: 'SOLD', soldAt: new Date() },
+      });
+
       return { listing: soldListing, playerItem: transferredItem };
     });
 
     res.json({
       status: 'success',
       data: result,
-      message: `Purchased ${listing.playerItem.item.name} from the marketplace`,
+      message: `Purchased ${result.playerItem.item.name} from the marketplace`,
     });
   })
 );

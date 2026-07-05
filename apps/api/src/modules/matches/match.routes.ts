@@ -58,6 +58,14 @@ router.post(
       throw new AppError(400, `Cannot schedule cross-sport match: ${homeTeam.sportId} vs ${awayTeam.sportId}`);
     }
 
+    // Immediate scheduling can consume the away team's daily slot. To prevent
+    // griefing, users may only schedule instant matches against AI teams or
+    // teams they also own. Human-vs-human challenges need an accept/queue flow
+    // before the away team's availability is consumed.
+    if (awayTeam.ownerId !== userId && !awayTeam.isAI) {
+      throw new AppError(403, 'Cannot schedule an immediate match against another player-owned team; send a challenge instead');
+    }
+
     // Enforce 1 match per day per team (1 real day = 1 in-game week)
     const homeCanPlay = await canTeamPlayToday(homeTeam.id);
     if (!homeCanPlay) {
