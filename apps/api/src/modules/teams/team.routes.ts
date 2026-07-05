@@ -91,6 +91,12 @@ router.post(
           operatingCost: 100,
           fatigueReduction: 0,
           prestige: 0,
+          condition: 70,
+          speed: 1,
+          capacity: 12,
+          upgradeCount: 0,
+          maxUpgrade: 5,
+          tripsTaken: 0,
         },
       });
 
@@ -506,6 +512,12 @@ router.post(
           operatingCost: input.operatingCost,
           fatigueReduction: input.fatigueReduction,
           prestige: input.prestige,
+          condition: 70,
+          speed: 1,
+          capacity: 12,
+          upgradeCount: 0,
+          maxUpgrade: 5,
+          tripsTaken: 0,
         },
       });
 
@@ -765,15 +777,17 @@ router.post(
 );
 
 // POST /api/teams/transportation/:transportId/upgrade
+// POST /api/teams/:id/transportation/:transportId/upgrade
 router.post(
-  '/transportation/:transportId/upgrade',
+  ['/transportation/:transportId/upgrade', '/:id/transportation/:transportId/upgrade'],
   authMiddleware,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.id;
     const transportId = routeParam(req.params.transportId, 'transportId');
+    const teamId = req.params.id ? routeParam(req.params.id, 'id') : undefined;
 
     const transport = await prisma.transportationAsset.findFirst({
-      where: { id: transportId, ownerId: userId },
+      where: { id: transportId, ownerId: userId, ...(teamId ? { teamId } : {}) },
     });
     if (!transport) {
       throw new AppError(403, 'You do not own this transportation');

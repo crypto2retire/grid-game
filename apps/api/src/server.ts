@@ -354,6 +354,10 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 app.use('/api/teams', sponsorshipRouter);
 app.use('/api/teams', teamRouter);
+// Promotion routes are part of the Team page UX. Keep them mounted under
+// /api/teams because the frontend calls /api/teams/:id/promotion-eligibility
+// and /api/teams/:id/promote from TeamPage.
+app.use('/api/teams', promotionRouter);
 app.use('/api/players', playerRouter);
 app.use('/api/matches', matchRouter);
 app.use('/api/matches', matchesListRouter);
@@ -363,6 +367,7 @@ app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/sports', sportsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/leaderboard', leaderboardSnapshotRouter);
+// Backward-compatible namespace for any direct promotion callers.
 app.use('/api/promotion', promotionRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/equipment', equipmentRouter);

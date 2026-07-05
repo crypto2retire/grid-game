@@ -114,6 +114,12 @@ export const register = async (input: RegisterInput): Promise<{ user: object; to
         operatingCost: 100,
         fatigueReduction: 0,
         prestige: 0,
+        condition: 70,
+        speed: 1,
+        capacity: 12,
+        upgradeCount: 0,
+        maxUpgrade: 5,
+        tripsTaken: 0,
       },
     });
 
