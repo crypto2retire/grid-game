@@ -203,6 +203,11 @@ router.post(
       throw new AppError(400, 'Match has already been simulated');
     }
 
+    const userId = req.user!.id;
+    if (match.homeTeam.ownerId !== userId && match.awayTeam.ownerId !== userId) {
+      throw new AppError(403, 'You are not a participant in this match');
+    }
+
     // Build team states for simulation
     const buildTeamState = (team: typeof match.homeTeam): TeamState => ({
       teamId: team.id,

@@ -14,11 +14,37 @@ import {
 
 const router = Router();
 
+async function assertMatchParticipant(matchId: string, userId: string) {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      homeTeam: { select: { ownerId: true } },
+      awayTeam: { select: { ownerId: true } },
+    },
+  });
+
+  if (!match) {
+    throw new AppError(404, 'Match not found');
+  }
+
+  const userTeamId =
+    match.homeTeam.ownerId === userId ? match.homeTeamId :
+    match.awayTeam.ownerId === userId ? match.awayTeamId :
+    null;
+
+  if (!userTeamId) {
+    throw new AppError(403, 'You are not a participant in this match');
+  }
+
+  return { match, userTeamId };
+}
+
 // GET /api/play-game/:matchId/state — get current game state
 router.get(
   '/:matchId/state',
   authMiddleware,
   asyncHandler(async (req: any, res) => {
+    await assertMatchParticipant(req.params.matchId, req.user!.id);
     const state = await getGameState(req.params.matchId);
     res.json({ status: 'success', data: state });
   })
@@ -29,26 +55,7 @@ router.post(
   '/:matchId/init',
   authMiddleware,
   asyncHandler(async (req: any, res) => {
-    const match = await prisma.match.findUnique({
-      where: { id: req.params.matchId },
-      select: { homeTeamId: true, awayTeamId: true },
-    });
-
-    if (!match) {
-      throw new AppError(404, 'Match not found');
-    }
-
-    // Determine which team the user owns
-    const userTeams = await prisma.team.findMany({
-      where: { ownerId: req.user!.id },
-      select: { id: true },
-    });
-    const userTeamIds = userTeams.map((t) => t.id);
-    const userTeamId = userTeamIds.includes(match.homeTeamId)
-      ? match.homeTeamId
-      : userTeamIds.includes(match.awayTeamId)
-      ? match.awayTeamId
-      : match.homeTeamId; // fallback
+    const { userTeamId } = await assertMatchParticipant(req.params.matchId, req.user!.id);
 
     const result = await initializePlayableMatch(req.params.matchId, userTeamId);
 
@@ -73,18 +80,11 @@ router.post(
     });
     const input = schema.parse(req.body);
 
-    const match = await prisma.match.findUnique({
-      where: { id: req.params.matchId },
-      select: { userTeamId: true },
-    });
-
-    if (!match) {
-      throw new AppError(404, 'Match not found');
-    }
+    const { userTeamId } = await assertMatchParticipant(req.params.matchId, req.user!.id);
 
     const result = await setLineupAndStyles(
       req.params.matchId,
-      match.userTeamId || '',
+      userTeamId,
       input.offensiveLineup,
       input.defensiveLineup,
       input.offensiveStyle,
@@ -110,6 +110,7 @@ router.post(
     });
     const input = schema.parse(req.body);
 
+    await assertMatchParticipant(req.params.matchId, req.user!.id);
     const result = await resolvePlay(req.params.matchId, input.playType, input.direction);
 
     res.json({
@@ -124,6 +125,7 @@ router.post(
   '/:matchId/sim',
   authMiddleware,
   asyncHandler(async (req: any, res) => {
+    await assertMatchParticipant(req.params.matchId, req.user!.id);
     const result = await simulateRemainder(req.params.matchId);
 
     res.json({
@@ -139,6 +141,7 @@ router.post(
   '/:matchId/complete',
   authMiddleware,
   asyncHandler(async (req: any, res) => {
+    await assertMatchParticipant(req.params.matchId, req.user!.id);
     const result = await completeGame(req.params.matchId);
 
     res.json({

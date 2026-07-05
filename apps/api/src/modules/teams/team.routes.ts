@@ -29,6 +29,52 @@ const updateTeamSchema = z.object({
   mentality: z.string().optional(),
 });
 
+const VENUE_TIER_ORDER = ['PARK_FIELD', 'COMMUNITY', 'SMALL_STADIUM', 'REGIONAL', 'PRO', 'ELITE'] as const;
+type VenueTier = typeof VENUE_TIER_ORDER[number];
+
+const VENUE_CATALOG: Record<VenueTier, { name: string; cost: number; capacity: number; ticketPrice: number; prestige: number }> = {
+  PARK_FIELD: { name: 'Community Park Field', cost: 5_000, capacity: 250, ticketPrice: 8, prestige: 10 },
+  COMMUNITY: { name: 'Community Stadium', cost: 25_000, capacity: 5_000, ticketPrice: 10, prestige: 25 },
+  SMALL_STADIUM: { name: 'Small College Stadium', cost: 100_000, capacity: 12_000, ticketPrice: 15, prestige: 40 },
+  REGIONAL: { name: 'Regional Sports Complex', cost: 500_000, capacity: 25_000, ticketPrice: 20, prestige: 50 },
+  PRO: { name: 'Pro Stadium', cost: 2_000_000, capacity: 65_000, ticketPrice: 35, prestige: 65 },
+  ELITE: { name: 'Elite Championship Stadium', cost: 10_000_000, capacity: 100_000, ticketPrice: 50, prestige: 85 },
+};
+
+const TRANSPORT_TIER_ORDER = ['CARPOOL', 'BUS', 'CHARTER', 'LUXURY'] as const;
+type TransportTier = typeof TRANSPORT_TIER_ORDER[number];
+
+const TRANSPORT_CATALOG: Record<TransportTier, { name: string; cost: number; operatingCost: number; fatigueReduction: number; prestige: number; speed: number; capacity: number }> = {
+  CARPOOL: { name: 'Carpool / Rental Vans', cost: 1_000, operatingCost: 100, fatigueReduction: 0, prestige: 0, speed: 1, capacity: 12 },
+  BUS: { name: 'Team Bus', cost: 5_000, operatingCost: 300, fatigueReduction: 10, prestige: 5, speed: 2, capacity: 40 },
+  CHARTER: { name: 'Charter Coach', cost: 50_000, operatingCost: 1_000, fatigueReduction: 20, prestige: 20, speed: 3, capacity: 50 },
+  LUXURY: { name: 'Luxury Team Transport', cost: 1_000_000, operatingCost: 5_000, fatigueReduction: 30, prestige: 50, speed: 4, capacity: 60 },
+};
+
+const venueTierSchema = z.enum(VENUE_TIER_ORDER);
+const transportTierSchema = z.enum(TRANSPORT_TIER_ORDER);
+
+function enforceNextTierUpgrade<T extends string>(order: readonly T[], currentTier: string | null | undefined, requestedTier: T, label: string) {
+  const requestedIndex = order.indexOf(requestedTier);
+  const currentIndex = currentTier ? order.indexOf(currentTier as T) : -1;
+
+  if (requestedIndex === -1) {
+    throw new AppError(400, `Invalid ${label} tier`);
+  }
+  if (currentIndex === -1) {
+    if (requestedIndex !== 0) {
+      throw new AppError(400, `${label} upgrades must start at ${order[0]}`);
+    }
+    return;
+  }
+  if (requestedIndex <= currentIndex) {
+    throw new AppError(400, `${label} is already at ${currentTier} or higher`);
+  }
+  if (requestedIndex > currentIndex + 1) {
+    throw new AppError(400, `${label} upgrades must be purchased one tier at a time. Next tier is ${order[currentIndex + 1]}`);
+  }
+}
+
 router.post(
   '/',
   authMiddleware,
@@ -399,13 +445,16 @@ router.post(
     const teamId = routeParam(req.params.id, 'id');
     const userId = req.user!.id;
     const schema = z.object({
-      name: z.string().min(1).max(100),
-      tier: z.enum(['PARK_FIELD', 'COMMUNITY', 'SMALL_STADIUM', 'REGIONAL', 'PRO', 'ELITE']),
-      capacity: z.number().int().positive(),
-      ticketPrice: z.number().int().positive(),
-      cost: z.number().int().positive(),
-    });
+      name: z.string().min(1).max(100).optional(),
+      tier: venueTierSchema.optional(),
+      venueTier: venueTierSchema.optional(),
+    }).passthrough();
     const input = schema.parse(req.body);
+    const requestedTier = input.venueTier || input.tier;
+    if (!requestedTier) {
+      throw new AppError(400, 'venueTier is required');
+    }
+    const venueConfig = VENUE_CATALOG[requestedTier];
 
     const team = await prisma.team.findFirst({
       where: { id: teamId, ownerId: userId },
@@ -414,18 +463,15 @@ router.post(
     if (!team) {
       throw new AppError(403, 'You do not own this team');
     }
+    enforceNextTierUpgrade(VENUE_TIER_ORDER, team.venue?.tier, requestedTier, 'Venue');
 
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
       throw new AppError(404, 'Wallet not found');
     }
-    if (wallet.cash < input.cost) {
-      throw new AppError(400, `Insufficient CASH. Need ${input.cost.toLocaleString()} CASH`);
+    if (wallet.cash < venueConfig.cost) {
+      throw new AppError(400, `Insufficient CASH. Need ${venueConfig.cost.toLocaleString()} CASH`);
     }
-
-    const prestigeMap: Record<string, number> = {
-      PARK_FIELD: 10, COMMUNITY: 25, SMALL_STADIUM: 40, REGIONAL: 50, PRO: 65, ELITE: 85,
-    };
 
     await prisma.$transaction(async (tx: any) => {
       // Unlink old venue (preserve it for other teams or dev use)
@@ -441,23 +487,23 @@ router.post(
           teamId: team.id,
           ownerId: userId, // Stadium stays with the player
           sportId: team.sportId,
-          name: input.name,
-          tier: input.tier,
-          capacity: input.capacity,
-          ticketPrice: input.ticketPrice,
+          name: input.name || venueConfig.name,
+          tier: requestedTier,
+          capacity: venueConfig.capacity,
+          ticketPrice: venueConfig.ticketPrice,
           condition: 100,
-          prestige: prestigeMap[input.tier] || 10,
+          prestige: venueConfig.prestige,
         },
       });
 
       await debitCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: input.cost,
+        amount: venueConfig.cost,
         reason: 'STADIUM_UPGRADE',
         sourceType: 'VENUE_PURCHASE',
         sourceId: createdVenue.id,
-        metadata: { teamId, tier: input.tier, capacity: input.capacity, name: input.name },
+        metadata: { teamId, tier: requestedTier, capacity: venueConfig.capacity, ticketPrice: venueConfig.ticketPrice, name: input.name || venueConfig.name },
       });
 
       // Infrastructure sale proceeds go to game owner wallet when configured;
@@ -468,24 +514,25 @@ router.post(
         await creditCurrency(tx, {
           userId: gameOwnerId,
           currency: 'CASH',
-          amount: input.cost,
+          amount: venueConfig.cost,
           reason: 'STADIUM_UPGRADE_REVENUE',
           sourceType: 'VENUE_PURCHASE',
           sourceId: createdVenue.id,
-          metadata: { buyerId: userId, teamId, tier: input.tier, capacity: input.capacity, name: input.name },
+          metadata: { buyerId: userId, teamId, tier: requestedTier, capacity: venueConfig.capacity, ticketPrice: venueConfig.ticketPrice, name: input.name || venueConfig.name },
         });
       } else {
-        await processCurrencySink(tx, 'CASH', input.cost, 'STADIUM_UPGRADE', 'VENUE_PURCHASE', createdVenue.id, {
+        await processCurrencySink(tx, 'CASH', venueConfig.cost, 'STADIUM_UPGRADE', 'VENUE_PURCHASE', createdVenue.id, {
           buyerId: userId,
           teamId,
-          tier: input.tier,
-          capacity: input.capacity,
-          name: input.name,
+          tier: requestedTier,
+          capacity: venueConfig.capacity,
+          ticketPrice: venueConfig.ticketPrice,
+          name: input.name || venueConfig.name,
         });
       }
     });
 
-    res.json({ status: 'success', message: `Purchased ${input.name}` });
+    res.json({ status: 'success', message: `Purchased ${input.name || venueConfig.name}` });
   })
 );
 
@@ -496,28 +543,32 @@ router.post(
     const teamId = routeParam(req.params.id, 'id');
     const userId = req.user!.id;
     const schema = z.object({
-      name: z.string().min(1).max(100),
-      tier: z.enum(['CARPOOL', 'BUS', 'CHARTER', 'LUXURY']),
-      operatingCost: z.number().int().positive(),
-      fatigueReduction: z.number().int().min(0).max(100),
-      prestige: z.number().int().min(0),
-      cost: z.number().int().positive(),
-    });
+      name: z.string().min(1).max(100).optional(),
+      tier: transportTierSchema.optional(),
+      transportTier: transportTierSchema.optional(),
+    }).passthrough();
     const input = schema.parse(req.body);
+    const requestedTier = input.transportTier || input.tier;
+    if (!requestedTier) {
+      throw new AppError(400, 'transportTier is required');
+    }
+    const transportConfig = TRANSPORT_CATALOG[requestedTier];
 
     const team = await prisma.team.findFirst({
       where: { id: teamId, ownerId: userId },
+      include: { transportationAssets: true },
     });
     if (!team) {
       throw new AppError(403, 'You do not own this team');
     }
+    enforceNextTierUpgrade(TRANSPORT_TIER_ORDER, team.transportationAssets[0]?.tier, requestedTier, 'Transportation');
 
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
       throw new AppError(404, 'Wallet not found');
     }
-    if (wallet.cash < input.cost) {
-      throw new AppError(400, `Insufficient CASH. Need ${input.cost.toLocaleString()} CASH`);
+    if (wallet.cash < transportConfig.cost) {
+      throw new AppError(400, `Insufficient CASH. Need ${transportConfig.cost.toLocaleString()} CASH`);
     }
 
     await prisma.$transaction(async (tx: any) => {
@@ -531,14 +582,14 @@ router.post(
         data: {
           teamId: team.id,
           ownerId: userId, // Transport stays with the player
-          tier: input.tier,
-          name: input.name,
-          operatingCost: input.operatingCost,
-          fatigueReduction: input.fatigueReduction,
-          prestige: input.prestige,
+          tier: requestedTier,
+          name: input.name || transportConfig.name,
+          operatingCost: transportConfig.operatingCost,
+          fatigueReduction: transportConfig.fatigueReduction,
+          prestige: transportConfig.prestige,
           condition: 70,
-          speed: 1,
-          capacity: 12,
+          speed: transportConfig.speed,
+          capacity: transportConfig.capacity,
           upgradeCount: 0,
           maxUpgrade: 5,
           tripsTaken: 0,
@@ -548,11 +599,11 @@ router.post(
       await debitCurrency(tx, {
         userId,
         currency: 'CASH',
-        amount: input.cost,
+        amount: transportConfig.cost,
         reason: 'TRANSPORTATION_PURCHASE',
         sourceType: 'TRANSPORT_PURCHASE',
         sourceId: createdTransport.id,
-        metadata: { teamId, tier: input.tier, name: input.name },
+        metadata: { teamId, tier: requestedTier, name: input.name || transportConfig.name, operatingCost: transportConfig.operatingCost, fatigueReduction: transportConfig.fatigueReduction, prestige: transportConfig.prestige },
       });
 
       // Infrastructure sale proceeds go to game owner wallet when configured;
@@ -563,23 +614,26 @@ router.post(
         await creditCurrency(tx, {
           userId: gameOwnerId,
           currency: 'CASH',
-          amount: input.cost,
+          amount: transportConfig.cost,
           reason: 'TRANSPORTATION_PURCHASE_REVENUE',
           sourceType: 'TRANSPORT_PURCHASE',
           sourceId: createdTransport.id,
-          metadata: { buyerId: userId, teamId, tier: input.tier, name: input.name },
+          metadata: { buyerId: userId, teamId, tier: requestedTier, name: input.name || transportConfig.name, operatingCost: transportConfig.operatingCost, fatigueReduction: transportConfig.fatigueReduction, prestige: transportConfig.prestige },
         });
       } else {
-        await processCurrencySink(tx, 'CASH', input.cost, 'TRANSPORTATION_PURCHASE', 'TRANSPORT_PURCHASE', createdTransport.id, {
+        await processCurrencySink(tx, 'CASH', transportConfig.cost, 'TRANSPORTATION_PURCHASE', 'TRANSPORT_PURCHASE', createdTransport.id, {
           buyerId: userId,
           teamId,
-          tier: input.tier,
-          name: input.name,
+          tier: requestedTier,
+          name: input.name || transportConfig.name,
+          operatingCost: transportConfig.operatingCost,
+          fatigueReduction: transportConfig.fatigueReduction,
+          prestige: transportConfig.prestige,
         });
       }
     });
 
-    res.json({ status: 'success', message: `Purchased ${input.name}` });
+    res.json({ status: 'success', message: `Purchased ${input.name || transportConfig.name}` });
   })
 );
 

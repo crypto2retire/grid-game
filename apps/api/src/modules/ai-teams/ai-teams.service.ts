@@ -2,6 +2,7 @@ import { prisma } from '../../config/database';
 import { generatePlayerData } from '../players/player.generator';
 import { canTeamPlayToday } from '../game-time/game-time.routes';
 import { giveStarterEquipment } from '../market/seed';
+import { AppError } from '../../middleware/errorHandler';
 
 const AI_OWNER_ID = 'ai-system-owner-001';
 const footballPositions = ['QB', 'RB', 'RB', 'WR', 'WR', 'WR', 'TE', 'OL', 'OL', 'OL', 'DL', 'DL', 'LB', 'LB', 'CB', 'CB', 'S', 'K'];
@@ -148,48 +149,51 @@ export async function getLiveOpponents(userTeamId: string, tier: string) {
   return candidates.filter((_, index) => availability[index]);
 }
 
-export async function scheduleAIMatch(userTeamId: string, aiTeamId: string) {
+export async function scheduleAIMatch(requesterId: string, userTeamId: string, aiTeamId: string) {
   const [userTeam, aiTeam] = await Promise.all([
     prisma.team.findUnique({ where: { id: userTeamId } }),
     prisma.team.findUnique({ where: { id: aiTeamId } }),
   ]);
-  if (!userTeam || userTeam.isAI) throw new Error('Invalid user team');
-  if (!aiTeam || aiTeam.isAI !== true) throw new Error('Selected team is not an AI opponent');
-  if (userTeam.sportId !== aiTeam.sportId) throw new Error('Cannot schedule cross-sport match');
+  if (!userTeam || userTeam.isAI) throw new AppError(400, 'Invalid user team');
+  if (userTeam.ownerId !== requesterId) throw new AppError(403, 'You do not own this team');
+  if (!aiTeam || aiTeam.isAI !== true) throw new AppError(400, 'Selected team is not an AI opponent');
+  if (userTeam.sportId !== aiTeam.sportId) throw new AppError(400, 'Cannot schedule cross-sport match');
 
   const homeCanPlay = await canTeamPlayToday(userTeamId);
-  if (!homeCanPlay) throw new Error('Home team has already played a match today. Each team can play 1 match per day (1 in-game week).');
+  if (!homeCanPlay) throw new AppError(400, 'Home team has already played a match today. Each team can play 1 match per day (1 in-game week).');
   const awayCanPlay = await canTeamPlayToday(aiTeamId);
-  if (!awayCanPlay) throw new Error('Away team has already played a match today. Each team can play 1 match per day (1 in-game week).');
+  if (!awayCanPlay) throw new AppError(400, 'Away team has already played a match today. Each team can play 1 match per day (1 in-game week).');
 
   return prisma.match.create({
     data: { sportId: 'american-football', homeTeamId: userTeamId, awayTeamId: aiTeamId, status: 'SCHEDULED', scheduledAt: new Date(), homeTactics: { formation: '4-3-3', sportId: 'american-football' }, awayTactics: { formation: '4-3-3', sportId: 'american-football' }, seed: Math.random().toString(36).substring(2), metadata: { matchType: 'AI_OPPONENT', aiDifficulty: aiTeam.aiDifficulty } },
   });
 }
 
-export async function scheduleLiveMatch(homeTeamId: string, awayTeamId: string) {
+export async function scheduleLiveMatch(requesterId: string, homeTeamId: string, awayTeamId: string) {
   const [homeTeam, awayTeam] = await Promise.all([
     prisma.team.findUnique({ where: { id: homeTeamId } }),
     prisma.team.findUnique({ where: { id: awayTeamId } }),
   ]);
-  if (!homeTeam || !awayTeam) throw new Error('Team not found');
-  if (homeTeam.isAI || awayTeam.isAI) throw new Error('Cannot use AI team in live match scheduling');
-  if (homeTeam.id === awayTeam.id) throw new Error('Cannot schedule match against yourself');
-  if (homeTeam.sportId !== awayTeam.sportId) throw new Error('Cannot schedule cross-sport match');
+  if (!homeTeam || !awayTeam) throw new AppError(404, 'Team not found');
+  if (homeTeam.ownerId !== requesterId) throw new AppError(403, 'You do not own the home team');
+  if (homeTeam.isAI || awayTeam.isAI) throw new AppError(400, 'Cannot use AI team in live match scheduling');
+  if (homeTeam.id === awayTeam.id) throw new AppError(400, 'Cannot schedule match against yourself');
+  if (homeTeam.sportId !== awayTeam.sportId) throw new AppError(400, 'Cannot schedule cross-sport match');
 
   const homeCanPlay = await canTeamPlayToday(homeTeamId);
-  if (!homeCanPlay) throw new Error('Home team has already played a match today. Each team can play 1 match per day (1 in-game week).');
+  if (!homeCanPlay) throw new AppError(400, 'Home team has already played a match today. Each team can play 1 match per day (1 in-game week).');
   const awayCanPlay = await canTeamPlayToday(awayTeamId);
-  if (!awayCanPlay) throw new Error('Away team has already played a match today. Each team can play 1 match per day (1 in-game week).');
+  if (!awayCanPlay) throw new AppError(400, 'Away team has already played a match today. Each team can play 1 match per day (1 in-game week).');
 
   return prisma.match.create({
     data: { sportId: 'american-football', homeTeamId, awayTeamId, status: 'SCHEDULED', scheduledAt: new Date(), homeTactics: { formation: '4-3-3', sportId: 'american-football' }, awayTactics: { formation: '4-3-3', sportId: 'american-football' }, seed: Math.random().toString(36).substring(2), metadata: { matchType: 'LIVE_OPPONENT' } },
   });
 }
 
-export async function getMatchmakingOptions(userTeamId: string) {
+export async function getMatchmakingOptions(requesterId: string, userTeamId: string) {
   const userTeam = await prisma.team.findUnique({ where: { id: userTeamId }, include: { leagueMemberships: { include: { league: true } } } });
-  if (!userTeam) throw new Error('Team not found');
+  if (!userTeam) throw new AppError(404, 'Team not found');
+  if (userTeam.ownerId !== requesterId) throw new AppError(403, 'You do not own this team');
   const liveOpponents = await getLiveOpponents(userTeamId, userTeam.tier);
   const aiOpponents = await getAIOpponents(userTeamId, userTeam.tier);
   return {

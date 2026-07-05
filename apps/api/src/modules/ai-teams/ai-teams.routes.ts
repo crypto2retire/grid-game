@@ -15,7 +15,7 @@ router.get(
   '/matchmaking/:teamId',
   authMiddleware,
   asyncHandler(async (req: any, res) => {
-    const options = await getMatchmakingOptions(req.params.teamId);
+    const options = await getMatchmakingOptions(req.user!.id, req.params.teamId);
     res.json({ status: 'success', data: options });
   })
 );
@@ -31,7 +31,7 @@ router.post(
     });
     const input = schema.parse(req.body);
 
-    const match = await scheduleAIMatch(input.userTeamId, input.aiTeamId);
+    const match = await scheduleAIMatch(req.user!.id, input.userTeamId, input.aiTeamId);
 
     res.status(201).json({
       status: 'success',
@@ -52,7 +52,7 @@ router.post(
     });
     const input = schema.parse(req.body);
 
-    const match = await scheduleLiveMatch(input.homeTeamId, input.awayTeamId);
+    const match = await scheduleLiveMatch(req.user!.id, input.homeTeamId, input.awayTeamId);
 
     res.status(201).json({
       status: 'success',
