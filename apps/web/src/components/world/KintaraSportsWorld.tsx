@@ -1586,7 +1586,7 @@ function BuildingInteriorShell({
 }) {
   const isComputerLed = ['market', 'bank', 'commissioner', 'garage', 'stadium'].includes(building.id);
   const roomLabel = building.id === 'team'
-    ? 'Locker wall • roster board • gear rack'
+    ? 'Roster • Player Training • Equipment'
     : building.id === 'training'
       ? 'Coach station • turf lanes • weight room'
       : building.id === 'stadium'
@@ -1594,7 +1594,7 @@ function BuildingInteriorShell({
         : building.id === 'market'
           ? 'Auction terminals • display cases • equipment counter'
           : building.id === 'medical'
-            ? 'Trainer desk • recovery pods • treatment board'
+            ? 'Medical Dashboard • Recovery Status • Treat Injuries'
             : building.id === 'garage'
               ? 'Route computer • vehicle bays • mechanic desk'
               : building.id === 'commissioner'

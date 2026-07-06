@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
 import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
-import { asyncHandler } from '../../middleware/errorHandler';
+import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import {
   runTestSeason,
   getEconomicAudit,
@@ -173,6 +173,56 @@ router.get(
         gameOwnerCash: gameOwnerWallet?.cash || 0,
         gameOwnerGrid: gameOwnerWallet?.dynTokens || 0,
       },
+    });
+  })
+);
+
+// POST /api/testing/qa/injure-player — create deterministic self-owned injury data for UI QA.
+// Restricted to admin users or obvious disposable QA accounts so production users cannot grief other teams.
+router.post(
+  '/qa/injure-player',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const schema = z.object({
+      playerId: z.string().uuid(),
+      injuryStatus: z.enum(['MINOR', 'MODERATE', 'MAJOR', 'SEASON_ENDING']).default('MODERATE'),
+      injuryType: z.string().min(1).max(80).default('QA Test Injury'),
+      injuryWeeks: z.number().int().min(1).max(12).default(2),
+      health: z.number().int().min(1).max(99).default(62),
+    });
+    const input = schema.parse(req.body ?? {});
+    const user = req.user!;
+    const isQaUser = user.role === 'ADMIN' || user.email.endsWith('@example.com') || /^qa|^gridqa|^injqa/i.test(user.username);
+    if (!isQaUser) {
+      throw new AppError(403, 'QA injury mutation is restricted to disposable QA accounts');
+    }
+
+    const teamPlayer = await prisma.teamPlayer.findFirst({
+      where: { playerId: input.playerId, team: { ownerId: user.id } },
+      include: { team: { select: { id: true, name: true } }, player: true },
+    });
+    if (!teamPlayer) {
+      throw new AppError(404, 'Self-owned player not found');
+    }
+
+    const player = await prisma.player.update({
+      where: { id: input.playerId },
+      data: {
+        health: input.health,
+        injuryStatus: input.injuryStatus,
+        injuryType: input.injuryType,
+        injuryWeeks: input.injuryWeeks,
+      },
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        teamId: teamPlayer.team.id,
+        teamName: teamPlayer.team.name,
+        player,
+      },
+      message: `${player.name} marked injured for QA verification`,
     });
   })
 );

@@ -96,6 +96,11 @@ const getPackageFitText = (pkg: any, position?: string | null): string => {
   return `Good for ${normalized}: boosts ${matchingStats.map((stat) => STAT_LABELS[stat] || stat.toUpperCase()).join(', ')}`;
 };
 
+const getTreatmentCost = (injury?: string | null): number => {
+  const costs: Record<string, number> = { MINOR: 200, MODERATE: 500, MAJOR: 1500, WEEK_TO_WEEK: 200, SEASON_ENDING: 5000 };
+  return costs[injury || 'MINOR'] || costs.MINOR;
+};
+
 export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = {}) {
   const {
     teams,
@@ -146,7 +151,7 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
   const [treatingPlayerId, setTreatingPlayerId] = useState<string | null>(null);
   const [equipmentActionMsg, setEquipmentActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'train' | 'equip'>('overview');
+  const [detailTab, setDetailTab] = useState<'overview' | 'train' | 'medical' | 'equip'>('overview');
 
   const {
     packages,
@@ -401,6 +406,28 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
     if (!success) setTrainingMessage('Training could not be started');
   };
 
+  const startDrawerGroupTraining = async (pkg: any, label: string) => {
+    if (!selectedTeam?.id) return;
+    const check = canTrain();
+    if (!check.ok) {
+      setTrainingMessage(check.reason || 'Cannot train right now');
+      return;
+    }
+    setTrainingMessage(null);
+    const success = await startTraining({
+      teamId: selectedTeam.id,
+      teamName: selectedTeam.name,
+      packageId: pkg.id,
+      packageName: `${pkg.name} — ${label}`,
+      focusType: pkg.focusType,
+      durationSeconds: 30,
+      costGrid: pkg.costGrid,
+      costCash: pkg.costCash,
+      statBoosts: pkg.statBoosts,
+    });
+    if (!success) setTrainingMessage('Training could not be started');
+  };
+
   useEffect(() => {
     if (teams.length === 0 && !teamsLoading) refreshTeams();
     if (wallet.cash === 0) refreshWallet();
@@ -620,7 +647,14 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
             {isTooHigh ? 'Too high' : 'Too low'}
           </div>
         )}
-        <PlayerCard player={cardData} onClick={() => setSelectedPlayer(tp)} className={`card-lift ${isRestricted ? 'opacity-60' : ''}`} />
+        <PlayerCard
+          player={cardData}
+          onClick={() => {
+            setSelectedPlayer(tp);
+            setDetailTab('overview');
+          }}
+          className={`card-lift ${isRestricted ? 'opacity-60' : ''}`}
+        />
         <div className="mt-2 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -824,10 +858,7 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
   const renderMedicalTab = () => {
     if (!selectedTeam) return null;
 
-    const treatCost = (injury: string) => {
-      const costs: Record<string, number> = { MINOR: 200, MODERATE: 500, MAJOR: 1500, SEASON_ENDING: 5000 };
-      return costs[injury] || 200;
-    };
+    const treatCost = getTreatmentCost;
 
     return (
       <div className="space-y-6">
@@ -1782,18 +1813,19 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
               </div>
 
               <div className="space-y-4">
-                <div className="flex gap-2 border-b border-white/10 pb-2">
+                <div className="grid grid-cols-2 gap-2 border-b border-white/10 pb-3 sm:grid-cols-4">
                   {[
                     { key: 'overview', label: 'Overview', icon: Activity },
                     { key: 'train', label: 'Train', icon: Dumbbell },
+                    { key: 'medical', label: 'Medical', icon: HeartPulse },
                     { key: 'equip', label: 'Equip', icon: Wrench },
                   ].map((tab) => (
                     <button
                       key={tab.key}
                       onClick={() => setDetailTab(tab.key as any)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${detailTab === tab.key ? 'bg-[#E94560] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                      className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wider transition-all ${detailTab === tab.key ? 'border-[#E94560] bg-[#E94560] text-white shadow-lg shadow-[#E94560]/20' : 'border-white/10 bg-white/5 text-white/60 hover:border-white/20 hover:bg-white/10'}`}
                     >
-                      <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+                      <tab.icon className="w-4 h-4" /> {tab.label}
                     </button>
                   ))}
                 </div>
@@ -1842,35 +1874,106 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
                         {trainingMessage}
                       </div>
                     )}
+                    <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3">
+                      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Position-group quick actions</div>
+                      <p className="mt-1 text-xs text-white/55">Use the selected player as context, then train their position room, offense/defense, or full roster.</p>
+                    </div>
                     {packagesLoading ? (
                       <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#E94560]" /></div>
                     ) : (
-                      packages.filter((p: any) => p.focusType === 'INDIVIDUAL' || p.focusType === 'POSITION_GROUP' || p.focusType === 'ALL').map((pkg: any) => {
+                      packages.filter((p: any) => p.focusType === 'INDIVIDUAL' || p.focusType === 'POSITION_GROUP' || p.focusType === 'OFFENSE' || p.focusType === 'DEFENSE' || p.focusType === 'ALL').map((pkg: any) => {
                         const costGrid = safeNumber(pkg.costGrid);
                         const costCash = safeNumber(pkg.costCash);
                         const canAfford = (wallet.dynTokens ?? 0) >= costGrid && (wallet.cash ?? 0) >= costCash;
                         const fit = getPackageFitText(pkg, selectedPlayer.player.position);
+                        const normalizedPosition = normalizePosition(selectedPlayer.player.position);
+                        const groupLabel = pkg.focusType === 'POSITION_GROUP'
+                          ? `Train all ${pkg.targetPosition || normalizedPosition}s`
+                          : pkg.focusType === 'OFFENSE'
+                            ? 'Train offense'
+                            : pkg.focusType === 'DEFENSE'
+                              ? 'Train defense'
+                              : pkg.focusType === 'ALL'
+                                ? 'Train full roster'
+                                : `Train ${selectedPlayer.player.name}`;
+                        const runTraining = () => pkg.focusType === 'INDIVIDUAL'
+                          ? startIndividualTraining(pkg, selectedPlayer.player.id, selectedPlayer.player.name)
+                          : startDrawerGroupTraining(pkg, groupLabel);
                         return (
                           <div key={pkg.id} className="glass-card p-3 border border-white/10">
-                            <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center justify-between gap-2 mb-1">
                               <div className="font-bold text-white text-sm">{pkg.name}</div>
-                              <div className="text-xs text-white/40">{FOCUS_LABELS[pkg.focusType]}</div>
+                              <div className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase text-white/45">{FOCUS_LABELS[pkg.focusType]}</div>
                             </div>
                             <p className="text-xs text-white/50 mb-2">{fit}</p>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-3">
                               <div className="text-xs text-[#FFD700]">{costGrid > 0 ? `${costGrid} DYN` : ''} {costCash > 0 ? `${costCash} CASH` : 'Free'}</div>
                               <button
-                                onClick={() => startIndividualTraining(pkg, selectedPlayer.player.id, selectedPlayer.player.name)}
+                                onClick={runTraining}
                                 disabled={isTraining || !canAfford}
-                                className="px-3 py-1 bg-[#E94560] text-white rounded-lg text-xs font-bold hover:bg-[#E94560]/80 disabled:opacity-50"
+                                className="px-3 py-1.5 bg-[#E94560] text-white rounded-lg text-xs font-black hover:bg-[#E94560]/80 disabled:opacity-50"
                               >
-                                Start
+                                {groupLabel}
                               </button>
                             </div>
                           </div>
                         );
                       })
                     )}
+                  </div>
+                )}
+
+                {detailTab === 'medical' && (
+                  <div className="space-y-3">
+                    {medicalMessage && (
+                      <div className={`rounded-xl border p-3 text-sm ${medicalMessage.type === 'success' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-red-400/30 bg-red-400/10 text-red-200'}`}>
+                        {medicalMessage.text}
+                      </div>
+                    )}
+                    <div className="glass-card p-4 space-y-3 border border-red-400/15">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-black text-white">
+                          <HeartPulse className="w-4 h-4 text-red-400" /> Health & Recovery
+                        </div>
+                        <div className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${selectedPlayer.player.injuryStatus && selectedPlayer.player.injuryStatus !== 'HEALTHY' ? 'bg-red-400/15 text-red-300' : 'bg-emerald-400/15 text-emerald-300'}`}>
+                          {selectedPlayer.player.injuryStatus && selectedPlayer.player.injuryStatus !== 'HEALTHY' ? 'Needs treatment' : 'Healthy'}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="rounded-xl bg-white/5 p-3">
+                          <div className="text-white/40">Health</div>
+                          <div className="mt-1 text-xl font-black text-white">{safeNumber(selectedPlayer.player.health)}%</div>
+                        </div>
+                        <div className="rounded-xl bg-white/5 p-3">
+                          <div className="text-white/40">Fatigue</div>
+                          <div className="mt-1 text-xl font-black text-white">{safeNumber(selectedPlayer.player.fatigue)}%</div>
+                        </div>
+                      </div>
+                      {selectedPlayer.player.injuryStatus && selectedPlayer.player.injuryStatus !== 'HEALTHY' ? (
+                        <div className="rounded-xl border border-red-400/25 bg-red-400/10 p-3">
+                          <div className="text-sm font-bold text-red-100">
+                            {INJURY_SEVERITY[selectedPlayer.player.injuryStatus]?.label || selectedPlayer.player.injuryStatus}
+                            {selectedPlayer.player.injuryType ? ` — ${selectedPlayer.player.injuryType}` : ''}
+                          </div>
+                          <div className="mt-1 text-xs text-red-200/70">Recovery time: {safeNumber(selectedPlayer.player.injuryWeeks)} week(s)</div>
+                          <div className="mt-2 flex items-center justify-between gap-3">
+                            <div className="text-sm font-black text-[#FFD700]">{getTreatmentCost(selectedPlayer.player.injuryStatus).toLocaleString()} CASH</div>
+                            <button
+                              onClick={() => treatPlayer(selectedPlayer.player.id)}
+                              disabled={treatingPlayerId === selectedPlayer.player.id || (wallet.cash ?? 0) < getTreatmentCost(selectedPlayer.player.injuryStatus)}
+                              className="rounded-xl bg-red-500 px-4 py-2 text-xs font-black text-white hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {treatingPlayerId === selectedPlayer.player.id ? 'Treating...' : 'Treat Injury'}
+                            </button>
+                          </div>
+                          {(wallet.cash ?? 0) < getTreatmentCost(selectedPlayer.player.injuryStatus) && <div className="mt-2 text-xs text-red-200">Not enough CASH for treatment.</div>}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-200">
+                          This player is healthy. No medical treatment needed right now.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
