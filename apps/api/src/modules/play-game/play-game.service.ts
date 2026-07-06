@@ -44,8 +44,40 @@ interface LineupPlayer {
   physical: number;
 }
 
+const FIRST_NAMES = ['Alex','Jordan','Taylor','Morgan','Casey','Riley','Quinn','Avery','Peyton','Dakota','Jamie','Cameron','Reese','Skyler','Blake','Hayden','Drew','Elliot','Sam','Finley'];
+const LAST_NAMES = ['Smith','Johnson','Williams','Brown','Davis','Miller','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Thompson','Garcia','Martinez','Robinson','Clark'];
+
+function generateFallbackRoster(teamId: string, sportId: string, count = 22): LineupPlayer[] {
+  // Deterministic roster based on teamId so repeated calls return the same players.
+  const positions = sportId === 'american-football'
+    ? ['QB','RB','RB','WR','WR','TE','OL','OL','OL','OL','OL','DL','DL','DL','LB','LB','LB','CB','CB','S','K','P']
+    : ['GK','DF','DF','DF','MF','MF','MF','FW','FW','FW','SUB','SUB'];
+
+  const roster: LineupPlayer[] = [];
+  for (let i = 0; i < count; i++) {
+    const fn = FIRST_NAMES[i % FIRST_NAMES.length];
+    const ln = LAST_NAMES[(i + teamId.charCodeAt(0)) % LAST_NAMES.length];
+    const position = positions[i % positions.length];
+    const overall = 50 + Math.floor((teamId.charCodeAt(i % teamId.length) + i * 7) % 35);
+    roster.push({
+      playerId: `${teamId}-ai-${i}`,
+      position,
+      name: `${fn} ${ln}`,
+      overall,
+      pace: overall + Math.floor((i % 11) - 5),
+      shooting: overall + Math.floor(((i + 3) % 11) - 5),
+      passing: overall + Math.floor(((i + 5) % 11) - 5),
+      dribbling: overall + Math.floor(((i + 7) % 11) - 5),
+      defending: overall + Math.floor(((i + 9) % 11) - 5),
+      physical: overall + Math.floor(((i + 2) % 11) - 5),
+    });
+  }
+  return roster;
+}
+
 /**
- * Get a team's roster with stats for gameplay.
+ * Get a team's roster with stats for gameplay. Generates a deterministic AI roster
+ * for teams that have no signed players (e.g. virtual AI opponents).
  */
 export async function getTeamRosterForGame(teamId: string): Promise<LineupPlayer[]> {
   const teamPlayers = await prisma.teamPlayer.findMany({
@@ -67,6 +99,11 @@ export async function getTeamRosterForGame(teamId: string): Promise<LineupPlayer
       },
     },
   });
+
+  if (teamPlayers.length === 0) {
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { sportId: true } });
+    return generateFallbackRoster(teamId, team?.sportId || 'american-football', 22);
+  }
 
   return teamPlayers.map((tp) => ({
     playerId: tp.player.id,
@@ -223,6 +260,17 @@ export async function resolvePlay(
   }
   if (defensePlayers.length === 0) {
     defensePlayers = defenseTeam.teamPlayers.map((tp) => tp.player);
+  }
+
+  // If the team is a virtual AI opponent with no signed players, generate a
+  // deterministic fallback roster so the game engine never runs out of athletes.
+  if (offensePlayers.length === 0) {
+    const fallback = await getTeamRosterForGame(offenseTeam.id);
+    offensePlayers = fallback as any;
+  }
+  if (defensePlayers.length === 0) {
+    const fallback = await getTeamRosterForGame(defenseTeam.id);
+    defensePlayers = fallback as any;
   }
 
   const qb = offensePlayers.find((p) => p.position === 'QB') || offensePlayers[0];
