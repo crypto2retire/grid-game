@@ -536,3 +536,5 @@ const startServer = async () => {
 
 export { app, server, startServer };
 export default app;
+
+startServer();
