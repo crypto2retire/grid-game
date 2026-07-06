@@ -140,6 +140,8 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
   const [medicalMessage, setMedicalMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [treatingPlayerId, setTreatingPlayerId] = useState<string | null>(null);
   const [equipmentActionMsg, setEquipmentActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
+  const [detailTab, setDetailTab] = useState<'overview' | 'train' | 'equip'>('overview');
 
   const {
     packages,
@@ -370,10 +372,43 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
     if (!success) setTrainingMessage('Training could not be started');
   };
 
+  const startIndividualTraining = async (pkg: any, playerId: string, playerName: string) => {
+    if (!selectedTeam?.id) return;
+    const check = canTrain(playerId);
+    if (!check.ok) {
+      setTrainingMessage(check.reason || 'Cannot train right now');
+      return;
+    }
+    setTrainingMessage(null);
+    const success = await startTraining({
+      teamId: selectedTeam.id,
+      teamName: selectedTeam.name,
+      packageId: pkg.id,
+      packageName: pkg.name,
+      focusType: 'INDIVIDUAL',
+      targetPlayerId: playerId,
+      targetPlayerName: playerName,
+      durationSeconds: 30,
+      costGrid: pkg.costGrid,
+      costCash: pkg.costCash,
+      statBoosts: pkg.statBoosts,
+    });
+    if (!success) setTrainingMessage('Training could not be started');
+  };
+
   useEffect(() => {
     if (teams.length === 0 && !teamsLoading) refreshTeams();
     if (wallet.cash === 0) refreshWallet();
   }, []);
+
+  useEffect(() => {
+    if (selectedTeam && selectedPlayer) {
+      const updated = selectedTeam.teamPlayers.find(
+        (tp: any) => tp.id === selectedPlayer.id || tp.player?.id === selectedPlayer.player?.id
+      );
+      if (updated) setSelectedPlayer(updated);
+    }
+  }, [selectedTeam?.teamPlayers]);
 
   useEffect(() => {
     if (selectedTeam) loadPromotionData();
@@ -580,7 +615,7 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
             {isTooHigh ? 'Too high' : 'Too low'}
           </div>
         )}
-        <PlayerCard player={cardData} className={`card-lift ${isRestricted ? 'opacity-60' : ''}`} />
+        <PlayerCard player={cardData} onClick={() => setSelectedPlayer(tp)} className={`card-lift ${isRestricted ? 'opacity-60' : ''}`} />
         <div className="mt-2 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -1277,8 +1312,31 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
                         <p className="text-white/30 text-sm">Click "Hire Player" to add your first roster player</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {selectedTeam.teamPlayers.map((tp: any) => renderPlayerWithHealth(tp))}
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setPositionFilter('ALL')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${positionFilter === 'ALL' ? 'bg-[#E94560] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                          >All</button>
+                          {['OFFENSE', 'DEFENSE', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K'].map((pos) => (
+                            <button
+                              key={pos}
+                              onClick={() => setPositionFilter(pos === positionFilter ? 'ALL' : pos)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${positionFilter === pos ? 'bg-[#E94560] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                            >{pos}</button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {selectedTeam.teamPlayers
+                            .filter((tp: any) => {
+                              if (positionFilter === 'ALL') return true;
+                              const p = (tp.player.position || '').toUpperCase();
+                              if (positionFilter === 'OFFENSE') return OFFENSE_POSITIONS.includes(p);
+                              if (positionFilter === 'DEFENSE') return DEFENSE_POSITIONS.includes(p);
+                              return p === positionFilter;
+                            })
+                            .map((tp: any) => renderPlayerWithHealth(tp))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1653,6 +1711,196 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
                       );
                     })}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedPlayer && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedPlayer(null)}>
+          <div className="glass-card w-full max-w-3xl max-h-[90vh] overflow-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-2xl font-black text-white flex items-center gap-3">
+                  <span className={`w-3 h-3 rounded-full ${positionColor(selectedPlayer.player.position)}`} />
+                  {selectedPlayer.player.name}
+                </h3>
+                <p className="text-sm text-white/40 mt-1">
+                  {selectedPlayer.player.position} • OVR {selectedPlayer.player.overall} • {selectedPlayer.player.rarity} • Age {selectedPlayer.player.age}
+                </p>
+              </div>
+              <button onClick={() => setSelectedPlayer(null)} className="p-2 hover:bg-white/10 rounded-lg"><X className="w-5 h-5 text-white/40" /></button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <PlayerCard
+                  player={{
+                    id: selectedPlayer.player.id,
+                    name: selectedPlayer.player.name,
+                    position: selectedPlayer.player.position,
+                    overall: selectedPlayer.player.overall,
+                    age: selectedPlayer.player.age,
+                    nationality: selectedPlayer.player.nationality,
+                    rarity: selectedPlayer.player.rarity,
+                    pace: selectedPlayer.player.pace,
+                    shooting: selectedPlayer.player.shooting,
+                    passing: selectedPlayer.player.passing,
+                    dribbling: selectedPlayer.player.dribbling,
+                    defending: selectedPlayer.player.defending,
+                    physical: selectedPlayer.player.physical,
+                    isStarter: selectedPlayer.isStarter,
+                  }}
+                  className="max-w-xs mx-auto"
+                />
+                <div className="glass-card p-4 space-y-3">
+                  {[
+                    { label: 'SPD', value: selectedPlayer.player.pace, color: 'bg-emerald-400' },
+                    { label: 'ARM', value: selectedPlayer.player.shooting, color: 'bg-blue-400' },
+                    { label: 'IQ', value: selectedPlayer.player.passing, color: 'bg-purple-400' },
+                    { label: 'AGI', value: selectedPlayer.player.dribbling, color: 'bg-amber-400' },
+                    { label: 'TCK', value: selectedPlayer.player.defending, color: 'bg-cyan-400' },
+                    { label: 'STR', value: selectedPlayer.player.physical, color: 'bg-red-400' },
+                  ].map((stat) => (
+                    <div key={stat.label} className="space-y-1">
+                      <div className="flex justify-between text-xs text-white/60">
+                        <span>{stat.label}</span>
+                        <span>{stat.value}</span>
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full ${stat.color} rounded-full`} style={{ width: `${Math.min(100, stat.value)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex gap-2 border-b border-white/10 pb-2">
+                  {[
+                    { key: 'overview', label: 'Overview', icon: Activity },
+                    { key: 'train', label: 'Train', icon: Dumbbell },
+                    { key: 'equip', label: 'Equip', icon: Wrench },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setDetailTab(tab.key as any)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${detailTab === tab.key ? 'bg-[#E94560] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+                    >
+                      <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {detailTab === 'overview' && (
+                  <div className="space-y-4">
+                    <div className="glass-card p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-white/80">
+                        <Activity className="w-4 h-4 text-emerald-400" /> Health: {safeNumber(selectedPlayer.player.health)}%
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full ${selectedPlayer.player.health > 70 ? 'bg-emerald-400' : selectedPlayer.player.health > 40 ? 'bg-amber-400' : 'bg-red-400'} rounded-full`} style={{ width: `${safeNumber(selectedPlayer.player.health)}%` }} />
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-white/80">
+                        <Zap className="w-4 h-4 text-amber-400" /> Fatigue: {safeNumber(selectedPlayer.player.fatigue)}%
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full ${selectedPlayer.player.fatigue < 50 ? 'bg-emerald-400' : selectedPlayer.player.fatigue < 80 ? 'bg-amber-400' : 'bg-red-400'} rounded-full`} style={{ width: `${safeNumber(selectedPlayer.player.fatigue)}%` }} />
+                      </div>
+                      {selectedPlayer.player.injuryStatus && selectedPlayer.player.injuryStatus !== 'HEALTHY' && (
+                        <div className="rounded-lg bg-red-400/10 border border-red-400/20 p-3 text-sm text-red-200">
+                          <HeartPulse className="w-4 h-4 inline mr-2" />
+                          {INJURY_SEVERITY[selectedPlayer.player.injuryStatus]?.label || selectedPlayer.player.injuryStatus}
+                          {selectedPlayer.player.injuryType ? ` — ${selectedPlayer.player.injuryType}` : ''}
+                          {selectedPlayer.player.injuryWeeks > 0 ? ` (${selectedPlayer.player.injuryWeeks}w)` : ''}
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedPlayer.player.injuryStatus && selectedPlayer.player.injuryStatus !== 'HEALTHY' && (
+                      <button
+                        onClick={() => treatPlayer(selectedPlayer.player.id)}
+                        disabled={treatingPlayerId === selectedPlayer.player.id}
+                        className="w-full px-4 py-2 bg-red-500/20 text-red-400 rounded-xl text-sm font-bold hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                      >
+                        {treatingPlayerId === selectedPlayer.player.id ? 'Treating...' : 'Treat Injury'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {detailTab === 'train' && (
+                  <div className="space-y-3">
+                    {trainingMessage && (
+                      <div className={`rounded-xl border p-3 text-sm ${trainingMessage.includes('complete') || trainingMessage.includes('started') || trainingMessage.includes('finished') ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-red-400/30 bg-red-400/10 text-red-200'}`}>
+                        {trainingMessage}
+                      </div>
+                    )}
+                    {packagesLoading ? (
+                      <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#E94560]" /></div>
+                    ) : (
+                      packages.filter((p: any) => p.focusType === 'INDIVIDUAL' || p.focusType === 'POSITION_GROUP' || p.focusType === 'ALL').map((pkg: any) => {
+                        const costGrid = safeNumber(pkg.costGrid);
+                        const costCash = safeNumber(pkg.costCash);
+                        const canAfford = (wallet.dynTokens ?? 0) >= costGrid && (wallet.cash ?? 0) >= costCash;
+                        const fit = getPackageFitText(pkg, selectedPlayer.player.position);
+                        return (
+                          <div key={pkg.id} className="glass-card p-3 border border-white/10">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="font-bold text-white text-sm">{pkg.name}</div>
+                              <div className="text-xs text-white/40">{FOCUS_LABELS[pkg.focusType]}</div>
+                            </div>
+                            <p className="text-xs text-white/50 mb-2">{fit}</p>
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs text-[#FFD700]">{costGrid > 0 ? `${costGrid} DYN` : ''} {costCash > 0 ? `${costCash} CASH` : 'Free'}</div>
+                              <button
+                                onClick={() => startIndividualTraining(pkg, selectedPlayer.player.id, selectedPlayer.player.name)}
+                                disabled={isTraining || !canAfford}
+                                className="px-3 py-1 bg-[#E94560] text-white rounded-lg text-xs font-bold hover:bg-[#E94560]/80 disabled:opacity-50"
+                              >
+                                Start
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {detailTab === 'equip' && (
+                  <div className="space-y-3">
+                    {equipmentActionMsg && (
+                      <div className={`rounded-xl border p-3 text-sm ${equipmentActionMsg.type === 'success' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-red-400/30 bg-red-400/10 text-red-200'}`}>
+                        {equipmentActionMsg.text}
+                      </div>
+                    )}
+                    {(selectedPlayer.player.playerItems || []).length === 0 ? (
+                      <div className="glass-card p-6 text-center text-sm text-white/40">No items owned. Buy equipment from the Equipment tab.</div>
+                    ) : (
+                      (selectedPlayer.player.playerItems || []).map((pi: any) => (
+                        <div key={pi.id} className="glass-card p-3 flex items-center justify-between border border-white/10">
+                          <div>
+                            <div className="font-medium text-white text-sm">{pi.item.name}</div>
+                            <div className="text-xs text-white/40">{pi.item.slot} • {pi.item.rarity} • Durability {pi.durability ?? 100}%</div>
+                            <div className="flex gap-1 mt-1">
+                              {Object.entries(pi.item.statBoosts || {}).map(([stat, boost]) => (boost && typeof boost === 'number' && boost > 0 ? (
+                                <span key={stat} className="text-[10px] bg-emerald-400/10 text-emerald-400 rounded px-1.5 py-0.5">+{boost} {STAT_LABELS[stat] || stat.toUpperCase()}</span>
+                              ) : null))}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => pi.equipped ? handleUnequip(pi.id) : handleEquip(pi.id, selectedPlayer.player.id)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${pi.equipped ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[#E94560] text-white hover:bg-[#E94560]/80'}`}
+                          >
+                            {pi.equipped ? 'Unequip' : 'Equip'}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

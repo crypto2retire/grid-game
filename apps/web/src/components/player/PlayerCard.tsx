@@ -29,6 +29,7 @@ interface PlayerCardProps {
   buying?: boolean;
   canAfford?: boolean;
   className?: string;
+  onClick?: () => void;
 }
 
 const RARITY_CONFIG: Record<string, { border: string; bg: string; text: string; tier: number; glow: string }> = {
@@ -439,7 +440,7 @@ function StatHex({ label, value, color }: { label: string; value: number; color:
   );
 }
 
-export default function PlayerCard({ player, showBuyButton, onBuy, buying, canAfford, className = '' }: PlayerCardProps) {
+export default function PlayerCard({ player, showBuyButton, onBuy, buying, canAfford, className = '', onClick }: PlayerCardProps) {
   const [flipped, setFlipped] = useState(false);
   const { getPlayerProgression, getOverallBonus } = usePlayerProgression();
   const rarity = RARITY_CONFIG[player.rarity] || RARITY_CONFIG.COMMON;
@@ -449,8 +450,13 @@ export default function PlayerCard({ player, showBuyButton, onBuy, buying, canAf
   const overallBonus = getOverallBonus(player.id);
   const totalOVR = player.overall + overallBonus;
 
-  const handleFlip = () => {
-    if (!buying) setFlipped(!flipped);
+  const handleClick = () => {
+    if (buying) return;
+    if (onClick) {
+      onClick();
+    } else {
+      setFlipped(!flipped);
+    }
   };
 
   const statBars = [
@@ -469,7 +475,7 @@ export default function PlayerCard({ player, showBuyButton, onBuy, buying, canAf
         style={{ transformStyle: 'preserve-3d' }}
         animate={{ rotateY: flipped ? 180 : 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        onClick={handleFlip}
+        onClick={handleClick}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
