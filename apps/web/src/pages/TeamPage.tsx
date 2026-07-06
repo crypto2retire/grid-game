@@ -125,6 +125,11 @@ export default function TeamPage({ initialTab }: { initialTab?: TeamPageTab } = 
   const [promotionMessage, setPromotionMessage] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<TeamPageTab>(initialTab || 'roster');
+
+  useEffect(() => {
+    setActiveTab(initialTab || 'roster');
+  }, [initialTab]);
+
   const [teamSponsorships, setTeamSponsorships] = useState<any[]>([]);
   const [sponsorOffers, setSponsorOffers] = useState<any[]>([]);
   const [sponsorLoading, setSponsorLoading] = useState(false);

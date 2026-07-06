@@ -1962,16 +1962,16 @@ export default function KintaraSportsWorld() {
   const panelForBuilding = (building: SportsBuilding) => {
     switch (building.panelId) {
       case 'dashboard': return { title: 'Clubhouse HQ', content: <CityPage embedded onOpenBuilding={openBuildingById} /> };
-      case 'team': return { title: 'Locker Room', content: <TeamPage /> };
+      case 'team': return { title: 'Locker Room', content: <TeamPage initialTab="roster" /> };
       case 'market': return { title: 'Sports Market', content: <MarketplacePage /> };
       case 'leaderboard': return { title: 'Trophy Hall', content: <LeaderboardPage prestige /> };
       case 'wallet': return { title: 'Sponsor Bank', content: <WalletPage /> };
-      case 'training': return { title: 'Training Gym', content: <TeamPage /> };
+      case 'training': return { title: 'Training Gym', content: <TeamPage initialTab="training" /> };
       case 'stadium': return { title: 'Home Stadium', content: <StadiumInteriorPage embedded /> };
       case 'commissioner': return { title: 'Commissioner Office', content: <CommissionerPanel initialOverview={commissionerOverview} onWallet={setWalletOverride} onStatus={setWorldStatus} onOverview={setCommissionerOverview} /> };
       case 'transport': return { title: 'Team Garage', content: <TransportGaragePage /> };
       case 'matches': return { title: 'Practice Field', content: <MatchesPage /> };
-      case 'progression': return { title: 'Medical Center', content: <TeamPage /> };
+      case 'progression': return { title: 'Medical Center', content: <TeamPage initialTab="medical" /> };
       default: return { title: building.label, content: <CityPage embedded onOpenBuilding={openBuildingById} /> };
     }
   };
