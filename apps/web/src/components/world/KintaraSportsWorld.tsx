@@ -2118,6 +2118,12 @@ export default function KintaraSportsWorld() {
   };
 
   const playHotbarMiniGame = async (slot: HotbarSlot) => {
+    if (slot.miniGameType === 'STADIUM_MATCH') {
+      // The "Match" button should open the real match scheduling/play page,
+      // not the paid quick mini-game. Open the Practice Field (matches panel).
+      openBuildingById('practice');
+      return;
+    }
     try {
       setWorldStatus(`Running ${slot.label} on the server...`);
       const data = await fetchApi('/api/mini-games/play', {
