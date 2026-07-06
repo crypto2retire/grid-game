@@ -46,7 +46,9 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     setPanels((prev) => {
       const existing = prev.find((p) => p.id === panel.id);
       if (existing) {
-        return prev.map((p) => (p.id === panel.id ? { ...p, zIndex: zCounter, minimized: false, content: panel.content } : p));
+        // Close existing panel with same id so we always mount fresh content.
+        // This fixes building-switching bugs where interior panels reused stale state.
+        return prev.filter((p) => p.id !== panel.id).concat([{ ...panel, zIndex: zCounter }]);
       }
       return [{ ...panel, zIndex: zCounter }];
     });

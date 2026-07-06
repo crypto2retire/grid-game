@@ -240,14 +240,22 @@ export async function startTraining(input: TrainingInput) {
     }
 
     const targetPlayerIds = targetPlayers.map((player: any) => player.id);
-    await tx.playerItem.updateMany({
-      where: {
-        playerId: { in: targetPlayerIds },
-        equipped: true,
-        durability: { gte: ECONOMY_BALANCE_POLICY.trainingEquipmentWear },
-      },
-      data: { durability: { decrement: ECONOMY_BALANCE_POLICY.trainingEquipmentWear } },
-    });
+    // Only attempt equipment wear if PlayerItem.durability exists in the schema.
+    const hasDurabilityField = await tx.$queryRaw`
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'PlayerItem' AND column_name = 'durability'
+    `.catch(() => []);
+    if (Array.isArray(hasDurabilityField) && hasDurabilityField.length > 0) {
+      await tx.playerItem.updateMany({
+        where: {
+          playerId: { in: targetPlayerIds },
+          equipped: true,
+          durability: { gte: ECONOMY_BALANCE_POLICY.trainingEquipmentWear },
+        },
+        data: { durability: { decrement: ECONOMY_BALANCE_POLICY.trainingEquipmentWear } },
+      });
+    }
 
     // Apply stat improvements immediately
     const trainingRecords = [];

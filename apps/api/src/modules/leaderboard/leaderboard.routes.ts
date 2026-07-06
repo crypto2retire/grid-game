@@ -4,22 +4,10 @@ import { asyncHandler } from '../../middleware/errorHandler';
 
 const router = Router();
 
-const numeric = (value: unknown, fallback: number) => {
-  const parsed = parseInt(String(value ?? ''), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const playerSortMap: Record<string, string> = {
-  mvpScore: 'mvpScore',
-  touchdowns: 'touchdowns',
-  passingTouchdowns: 'passingTouchdowns',
-  yards: 'yards',
-  tackles: 'tackles',
-  turnoversForced: 'turnoversForced',
-  fieldGoals: 'fieldGoals',
-  ratingAverage: 'ratingAverage',
-  gamesPlayed: 'gamesPlayed',
-};
+function numeric(value: any, fallback: number): number {
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
 
 router.get(
   '/teams',
@@ -27,28 +15,23 @@ router.get(
     const { page = '1', limit = '20', sportId = 'american-football' } = req.query;
     const take = numeric(limit, 20);
     const skip = (numeric(page, 1) - 1) * take;
-    const where = { sportId: sportId as string };
 
     const [teams, total] = await Promise.all([
       prisma.team.findMany({
-        where,
+        where: { sportId: sportId as string },
         skip,
         take,
         orderBy: [
           { points: 'desc' },
           { wins: 'desc' },
-          { pointsFor: 'desc' },
+          { losses: 'asc' },
         ],
         include: {
-          owner: {
-            select: { username: true, displayName: true },
-          },
-          _count: {
-            select: { teamPlayers: true },
-          },
+          owner: { select: { username: true, displayName: true } },
+          _count: { select: { teamPlayers: true } },
         },
       }),
-      prisma.team.count({ where }),
+      prisma.team.count({ where: { sportId: sportId as string } }),
     ]);
 
     res.json({
@@ -69,40 +52,32 @@ router.get(
 router.get(
   '/players',
   asyncHandler(async (req, res) => {
-    const { page = '1', limit = '20', sortBy = 'mvpScore', sportId = 'american-football', season = 'beta' } = req.query;
+    const { page = '1', limit = '20', sortBy = 'mvpScore', sportId = 'american-football', season } = req.query;
     const take = numeric(limit, 20);
     const skip = (numeric(page, 1) - 1) * take;
-    const sortField = playerSortMap[String(sortBy)] || 'mvpScore';
-    const where = { sportId: sportId as string, season: season as string };
+    const sortField = String(sortBy || 'mvpScore');
+    const allowedSortFields = ['mvpScore', 'touchdowns', 'yards', 'tackles', 'turnoversForced', 'ratingAverage'];
+    const safeSortField = allowedSortFields.includes(sortField) ? sortField : 'mvpScore';
+
+    const where: any = {
+      sportId: sportId as string,
+    };
+    if (season) {
+      where.season = season as string;
+    }
 
     const [rows, total] = await Promise.all([
       prisma.playerSeasonStats.findMany({
         where,
+        orderBy: { [safeSortField]: 'desc' },
         skip,
         take,
-        orderBy: [
-          { [sortField]: 'desc' },
-          { ratingAverage: 'desc' },
-          { gamesPlayed: 'desc' },
-        ] as any,
         include: {
           player: {
-            select: {
-              id: true,
-              name: true,
-              sportId: true,
-              position: true,
-              overall: true,
-              rarity: true,
-              form: true,
-              fatigue: true,
-              morale: true,
-              pace: true,
-              shooting: true,
-              passing: true,
-              dribbling: true,
-              defending: true,
-              physical: true,
+            include: {
+              teamPlayers: {
+                include: { team: { select: { name: true } } },
+              },
             },
           },
         },
@@ -139,6 +114,61 @@ router.get(
         players,
         sortBy: sortField,
         season,
+        pagination: {
+          page: numeric(page, 1),
+          limit: take,
+          total,
+          totalPages: Math.ceil(total / take),
+        },
+      },
+    });
+  })
+);
+
+router.get(
+  '/prestige',
+  asyncHandler(async (req, res) => {
+    const { page = '1', limit = '20', sportId = 'american-football' } = req.query;
+    const take = numeric(limit, 20);
+    const skip = (numeric(page, 1) - 1) * take;
+    const where = { sportId: sportId as string };
+
+    const [teams, total] = await Promise.all([
+      prisma.team.findMany({
+        where,
+        skip,
+        take,
+        orderBy: [
+          { points: 'desc' },
+          { wins: 'desc' },
+          { losses: 'asc' },
+        ],
+        include: {
+          owner: {
+            select: { username: true, displayName: true },
+          },
+          venue: { select: { tier: true, prestige: true } },
+          _count: {
+            select: { teamPlayers: true },
+          },
+        },
+      }),
+      prisma.team.count({ where }),
+    ]);
+
+    // Sort by prestige in-memory since the Prisma client type may not expose the field directly.
+    const sortedTeams = (teams as any[])
+      .map((team) => ({ ...team, prestige: team.prestige ?? team.venue?.prestige ?? 0 }))
+      .sort((a, b) => {
+        const prestigeDiff = b.prestige - a.prestige;
+        if (prestigeDiff !== 0) return prestigeDiff;
+        return b.points - a.points || b.wins - a.wins;
+      });
+
+    res.json({
+      status: 'success',
+      data: {
+        teams: sortedTeams,
         pagination: {
           page: numeric(page, 1),
           limit: take,

@@ -12,6 +12,8 @@ interface LeaderboardTeam {
   pointsFor: number;
   pointsAgainst: number;
   points: number;
+  prestige?: number;
+  venue?: { tier?: string };
   _count: { teamPlayers: number };
 }
 
@@ -37,9 +39,9 @@ interface LeaderboardPlayer {
   };
 }
 
-export default function LeaderboardPage() {
+export default function LeaderboardPage({ prestige }: { prestige?: boolean } = {}) {
   const { activeSportId } = useGameStore();
-  const [activeTab, setActiveTab] = useState<'teams' | 'players'>('teams');
+  const [activeTab, setActiveTab] = useState<'teams' | 'players' | 'prestige'>(prestige ? 'prestige' : 'teams');
   const [teams, setTeams] = useState<LeaderboardTeam[]>([]);
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,9 +49,12 @@ export default function LeaderboardPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [playerSort, setPlayerSort] = useState('mvpScore');
 
+  const [prestigeTeams, setPrestigeTeams] = useState<LeaderboardTeam[]>([]);
+
   useEffect(() => {
     setLoading(true);
     if (activeTab === 'teams') fetchTeams();
+    else if (activeTab === 'prestige') fetchPrestige();
     else fetchPlayers();
   }, [activeTab, page, activeSportId, playerSort]);
 
@@ -63,6 +68,21 @@ export default function LeaderboardPage() {
       }
     } catch (err) {
       console.error('Failed to fetch leaderboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPrestige = async () => {
+    try {
+      const res = await fetch(`/api/leaderboard/prestige?page=${page}&limit=20&sportId=${activeSportId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPrestigeTeams(data.data?.teams || []);
+        setTotalPages(data.data?.pagination?.totalPages || 1);
+      }
+    } catch (err) {
+      console.error('Failed to fetch prestige leaderboard:', err);
     } finally {
       setLoading(false);
     }
@@ -121,6 +141,7 @@ export default function LeaderboardPage() {
       <div className="flex items-center gap-2 border-b border-border pb-1">
         {[
           { id: 'teams' as const, label: 'Teams', icon: Trophy },
+          { id: 'prestige' as const, label: 'Prestige', icon: Crown },
           { id: 'players' as const, label: 'Players', icon: Medal },
         ].map((t) => (
           <button
@@ -171,6 +192,46 @@ export default function LeaderboardPage() {
                       <div className="text-xs text-muted-foreground">PTS</div>
                     </div>
                     <div>{getFormIndicator(team)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'prestige' && (
+        <div className="glass-card p-6">
+          {prestigeTeams.length === 0 ? (
+            <div className="text-center py-8">
+              <Crown className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-white font-medium mb-1">No prestige rankings yet</p>
+              <p className="text-muted-foreground text-sm">Build your venue, roster, and transport to climb prestige</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {prestigeTeams.map((team, index) => (
+                <div key={team.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg transition-colors ${index < 3 ? 'bg-secondary/50' : 'bg-secondary/30'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 flex justify-center shrink-0">{getRankIcon((page - 1) * 20 + index + 1)}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-white text-sm">{team.name}</div>
+                      <div className="text-xs text-muted-foreground">{team.owner.displayName || team.owner.username} • {team._count.teamPlayers} players • {team.venue?.tier || '—'}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm ml-11 sm:ml-0">
+                    <div className="text-center w-12">
+                      <div className="font-bold text-accent text-lg">{team.prestige ?? 0}</div>
+                      <div className="text-xs text-muted-foreground">PRESTIGE</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-white">{team.wins}-{team.losses}-{team.draws}</div>
+                      <div className="text-xs text-muted-foreground">W-L-T</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-white">{team.pointsFor}:{team.pointsAgainst}</div>
+                      <div className="text-xs text-muted-foreground">PF:PA</div>
+                    </div>
                   </div>
                 </div>
               ))}

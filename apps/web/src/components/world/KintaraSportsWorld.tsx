@@ -1964,7 +1964,7 @@ export default function KintaraSportsWorld() {
       case 'dashboard': return { title: 'Clubhouse HQ', content: <CityPage embedded onOpenBuilding={openBuildingById} /> };
       case 'team': return { title: 'Locker Room', content: <TeamPage /> };
       case 'market': return { title: 'Sports Market', content: <MarketplacePage /> };
-      case 'leaderboard': return { title: 'Trophy Hall', content: <LeaderboardPage /> };
+      case 'leaderboard': return { title: 'Trophy Hall', content: <LeaderboardPage prestige /> };
       case 'wallet': return { title: 'Sponsor Bank', content: <WalletPage /> };
       case 'training': return { title: 'Training Gym', content: <TeamPage initialTab="training" /> };
       case 'stadium': return { title: 'Home Stadium', content: <StadiumInteriorPage embedded /> };

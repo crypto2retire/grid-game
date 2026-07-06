@@ -271,6 +271,61 @@ router.get(
   })
 );
 
+// GET /api/teams/:id/players — roster-only view (used by some frontends and tests)
+router.get(
+  '/:id/players',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+
+    const teamPlayers = await prisma.teamPlayer.findMany({
+      where: { teamId },
+      include: {
+        player: {
+          include: {
+            playerItems: { include: { item: true } },
+          },
+        },
+      },
+      orderBy: { player: { position: 'asc' } },
+    });
+
+    res.json({ status: 'success', data: { players: teamPlayers.map((tp) => tp.player) } });
+  })
+);
+
+// GET /api/teams/:id/transportation — dedicated transport endpoint
+router.get(
+  '/:id/transportation',
+  authMiddleware,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const teamId = routeParam(req.params.id, 'id');
+    const userId = req.user!.id;
+
+    const team = await prisma.team.findFirst({
+      where: { id: teamId, ownerId: userId },
+    });
+    if (!team) {
+      throw new AppError(403, 'You do not own this team');
+    }
+
+    const assets = await prisma.transportationAsset.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ status: 'success', data: { assets } });
+  })
+);
+
 router.put(
   '/:id',
   authMiddleware,
