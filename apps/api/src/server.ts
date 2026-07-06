@@ -1,17 +1,27 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import {
+  authLimiter,
+  matchLimiter,
+  marketplaceLimiter,
+  stakingLimiter,
+  walletLimiter,
+  miniGameLimiter,
+  chatLimiter,
+  worldLimiter,
+  globalLimiter,
+} from './middleware/rateLimits';
 import { createServer } from 'http';
 import path from 'path';
 import { exec } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import { env } from './config/env';
 import { connectDatabase, disconnectDatabase, prisma } from './config/database';
-import { connectRedis, disconnectRedis } from './config/redis';
+import { disconnectRedis } from './config/redis';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
-import { userRouter } from './modules/users/user.routes';
+
 import { teamRouter } from './modules/teams/team.routes';
 import { playerRouter } from './modules/players/player.routes';
 import { matchRouter } from './modules/matches/match.routes';
@@ -299,17 +309,7 @@ const io = new SocketIOServer(server, {
 
 app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 300,
-    standardHeaders: true,
-    legacyHeaders: false,
-    // Render health checks run frequently enough to exhaust the old global
-    // 100/15min limit and force a restart about every 9 minutes.
-    skip: (req) => req.path === '/api/health' || req.path === '/health' || req.method === 'OPTIONS',
-  })
-);
+app.use(globalLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -350,8 +350,8 @@ app.get('/health', (_req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRouter);
-app.use('/api/users', userRouter);
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/users', authRouter);
 app.use('/api/teams', sponsorshipRouter);
 app.use('/api/teams', teamRouter);
 // Promotion routes are part of the Team page UX. Keep them mounted under
@@ -359,11 +359,11 @@ app.use('/api/teams', teamRouter);
 // and /api/teams/:id/promote from TeamPage.
 app.use('/api/teams', promotionRouter);
 app.use('/api/players', playerRouter);
-app.use('/api/matches', matchRouter);
+app.use('/api/matches', matchLimiter, matchRouter);
 app.use('/api/matches', matchesListRouter);
-app.use('/api/economy', economyRouter);
+app.use('/api/economy', walletLimiter, economyRouter);
 app.use('/api/economy/maintenance', maintenanceRouter);
-app.use('/api/marketplace', marketplaceRouter);
+app.use('/api/marketplace', marketplaceLimiter, marketplaceRouter);
 app.use('/api/sports', sportsRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/leaderboard', leaderboardSnapshotRouter);
@@ -371,24 +371,24 @@ app.use('/api/leaderboard', leaderboardSnapshotRouter);
 app.use('/api/promotion', promotionRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/equipment', equipmentRouter);
-app.use('/api/treasury', treasuryRouter);
-app.use('/api/solana', solanaRouter);
-app.use('/api/staking', stakingRouter);
+app.use('/api/treasury', walletLimiter, treasuryRouter);
+app.use('/api/solana', walletLimiter, solanaRouter);
+app.use('/api/staking', stakingLimiter, stakingRouter);
 app.use('/api/teams/catalog', teamCatalogRouter);
-app.use('/api/team-marketplace', teamMarketplaceRouter);
-app.use('/api/play-game', playGameRouter);
+app.use('/api/team-marketplace', marketplaceLimiter, teamMarketplaceRouter);
+app.use('/api/play-game', matchLimiter, playGameRouter);
 app.use('/api/ai-teams', aiTeamsRouter);
 app.use('/api/testing', testingRouter);
-app.use('/api/world', worldRouter);
+app.use('/api/world', worldLimiter, worldRouter);
 app.use('/api/daily-quests', dailyQuestsRouter);
-app.use('/api/chat', chatRouter);
-app.use('/api/mini-games', miniGamesRouter);
+app.use('/api/chat', chatLimiter, chatRouter);
+app.use('/api/mini-games', miniGameLimiter, miniGamesRouter);
 app.use('/api/game-time', gameTimeRouter);
 app.use('/api/islands', islandRouter);
 app.use('/api/leagues', leagueRouter);
 app.use('/api/market', marketRouter);
-app.use('/api/marketplace-items', marketplaceItemsRouter);
-app.use('/api/commissioner', commissionerRouter);
+app.use('/api/marketplace-items', marketplaceLimiter, marketplaceItemsRouter);
+app.use('/api/commissioner', walletLimiter, commissionerRouter);
 app.use('/api/luck', luckRouter);
 
 // Health check — Render expects this for the healthCheckPath
@@ -503,50 +503,36 @@ const startServer = async () => {
                       data: { position: footballPositions[index % footballPositions.length] },
                     })
                   ));
-                  logger.info('American football position conversion complete');
-                  // Generate AI teams after conversion
-                  import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
-                    generateAllAITeams().catch((e: any) => logger.error('AI team generation error:', e));
-                  });
-                } else {
-                  logger.info(`Database ready (${count} players)`);
-                  // Generate AI teams
-                  import('./modules/ai-teams/ai-teams.service').then(({ generateAllAITeams }) => {
-                    generateAllAITeams().catch((e: any) => logger.error('AI team generation error:', e));
-                  });
-                  // Seed equipment types, daily quests, and marketplace listings
-                  seedEquipmentTypes(prisma).catch((e: any) => logger.error('Equipment seed error:', e));
-                  ensureDefaultDailyQuests().catch((e: any) => logger.error('Daily quest seed error:', e));
-                  seedMarketplaceListings(prisma).catch((e: any) => logger.error('Marketplace seed error:', e));
-                  seedTeamMarketplaceListings(prisma).catch((e: any) => logger.error('Team marketplace seed error:', e));
-                  seedDefaultIslands(prisma).catch((e: any) => logger.error('Island seed error:', e));
-                  seedItems(prisma).catch((e: any) => logger.error('Item seed error:', e));
+                  logger.info('Position conversion complete');
                 }
-              }).catch((convertErr: any) => logger.error('Football conversion error:', convertErr));
+              }).catch((e: any) => logger.error('Position conversion error:', e));
             }
-          }).catch((countErr: any) => logger.error('Count error:', countErr));
+          });
         });
       });
-    } catch (dbErr) {
-      logger.error('Database failed:', dbErr);
+
+      // Seed equipment types
+      await seedEquipmentTypes(prisma);
+
+      // Seed marketplace listings
+      await seedMarketplaceListings(prisma);
+
+      // Seed team marketplace listings
+      await seedTeamMarketplaceListings(prisma);
+
+      // Seed default islands & leagues
+      await seedDefaultIslands(prisma);
+
+      // Seed market items
+      await seedItems(prisma).catch((e: any) => logger.error('Market item seed error:', e));
+
+      // Ensure daily quests exist
+      await ensureDefaultDailyQuests().catch((e: any) => logger.error('Daily quest seed error:', e));
+    } catch (error) {
+      logger.error('Failed to connect to database:', error);
     }
-  } else {
-    logger.warn('No DATABASE_URL - database unavailable');
   }
-
-  try {
-    const redisConnected = await connectRedis();
-    logger.info(redisConnected ? 'Redis connected' : 'Redis not configured - optional cache disabled');
-  } catch {
-    logger.warn('Redis unavailable');
-  }
-
-  // Keep-alive: lightweight DB ping every 5 min to prevent free-tier sleep
-  setInterval(() => {
-    prisma.$queryRaw`SELECT 1`.catch(() => {});
-  }, 5 * 60 * 1000);
 };
 
-startServer();
-
-export { io };
+export { app, server, startServer };
+export default app;

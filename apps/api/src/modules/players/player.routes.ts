@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/database';
-import { authMiddleware, AuthRequest } from '../../middleware/auth';
+import { authMiddleware, AuthRequest, requireRole } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { calculatePlayerPrice } from '../economy/marketplace.routes';
 import { routeParam } from '../../utils/routeParams';
@@ -205,6 +205,7 @@ router.post(
 router.post(
   '/refresh-pool',
   authMiddleware,
+  requireRole('ADMIN'),
   asyncHandler(async (req, res) => {
     const sportId = (req.query.sportId as string) || 'american-football';
     const count = await maintainPlayerPool(200);
