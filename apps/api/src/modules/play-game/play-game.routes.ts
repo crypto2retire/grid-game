@@ -126,13 +126,20 @@ router.post(
   authMiddleware,
   asyncHandler(async (req: any, res) => {
     await assertMatchParticipant(req.params.matchId, req.user!.id);
-    const result = await simulateRemainder(req.params.matchId);
-
-    res.json({
-      status: 'success',
-      data: result,
-      message: 'Game simulated to completion',
-    });
+    try {
+      const result = await simulateRemainder(req.params.matchId);
+      res.json({
+        status: 'success',
+        data: result,
+        message: 'Game simulated to completion',
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        status: 'error',
+        message: err?.message || 'Simulation failed',
+        stack: err?.stack || null,
+      });
+    }
   })
 );
 
