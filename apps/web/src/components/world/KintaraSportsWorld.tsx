@@ -1346,13 +1346,16 @@ function CommissionerPanel({
 
 function InteriorSceneProps({ building, stadiumUpgradeLevel = 0, visualStage = 0 }: { building: SportsBuilding; stadiumUpgradeLevel?: number; visualStage?: number }) {
   const stage = Math.max(0, Math.min(5, Math.round(Math.max(stadiumUpgradeLevel, visualStage))));
-  const commonCase = (label: string, x: number, y: number, color = building.color) => (
-    <g key={label} transform={`translate(${x}, ${y})`}>
-      <rect x={-34} y={-22} width={68} height={44} rx={8} fill="rgba(15,23,42,.88)" stroke={color} strokeWidth={2} />
-      <text x={0} y={-1} textAnchor="middle" fill="#fff" fontSize={8} fontWeight={900}>{label}</text>
-      {stage > 0 && <text x={0} y={11} textAnchor="middle" fill="#fde047" fontSize={6.5} fontWeight={900}>TIER {stage}</text>}
-    </g>
-  );
+  const commonCase = (label: string, x: number, y: number, color = building.color) => {
+    const caseWidth = Math.max(68, Math.min(132, label.length * 8));
+    return (
+      <g key={label} transform={`translate(${x}, ${y})`}>
+        <rect x={-caseWidth / 2} y={-22} width={caseWidth} height={44} rx={8} fill="rgba(15,23,42,.88)" stroke={color} strokeWidth={2} />
+        <text x={0} y={-1} textAnchor="middle" fill="#fff" fontSize={label.length > 12 ? 7 : 8} fontWeight={900}>{label}</text>
+        {stage > 0 && <text x={0} y={11} textAnchor="middle" fill="#fde047" fontSize={6.5} fontWeight={900}>TIER {stage}</text>}
+      </g>
+    );
+  };
 
   if (building.id === 'stadium') {
     return (
@@ -1388,8 +1391,8 @@ function InteriorSceneProps({ building, stadiumUpgradeLevel = 0, visualStage = 0
           </g>
         ))}
         <rect x="66" y="280" width="130" height="82" rx="12" fill="#f8fafc" stroke="#0f172a" strokeWidth="3" />
-        <text x="131" y="326" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="900">LINEUP BOARD</text>
-        {commonCase('GEAR RACK', 294, 320, '#38bdf8')}
+        <text x="131" y="326" textAnchor="middle" fill="#0f172a" fontSize="15" fontWeight="900">ROSTER</text>
+        {commonCase('PLAYER TRAINING', 294, 320, '#38bdf8')}
       </svg>
     );
   }
@@ -1415,8 +1418,8 @@ function InteriorSceneProps({ building, stadiumUpgradeLevel = 0, visualStage = 0
         {[104, 210, 316].map((x) => <rect key={x} x={x - 38} y="150" width="76" height="150" rx="28" fill="#ecfeff" stroke="#ef4444" strokeWidth="3" />)}
         <rect x="190" y="72" width="40" height="100" rx="8" fill="#ef4444" />
         <rect x="160" y="102" width="100" height="40" rx="8" fill="#ef4444" />
-        {commonCase('TREATMENT', 118, 365, '#ef4444')}
-        {commonCase('RECOVERY', 302, 365, '#ef4444')}
+        {commonCase('TREAT INJURIES', 118, 365, '#ef4444')}
+        {commonCase('RECOVERY STATUS', 302, 365, '#ef4444')}
       </svg>
     );
   }
@@ -1504,7 +1507,7 @@ const BUILDING_INTERIOR_ACTIONS: Record<string, InteriorAction[]> = {
   ],
   team: [
     { label: 'Roster', helper: 'Manage players and lineup', buttonTextMatches: ['Roster'] },
-    { label: 'Sponsorships', helper: 'Open sponsor offers and contracts', buttonTextMatches: ['Sponsorships', 'Refresh Offers'] },
+    { label: 'Player Training', helper: 'Open player development drills', buttonTextMatches: ['Training', 'Start Training'] },
     { label: 'Equipment', helper: 'Buy or review team gear', buttonTextMatches: ['Equipment', 'Purchase'] },
   ],
   market: [
@@ -1513,9 +1516,9 @@ const BUILDING_INTERIOR_ACTIONS: Record<string, InteriorAction[]> = {
     { label: 'Player market', helper: 'Open player sale listings', buttonTextMatches: ['Players'] },
   ],
   medical: [
-    { label: 'Player cards', helper: 'Select the first progression card', buttonTextMatches: ['XP', 'Career Stats', 'Recent XP Gains'] },
-    { label: 'XP history', helper: 'Open recent XP and recovery history', buttonTextMatches: ['Recent XP Gains'] },
-    { label: 'Career stats', helper: 'Jump to selected-player detail', buttonTextMatches: ['Career Stats'] },
+    { label: 'Treat Injuries', helper: 'Treat the first injured player shown in Medical Center', buttonTextMatches: ['Treat Injury', 'Treat'] },
+    { label: 'Recovery Status', helper: 'Review injured and recovering players', buttonTextMatches: ['Medical', 'Recovery', 'Health'] },
+    { label: 'Roster Health', helper: 'Open player health cards', buttonTextMatches: ['Roster', 'Player', 'Health'] },
   ],
   commissioner: [
     { label: 'Fund cycle', helper: 'Use community funding controls', buttonTextMatches: ['Fund', 'Contribute', 'Add Funding'] },
