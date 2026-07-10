@@ -1,4 +1,4 @@
-import { computeDailyChestReward, isJourneyComplete, utcDateKey } from './retention.service';
+import { computeDailyChestReward, isJourneyComplete, utcDateKey } from './retention.rules';
 
 describe('retention reward rules', () => {
   test('daily chest starts controlled and caps at 2500 CASH', () => {
