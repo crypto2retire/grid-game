@@ -3,6 +3,7 @@ import { PanelOverlay } from './PanelSystem';
 import KintaraSportsWorld from './KintaraSportsWorld';
 import ModernSportsCampus from './ModernSportsCampus';
 import SportsWorldChrome from './SportsWorldChrome';
+import FranchiseJourney from './FranchiseJourney';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -29,6 +30,7 @@ export default function GameShell() {
       <KintaraSportsWorld />
       <ModernSportsCampus />
       <SportsWorldChrome />
+      <FranchiseJourney />
       <PanelOverlay />
     </div>
   );
