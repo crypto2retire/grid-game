@@ -55,3 +55,7 @@ After a daily chest or season milestone claim:
 ## Economy controls
 
 Daily chest CASH starts at 1,500, increases by 100 per consecutive completion day, and caps at 2,500. DYN is only awarded on each seventh streak day. Journey completion grants 100 season XP once per UTC day. Facility modifiers currently affect progression or season XP only; they do not multiply currency rewards.
+
+## Current validation limitation
+
+GitHub has not attached a CI workflow run to the latest branch commits yet. The code and test commands are ready, but migration execution and Jest results still need to be observed in an environment with PostgreSQL and installed dependencies before the PR should be marked ready for review.
