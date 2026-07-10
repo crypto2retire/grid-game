@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Building2, ChevronRight, CircleHelp, Radio, Trophy, X } from 'lucide-react';
 import { usePanels } from './PanelSystem';
+import './SportsWorldChrome.css';
 
 const controls = [
   { key: 'WASD', label: 'Move' },
