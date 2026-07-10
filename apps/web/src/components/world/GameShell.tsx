@@ -1,6 +1,7 @@
 import { useAuthStore } from '../../store/authStore';
 import { PanelOverlay } from './PanelSystem';
 import KintaraSportsWorld from './KintaraSportsWorld';
+import ModernSportsCampus from './ModernSportsCampus';
 import SportsWorldChrome from './SportsWorldChrome';
 
 export default function GameShell() {
@@ -26,6 +27,7 @@ export default function GameShell() {
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#07111f]">
       <KintaraSportsWorld />
+      <ModernSportsCampus />
       <SportsWorldChrome />
       <PanelOverlay />
     </div>
