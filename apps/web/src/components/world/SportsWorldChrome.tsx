@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2, ChevronRight, CircleHelp, Radio, Trophy, X } from 'lucide-react';
+import { CircleHelp, MapPin, X } from 'lucide-react';
 import { usePanels } from './PanelSystem';
 import './SportsWorldChrome.css';
 
@@ -24,39 +24,35 @@ export default function SportsWorldChrome() {
   }, []);
 
   return (
-    <div className="sports-world-chrome pointer-events-none fixed inset-0 z-[8] select-none" aria-hidden={false}>
-      <div className="sports-world-vignette" />
-      <div className="sports-world-scanlines" />
+    <div className="sports-world-chrome pointer-events-none fixed inset-0 z-[8] select-none">
+      <div className="sports-world-edge-shade" />
 
-      <header className="sports-broadcast-header pointer-events-auto">
-        <div className="sports-brand-lockup">
-          <div className="sports-brand-mark"><Trophy className="h-4 w-4" /></div>
-          <div>
-            <div className="sports-brand-kicker">GRID SPORTS NETWORK</div>
-            <div className="sports-brand-title">FRANCHISE DISTRICT</div>
-          </div>
-        </div>
+      <div className="sports-brand-plate">
+        <span className="sports-brand-monogram">G</span>
+        <span className="sports-brand-copy">
+          <strong>GRID</strong>
+          <small>Franchise Campus</small>
+        </span>
+      </div>
 
-        <div className="sports-live-chip">
-          <Radio className="h-3.5 w-3.5" />
-          <span>LIVE WORLD</span>
-        </div>
-
-        <button type="button" className="sports-help-button" onClick={() => setHelpOpen((open) => !open)} aria-expanded={helpOpen}>
-          <CircleHelp className="h-4 w-4" />
-          <span>Controls</span>
-        </button>
-      </header>
+      <button
+        type="button"
+        className="sports-help-button pointer-events-auto"
+        onClick={() => setHelpOpen((open) => !open)}
+        aria-expanded={helpOpen}
+      >
+        <CircleHelp className="h-4 w-4" />
+        <span>Controls</span>
+      </button>
 
       {activePanel && (
         <div className="sports-location-ribbon pointer-events-auto">
-          <div className="sports-location-icon"><Building2 className="h-4 w-4" /></div>
+          <MapPin className="h-4 w-4" />
           <div className="min-w-0">
-            <div className="sports-location-kicker">NOW VISITING</div>
-            <div className="sports-location-title">{activePanel.title}</div>
+            <small>Current facility</small>
+            <strong>{activePanel.title}</strong>
           </div>
-          <ChevronRight className="h-4 w-4 text-cyan-200/70" />
-          <button type="button" onClick={closeAllPanels} className="sports-location-close" aria-label="Return to the sports district">
+          <button type="button" onClick={closeAllPanels} aria-label="Return to campus">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -65,12 +61,12 @@ export default function SportsWorldChrome() {
       <div className={`sports-controls-drawer pointer-events-auto ${helpOpen ? 'is-open' : ''}`}>
         <div className="sports-controls-heading">
           <div>
-            <div className="sports-controls-kicker">FIELD MANUAL</div>
-            <div className="sports-controls-title">Explore the district</div>
+            <small>Field guide</small>
+            <strong>Explore the campus</strong>
           </div>
           <button type="button" onClick={() => setHelpOpen(false)} aria-label="Close controls"><X className="h-4 w-4" /></button>
         </div>
-        <p>Move between facilities, approach a highlighted entrance, then press E to open that building. Your stadium, gym, market, medical center and team headquarters all represent playable management loops.</p>
+        <p>Walk to a facility and press E when its entrance highlights. Each building opens a different management system.</p>
         <div className="sports-control-grid">
           {controls.map((control) => (
             <div key={control.key} className="sports-control-item">
