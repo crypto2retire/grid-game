@@ -2,238 +2,137 @@ const TILE_W = 74;
 const TILE_H = 38;
 
 function iso(tileX: number, tileY: number) {
-  return {
-    x: (tileX - tileY) * (TILE_W / 2),
-    y: (tileX + tileY) * (TILE_H / 2),
-  };
+  return { x: (tileX - tileY) * (TILE_W / 2), y: (tileX + tileY) * (TILE_H / 2) };
 }
 
-function CampusBase({ tx, ty, width = 180, depth = 92, accent = '#22d3ee' }: { tx: number; ty: number; width?: number; depth?: number; accent?: string }) {
+type CampusBuildingProps = {
+  tx: number;
+  ty: number;
+  width?: number;
+  depth?: number;
+  height?: number;
+  label: string;
+  accent: string;
+  roof?: 'flat' | 'saw' | 'glass';
+  icon?: string;
+};
+
+function GroundPad({ width, depth, accent }: { width: number; depth: number; accent: string }) {
+  return (
+    <g>
+      <ellipse cx="0" cy="22" rx={width * .59} ry={depth * .42} fill="rgba(15,23,42,.22)" />
+      <path d={`M ${-width / 2} 0 L 0 ${depth / 2} L ${width / 2} 0 L 0 ${-depth / 2} Z`} fill="#d6d3cb" stroke="#334155" strokeWidth="3" />
+      <path d={`M ${-width / 2 + 10} 0 L 0 ${depth / 2 - 8} L ${width / 2 - 10} 0 L 0 ${-depth / 2 + 8} Z`} fill="#ece9df" stroke={accent} strokeWidth="2" />
+    </g>
+  );
+}
+
+function CampusBuilding({ tx, ty, width = 128, depth = 62, height = 92, label, accent, roof = 'flat', icon }: CampusBuildingProps) {
   const { x, y } = iso(tx, ty);
+  const left = -width / 2;
+  const right = width / 2;
   return (
-    <g transform={`translate(${x}, ${y})`}>
-      <ellipse cx="0" cy="26" rx={width * 0.62} ry={depth * 0.42} fill="rgba(2,6,23,.30)" />
-      <path d={`M ${-width / 2} 0 L 0 ${depth / 2} L ${width / 2} 0 L 0 ${-depth / 2} Z`} fill="#dbeafe" stroke="#0f172a" strokeWidth="3" />
-      <path d={`M ${-width / 2 + 10} 0 L 0 ${depth / 2 - 8} L ${width / 2 - 10} 0 L 0 ${-depth / 2 + 8} Z`} fill="#e2e8f0" stroke={accent} strokeWidth="2" opacity=".95" />
-      <path d={`M ${-width / 2 + 22} 0 L 0 ${depth / 2 - 17} L ${width / 2 - 22} 0 L 0 ${-depth / 2 + 17} Z`} fill="none" stroke="#ffffff" strokeWidth="2" opacity=".75" />
+    <g transform={`translate(${x}, ${y})`} filter="url(#campusSoftShadow)">
+      <GroundPad width={width + 54} depth={depth + 38} accent={accent} />
+
+      <path d={`M ${left} 0 L ${left} ${-height} L 0 ${-height + depth / 2} L 0 ${depth / 2} Z`} fill="#d7d2c8" stroke="#334155" strokeWidth="2" />
+      <path d={`M 0 ${depth / 2} L 0 ${-height + depth / 2} L ${right} ${-height} L ${right} 0 Z`} fill="#aaa69d" stroke="#334155" strokeWidth="2" />
+
+      {roof === 'flat' && (
+        <path d={`M ${left} ${-height} L 0 ${-height - depth / 2} L ${right} ${-height} L 0 ${-height + depth / 2} Z`} fill="#27313d" stroke="#111827" strokeWidth="3" />
+      )}
+      {roof === 'glass' && (
+        <>
+          <path d={`M ${left} ${-height} L 0 ${-height - depth / 2} L ${right} ${-height} L 0 ${-height + depth / 2} Z`} fill="#9dd6df" stroke="#155e75" strokeWidth="3" />
+          <path d={`M ${left + 18} ${-height} L 0 ${-height - depth / 2 + 8} L ${right - 18} ${-height}`} fill="none" stroke="#e0f2fe" strokeWidth="3" opacity=".85" />
+        </>
+      )}
+      {roof === 'saw' && (
+        <path d={`M ${left} ${-height} L ${-width * .22} ${-height - 22} L 0 ${-height} L ${width * .22} ${-height - 22} L ${right} ${-height} L 0 ${-height + depth / 2} Z`} fill="#3f4852" stroke="#111827" strokeWidth="3" />
+      )}
+
+      {[-.32, 0, .32].map((ratio) => (
+        <g key={ratio}>
+          <rect x={left + 12} y={-height * (.72 + ratio / 10)} width={width / 5} height="18" rx="2" fill="#77b8c8" stroke="#164e63" />
+          <rect x={right - width / 5 - 12} y={-height * (.58 + ratio / 10)} width={width / 5} height="18" rx="2" fill="#5f9eae" stroke="#164e63" />
+        </g>
+      ))}
+
+      <rect x="-25" y="-31" width="50" height="31" rx="4" fill="#202a35" stroke="#0f172a" />
+      <rect x="-8" y="-24" width="16" height="24" rx="2" fill={accent} opacity=".9" />
+
+      <g transform={`translate(0, ${-height - depth / 2 - 18})`}>
+        <rect x="-43" y="-13" width="86" height="24" rx="5" fill="#f6f1e7" stroke="#334155" strokeWidth="2" />
+        <rect x="-43" y="-13" width="6" height="24" rx="3" fill={accent} />
+        <text x="3" y="3" textAnchor="middle" fill="#1e293b" fontSize="9" fontWeight="900" letterSpacing="1">{label}</text>
+      </g>
+
+      {icon && <text x={right - 26} y={-height - 15} textAnchor="middle" fontSize="19">{icon}</text>}
     </g>
   );
 }
 
-function GlassTower({ x, y, width, height, depth, accent, label }: { x: number; y: number; width: number; height: number; depth: number; accent: string; label: string }) {
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <path d={`M ${-width / 2} 0 L ${-width / 2} ${-height} L 0 ${-height + depth / 2} L 0 ${depth / 2} Z`} fill="#0f2740" stroke="#082f49" strokeWidth="2" />
-      <path d={`M 0 ${depth / 2} L 0 ${-height + depth / 2} L ${width / 2} ${-height} L ${width / 2} 0 Z`} fill="#0b1d31" stroke="#082f49" strokeWidth="2" />
-      <path d={`M ${-width / 2} ${-height} L 0 ${-height - depth / 2} L ${width / 2} ${-height} L 0 ${-height + depth / 2} Z`} fill="#bae6fd" stroke={accent} strokeWidth="2" />
-      {[-0.34, -0.1, 0.14, 0.38].map((ratio) => (
-        <line key={ratio} x1={-width / 2} y1={-height * (0.25 + ratio / 5)} x2="0" y2={-height * (0.25 + ratio / 5) + depth / 2} stroke="#38bdf8" strokeWidth="2" opacity=".55" />
-      ))}
-      {[-0.34, -0.1, 0.14, 0.38].map((ratio) => (
-        <line key={`r-${ratio}`} x1="0" y1={-height * (0.25 + ratio / 5) + depth / 2} x2={width / 2} y2={-height * (0.25 + ratio / 5)} stroke="#0ea5e9" strokeWidth="2" opacity=".38" />
-      ))}
-      <rect x={-34} y={-height - 18} width="68" height="18" rx="6" fill="#020617" stroke={accent} strokeWidth="2" />
-      <text x="0" y={-height - 6} textAnchor="middle" fill="#f8fafc" fontSize="9" fontWeight="900" letterSpacing="1.4">{label}</text>
-    </g>
-  );
-}
-
-function PremiumArena() {
+function Arena() {
   const { x, y } = iso(0, -10);
   return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <ellipse cx="0" cy="30" rx="174" ry="72" fill="rgba(2,6,23,.34)" />
-      <ellipse cx="0" cy="-24" rx="160" ry="70" fill="#071525" stroke="#22d3ee" strokeWidth="5" />
-      <ellipse cx="0" cy="-38" rx="138" ry="57" fill="#e2e8f0" stroke="#f8fafc" strokeWidth="3" />
-      <ellipse cx="0" cy="-42" rx="108" ry="43" fill="#0f172a" stroke="#38bdf8" strokeWidth="4" />
-      <ellipse cx="0" cy="-42" rx="72" ry="28" fill="#22c55e" stroke="#dcfce7" strokeWidth="2" />
-      <rect x="-50" y="-54" width="100" height="24" rx="8" fill="none" stroke="#ffffff" strokeWidth="1.5" opacity=".8" />
-      {[-146, -110, -72, 72, 110, 146].map((lx, index) => (
-        <g key={lx} transform={`translate(${lx}, ${index % 2 ? -72 : -48})`}>
-          <rect x="-5" y="0" width="10" height="82" rx="4" fill="#334155" />
-          <circle cx="0" cy="-5" r="12" fill="#f8fafc" stroke="#22d3ee" strokeWidth="3" filter="url(#campusGlow)" />
+    <g transform={`translate(${x}, ${y})`} filter="url(#campusSoftShadow)">
+      <ellipse cx="0" cy="30" rx="172" ry="69" fill="rgba(15,23,42,.24)" />
+      <ellipse cx="0" cy="-18" rx="162" ry="68" fill="#2b3540" stroke="#111827" strokeWidth="4" />
+      <ellipse cx="0" cy="-31" rx="142" ry="56" fill="#c9c6bd" stroke="#334155" strokeWidth="3" />
+      <ellipse cx="0" cy="-35" rx="116" ry="45" fill="#17212b" stroke="#64748b" strokeWidth="3" />
+      <ellipse cx="0" cy="-35" rx="76" ry="28" fill="#3d9b58" stroke="#d1fae5" strokeWidth="2" />
+      <rect x="-52" y="-47" width="104" height="24" rx="7" fill="none" stroke="#fff" strokeWidth="1.5" opacity=".8" />
+      <path d="M -128 -71 Q 0 -132 128 -71" fill="none" stroke="#d7d2c8" strokeWidth="11" />
+      <path d="M -108 -72 Q 0 -116 108 -72" fill="none" stroke="#334155" strokeWidth="4" />
+      {[-128, -83, 83, 128].map((lx) => (
+        <g key={lx} transform={`translate(${lx},-70)`}>
+          <rect x="-4" y="0" width="8" height="74" fill="#475569" />
+          <circle cx="0" cy="-3" r="9" fill="#fff8d6" stroke="#334155" strokeWidth="2" />
         </g>
       ))}
-      <path d="M -132 -77 Q 0 -151 132 -77" fill="none" stroke="#bae6fd" strokeWidth="12" opacity=".95" />
-      <path d="M -112 -79 Q 0 -132 112 -79" fill="none" stroke="#0ea5e9" strokeWidth="5" opacity=".8" />
-      <rect x="-72" y="-151" width="144" height="34" rx="8" fill="#020617" stroke="#facc15" strokeWidth="3" />
-      <text x="0" y="-129" textAnchor="middle" fill="#f8fafc" fontSize="13" fontWeight="900" letterSpacing="2">GRID ARENA</text>
-      <g transform="translate(0,34)">
-        <rect x="-52" y="-12" width="104" height="27" rx="10" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-        <text x="0" y="6" textAnchor="middle" fill="#0f172a" fontSize="10" fontWeight="900">PREMIUM VENUE</text>
+      <g transform="translate(0,-132)">
+        <rect x="-62" y="-16" width="124" height="31" rx="5" fill="#f6f1e7" stroke="#334155" strokeWidth="3" />
+        <rect x="-62" y="-16" width="8" height="31" fill="#d9a126" />
+        <text x="5" y="4" textAnchor="middle" fill="#1e293b" fontSize="12" fontWeight="950" letterSpacing="1.6">GRID ARENA</text>
       </g>
     </g>
   );
 }
 
-function TrainingComplex() {
-  const { x, y } = iso(10, -5);
-  return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={210} depth={104} accent="#a78bfa" />
-      <GlassTower x={-30} y={0} width={118} height={110} depth={54} accent="#a78bfa" label="PERFORMANCE" />
-      <g transform="translate(64,-14)">
-        <path d="M -54 0 L 0 28 L 54 0 L 0 -28 Z" fill="#16a34a" stroke="#dcfce7" strokeWidth="2" />
-        {[-24, -8, 8, 24].map((lx) => <line key={lx} x1={lx} y1="-18" x2={lx} y2="18" stroke="#fff" opacity=".7" />)}
-        <rect x="-34" y="-10" width="68" height="20" rx="8" fill="none" stroke="#fff" opacity=".8" />
-      </g>
-      <path d="M -94 -24 Q 0 -80 94 -24" fill="none" stroke="#c4b5fd" strokeWidth="6" opacity=".75" />
-    </g>
-  );
-}
-
-function PerformanceLab() {
-  const { x, y } = iso(13, 7);
-  return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={180} depth={88} accent="#ef4444" />
-      <GlassTower x={0} y={0} width={112} height={102} depth={52} accent="#ef4444" label="SPORT SCIENCE" />
-      <g transform="translate(0,-55)">
-        <circle r="22" fill="#f8fafc" stroke="#ef4444" strokeWidth="4" />
-        <path d="M -11 0 H 11 M 0 -11 V 11" stroke="#ef4444" strokeWidth="7" strokeLinecap="round" />
-      </g>
-      <g transform="translate(61,6)">
-        <ellipse cx="0" cy="0" rx="30" ry="13" fill="#cffafe" stroke="#0891b2" strokeWidth="2" />
-        <path d="M -18 0 Q 0 -30 18 0" fill="#67e8f9" opacity=".55" />
-      </g>
-    </g>
-  );
-}
-
-function TeamHeadquarters() {
-  const { x, y } = iso(5, 2);
-  return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={186} depth={90} accent="#38bdf8" />
-      <GlassTower x={0} y={0} width={124} height={118} depth={58} accent="#38bdf8" label="TEAM HQ" />
-      <path d="M -47 -72 L 0 -102 L 47 -72 L 0 -44 Z" fill="#0284c7" opacity=".65" />
-      <text x="0" y="-65" textAnchor="middle" fill="#f8fafc" fontSize="22" fontWeight="900">G</text>
-      <g transform="translate(-68,9)">
-        <rect x="-25" y="-20" width="50" height="26" rx="7" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" />
-        <text x="0" y="-3" textAnchor="middle" fill="#bae6fd" fontSize="8" fontWeight="900">LOCKER WING</text>
-      </g>
-    </g>
-  );
-}
-
-function MediaCenter() {
-  const { x, y } = iso(-5, 2);
-  return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={174} depth={86} accent="#fb923c" />
-      <GlassTower x={0} y={0} width={116} height={105} depth={56} accent="#fb923c" label="MEDIA CENTER" />
-      <g transform="translate(0,-55)">
-        <circle r="18" fill="#fb923c" stroke="#fed7aa" strokeWidth="3" />
-        <path d="M -7 -9 L 10 0 L -7 9 Z" fill="#fff" />
-      </g>
-      <g transform="translate(60,-5)">
-        <rect x="-28" y="-25" width="56" height="34" rx="6" fill="#020617" stroke="#fb923c" strokeWidth="2" />
-        <circle cx="0" cy="-8" r="8" fill="#38bdf8" />
-        <rect x="-12" y="5" width="24" height="3" rx="2" fill="#f8fafc" />
-      </g>
-    </g>
-  );
-}
-
-function RetailDistrict() {
-  const { x, y } = iso(-13, 7);
-  return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={220} depth={106} accent="#f59e0b" />
-      {[-62, 0, 62].map((lx, index) => (
-        <g key={lx} transform={`translate(${lx}, ${index === 1 ? -7 : 2})`}>
-          <path d="M -42 0 L -42 -66 L 0 -86 L 42 -66 L 42 0 L 0 22 Z" fill={index === 1 ? '#172554' : '#0f172a'} stroke="#f59e0b" strokeWidth="2" />
-          <path d="M -42 -66 L 0 -88 L 42 -66 L 0 -45 Z" fill={index === 1 ? '#f59e0b' : '#f8fafc'} stroke="#fbbf24" strokeWidth="2" />
-          <rect x="-30" y="-48" width="60" height="28" rx="5" fill="#020617" stroke="#fde68a" />
-          <text x="0" y="-30" textAnchor="middle" fill="#fde68a" fontSize="8" fontWeight="900">{index === 0 ? 'GEAR' : index === 1 ? 'MARKET' : 'CARDS'}</text>
-          <path d="M -35 -13 H 35" stroke="#fb923c" strokeWidth="5" />
-        </g>
-      ))}
-      <path d="M -105 24 Q 0 62 105 24" fill="none" stroke="#fde68a" strokeWidth="6" opacity=".75" />
-    </g>
-  );
-}
-
-function PracticePavilion() {
+function PracticeField() {
   const { x, y } = iso(-10, -5);
   return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={216} depth={108} accent="#22c55e" />
-      <path d="M -88 0 L 0 43 L 88 0 L 0 -43 Z" fill="#16a34a" stroke="#dcfce7" strokeWidth="3" />
-      <path d="M -65 0 L 0 31 L 65 0 L 0 -31 Z" fill="#22c55e" stroke="#fff" strokeWidth="2" />
-      {[-42, -21, 0, 21, 42].map((lx) => <line key={lx} x1={lx} y1="-20" x2={lx} y2="20" stroke="#fff" opacity=".75" />)}
-      <path d="M -92 -30 Q 0 -104 92 -30" fill="none" stroke="#e2e8f0" strokeWidth="10" />
-      <path d="M -83 -31 Q 0 -88 83 -31" fill="none" stroke="#38bdf8" strokeWidth="4" />
-      <rect x="-48" y="-101" width="96" height="22" rx="6" fill="#020617" stroke="#22c55e" strokeWidth="2" />
-      <text x="0" y="-86" textAnchor="middle" fill="#f8fafc" fontSize="9" fontWeight="900">PRACTICE PAVILION</text>
-    </g>
-  );
-}
-
-function CampusSupportBuilding({ tx, ty, label, accent, icon }: { tx: number; ty: number; label: string; accent: string; icon: string }) {
-  const { x, y } = iso(tx, ty);
-  return (
-    <g transform={`translate(${x}, ${y})`} filter="url(#campusShadow)">
-      <CampusBase tx={0} ty={0} width={150} depth={76} accent={accent} />
-      <GlassTower x={0} y={0} width={96} height={86} depth={46} accent={accent} label={label} />
-      <circle cx="0" cy="-45" r="18" fill="#020617" stroke={accent} strokeWidth="3" />
-      <text x="0" y="-38" textAnchor="middle" fontSize="19">{icon}</text>
+    <g transform={`translate(${x}, ${y})`} filter="url(#campusSoftShadow)">
+      <GroundPad width={220} depth={114} accent="#4f8f58" />
+      <path d="M -88 0 L 0 42 L 88 0 L 0 -42 Z" fill="#3f9856" stroke="#1f5f34" strokeWidth="3" />
+      <path d="M -68 0 L 0 32 L 68 0 L 0 -32 Z" fill="#57ad68" stroke="#e8f5e9" strokeWidth="2" />
+      {[-40,-20,0,20,40].map((lx) => <line key={lx} x1={lx} y1="-19" x2={lx} y2="19" stroke="#fff" opacity=".7" />)}
+      <path d="M -94 -12 Q 0 -88 94 -12" fill="none" stroke="#48515b" strokeWidth="9" />
+      <path d="M -72 -12 Q 0 -66 72 -12" fill="none" stroke="#d7d2c8" strokeWidth="5" />
+      <g transform="translate(0,-78)">
+        <rect x="-53" y="-14" width="106" height="26" rx="5" fill="#f6f1e7" stroke="#334155" strokeWidth="2" />
+        <rect x="-53" y="-14" width="7" height="26" fill="#4f8f58" />
+        <text x="4" y="3" textAnchor="middle" fill="#1e293b" fontSize="10" fontWeight="900">PRACTICE FIELD</text>
+      </g>
     </g>
   );
 }
 
 function CampusEnvironment() {
-  const plazaLights = [
-    [-6, -1], [-3, -4], [3, -4], [6, -1], [-7, 5], [7, 5], [-2, 9], [2, 9],
-  ];
-  const trees = [
-    [-15, -8], [-12, -11], [-8, -13], [8, -13], [12, -11], [15, -8],
-    [-16, 9], [-11, 13], [-6, 15], [7, 15], [12, 13], [16, 9],
-  ];
+  const lights = [[-8,-1],[-4,-3],[4,-3],[8,-1],[-7,6],[-2,8],[3,8],[8,5]];
+  const trees = [[-15,-8],[-13,-3],[-9,11],[-4,13],[8,11],[13,8],[15,2],[11,-8]];
   return (
-    <g>
-      <g transform="translate(0,0)" filter="url(#campusShadow)">
-        <ellipse cx="0" cy="4" rx="94" ry="43" fill="#cbd5e1" stroke="#f8fafc" strokeWidth="4" />
-        <ellipse cx="0" cy="0" rx="68" ry="31" fill="#0f172a" stroke="#22d3ee" strokeWidth="3" />
-        <circle cx="0" cy="-8" r="23" fill="#38bdf8" opacity=".75" filter="url(#campusGlow)" />
-        <path d="M -16 -10 L 0 -36 L 16 -10 L 0 9 Z" fill="#f8fafc" stroke="#38bdf8" strokeWidth="2" />
-        <text x="0" y="-8" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="900">G</text>
-      </g>
-      {plazaLights.map(([tx, ty], index) => {
-        const p = iso(tx, ty);
-        return (
-          <g key={`light-${index}`} transform={`translate(${p.x}, ${p.y})`}>
-            <ellipse cx="0" cy="5" rx="16" ry="7" fill="rgba(14,165,233,.18)" />
-            <rect x="-2" y="-29" width="4" height="34" rx="2" fill="#334155" />
-            <circle cx="0" cy="-32" r="7" fill="#f8fafc" stroke="#22d3ee" strokeWidth="2" filter="url(#campusGlow)" />
-          </g>
-        );
-      })}
-      {trees.map(([tx, ty], index) => {
-        const p = iso(tx, ty);
-        return (
-          <g key={`campus-tree-${index}`} transform={`translate(${p.x}, ${p.y})`}>
-            <ellipse cx="0" cy="8" rx="22" ry="9" fill="rgba(15,23,42,.18)" />
-            <rect x="-4" y="-24" width="8" height="30" rx="3" fill="#92400e" />
-            <circle cx="0" cy="-35" r="19" fill="#0f766e" stroke="#99f6e4" strokeWidth="2" />
-            <circle cx="-10" cy="-43" r="11" fill="#14b8a6" />
-            <circle cx="11" cy="-42" r="12" fill="#0d9488" />
-          </g>
-        );
-      })}
-      {[-10, -5, 5, 10].map((tx, index) => {
-        const p = iso(tx, 11);
-        return (
-          <g key={`banner-${tx}`} transform={`translate(${p.x}, ${p.y})`}>
-            <rect x="-3" y="-72" width="6" height="78" fill="#334155" />
-            <path d="M 3 -68 L 44 -57 L 3 -43 Z" fill={index % 2 ? '#38bdf8' : '#f97316'} stroke="#f8fafc" strokeWidth="1.5" />
-            <text x="17" y="-53" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="900">GRID</text>
-          </g>
-        );
-      })}
-      <g opacity=".65">
-        <path d="M -780 390 Q -420 230 0 390 T 780 390" fill="none" stroke="#e2e8f0" strokeWidth="18" strokeLinecap="round" />
-        <path d="M -780 390 Q -420 230 0 390 T 780 390" fill="none" stroke="#38bdf8" strokeWidth="4" strokeDasharray="18 16" strokeLinecap="round" />
+    <g pointerEvents="none">
+      <path d="M -690 70 L -220 -170 L 0 -58 L 220 -170 L 690 70" fill="none" stroke="#d9d4ca" strokeWidth="34" opacity=".96" />
+      <path d="M -690 70 L -220 -170 L 0 -58 L 220 -170 L 690 70" fill="none" stroke="#aaa69d" strokeWidth="3" opacity=".8" />
+      {lights.map(([tx,ty], index) => { const p=iso(tx,ty); return <g key={index} transform={`translate(${p.x},${p.y})`}><ellipse cx="0" cy="4" rx="8" ry="4" fill="rgba(15,23,42,.2)"/><rect x="-2" y="-31" width="4" height="34" fill="#475569"/><circle cx="0" cy="-34" r="6" fill="#fff7cc" stroke="#334155"/></g>; })}
+      {trees.map(([tx,ty], index) => { const p=iso(tx,ty); return <g key={index} transform={`translate(${p.x},${p.y})`}><ellipse cx="0" cy="8" rx="13" ry="6" fill="rgba(15,23,42,.18)"/><rect x="-4" y="-25" width="8" height="30" fill="#73553b"/><rect x="-18" y="-51" width="36" height="24" rx="4" fill="#2f7d45"/><rect x="-13" y="-67" width="26" height="20" rx="4" fill="#3f9655"/></g>; })}
+      <g transform="translate(0,-18)">
+        <ellipse cx="0" cy="15" rx="54" ry="25" fill="rgba(15,23,42,.2)" />
+        <ellipse cx="0" cy="0" rx="46" ry="22" fill="#c9c6bd" stroke="#334155" strokeWidth="2" />
+        <ellipse cx="0" cy="-3" rx="32" ry="15" fill="#69b8d1" stroke="#e0f2fe" strokeWidth="2" />
+        <rect x="-6" y="-34" width="12" height="28" rx="3" fill="#475569" />
+        <circle cx="0" cy="-39" r="6" fill="#fbbf24" />
       </g>
     </g>
   );
@@ -244,30 +143,27 @@ export default function ModernSportsCampus() {
     <svg
       className="pointer-events-none absolute inset-0 z-[2] h-full w-full"
       viewBox="-1120 -750 2240 1420"
-      role="presentation"
       aria-hidden="true"
+      preserveAspectRatio="xMidYMid meet"
     >
       <defs>
-        <filter id="campusShadow" x="-35%" y="-45%" width="170%" height="190%">
-          <feDropShadow dx="0" dy="10" stdDeviation="8" floodColor="#020617" floodOpacity=".30" />
-        </filter>
-        <filter id="campusGlow" x="-120%" y="-120%" width="340%" height="340%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        <filter id="campusSoftShadow" x="-35%" y="-35%" width="170%" height="180%">
+          <feDropShadow dx="0" dy="8" stdDeviation="7" floodColor="#0f172a" floodOpacity=".24" />
         </filter>
       </defs>
+
       <CampusEnvironment />
-      <PremiumArena />
-      <PracticePavilion />
-      <TrainingComplex />
-      <MediaCenter />
-      <TeamHeadquarters />
-      <RetailDistrict />
-      <PerformanceLab />
-      <CampusSupportBuilding tx={-7} ty={12} label="LEAGUE OPS" accent="#14b8a6" icon="📡" />
-      <CampusSupportBuilding tx={4} ty={12} label="LEGACY HALL" accent="#facc15" icon="🏆" />
-      <CampusSupportBuilding tx={14} ty={0} label="MOBILITY" accent="#94a3b8" icon="🚌" />
-      <CampusSupportBuilding tx={-14} ty={0} label="PARTNERS" accent="#0ea5e9" icon="◆" />
+      <Arena />
+      <PracticeField />
+      <CampusBuilding tx={10} ty={-5} width={150} depth={70} height={104} label="PERFORMANCE" accent="#7556a7" roof="glass" icon="🏋" />
+      <CampusBuilding tx={5} ty={2} width={138} depth={66} height={96} label="TEAM HQ" accent="#277fa3" roof="flat" icon="G" />
+      <CampusBuilding tx={-5} ty={2} width={132} depth={64} height={88} label="MEDIA" accent="#b6672d" roof="flat" icon="▶" />
+      <CampusBuilding tx={-13} ty={7} width={164} depth={76} height={74} label="SPORTS MARKET" accent="#c08a22" roof="saw" icon="★" />
+      <CampusBuilding tx={13} ty={7} width={132} depth={64} height={94} label="SPORT SCIENCE" accent="#b64141" roof="glass" icon="+" />
+      <CampusBuilding tx={-7} ty={12} width={122} depth={58} height={92} label="LEAGUE OFFICE" accent="#347f76" roof="flat" />
+      <CampusBuilding tx={4} ty={12} width={128} depth={62} height={84} label="LEGACY HALL" accent="#b28a24" roof="flat" icon="★" />
+      <CampusBuilding tx={14} ty={0} width={154} depth={72} height={66} label="MOBILITY" accent="#596675" roof="saw" />
+      <CampusBuilding tx={-14} ty={0} width={136} depth={66} height={88} label="PARTNERS" accent="#277fa3" roof="flat" />
     </svg>
   );
 }
