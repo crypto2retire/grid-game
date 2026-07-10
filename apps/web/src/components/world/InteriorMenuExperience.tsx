@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, Dumbbell, HeartPulse, Home, Package, Shield, ShoppingBag, Users, Wrench } from 'lucide-react';
+import { Dumbbell, HeartPulse, Home, Package, Shield, ShoppingBag, Users, Wrench } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import { usePanels } from './PanelSystem';
 
@@ -33,8 +33,8 @@ const positionNeeds: Record<string, string[]> = {
 function clickTeamTab(label: string) {
   const root = document.querySelector('.building-interior-content');
   if (!root) return false;
-  const candidates = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
-  const target = candidates.find((button) => button.textContent?.trim() === label);
+  const target = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+    .find((button) => button.textContent?.trim() === label);
   if (!target) return false;
   target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   target.click();
@@ -44,23 +44,26 @@ function clickTeamTab(label: string) {
 function applyTrainingFiltering() {
   const root = document.querySelector('.building-interior-content');
   if (!root) return;
-  const playerButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('button'));
-  const selectedPlayer = playerButtons.find((button) => button.className.includes('border-[#E94560]/70'));
+  const selectedPlayer = Array.from(root.querySelectorAll<HTMLButtonElement>('button'))
+    .find((button) => button.className.includes('border-[#E94560]/70'));
   const position = selectedPlayer?.querySelector('span.rounded-md')?.textContent?.trim();
   const cards = Array.from(root.querySelectorAll<HTMLElement>('.glass-card'));
+  const packageCards: HTMLElement[] = [];
+
   cards.forEach((card) => {
     const text = card.textContent || '';
     if (!text.includes('Start Training')) return;
     const isBadFit = Boolean(position) && text.includes(`Does not target ${position}`);
-    card.style.display = isBadFit ? 'none' : '';
-    card.dataset.trainingFit = text.includes(`Good for ${position}`) ? 'recommended' : 'available';
+    const nextDisplay = isBadFit ? 'none' : '';
+    if (card.style.display !== nextDisplay) card.style.display = nextDisplay;
+    const nextFit = text.includes(`Good for ${position}`) ? 'recommended' : 'available';
+    if (card.dataset.trainingFit !== nextFit) card.dataset.trainingFit = nextFit;
+    packageCards.push(card);
   });
-  const container = cards.find((card) => card.textContent?.includes('Select Player (Individual Training)'))?.parentElement;
-  if (container) {
-    const packageCards = Array.from(container.querySelectorAll<HTMLElement>('[data-training-fit]'));
-    packageCards.sort((a, b) => (a.dataset.trainingFit === 'recommended' ? -1 : 1) - (b.dataset.trainingFit === 'recommended' ? -1 : 1));
-    packageCards.forEach((card) => card.parentElement?.appendChild(card));
-  }
+
+  packageCards
+    .sort((a, b) => Number(b.dataset.trainingFit === 'recommended') - Number(a.dataset.trainingFit === 'recommended'))
+    .forEach((card) => card.parentElement?.appendChild(card));
 }
 
 export default function InteriorMenuExperience() {
@@ -80,11 +83,18 @@ export default function InteriorMenuExperience() {
 
   useEffect(() => {
     if (!supported || section !== 'training') return;
+    const rerun = () => window.setTimeout(applyTrainingFiltering, 0);
     applyTrainingFiltering();
-    const observer = new MutationObserver(applyTrainingFiltering);
+    const observer = new MutationObserver(rerun);
     const root = document.querySelector('.building-interior-content');
-    if (root) observer.observe(root, { subtree: true, attributes: true, childList: true });
-    return () => observer.disconnect();
+    if (root) {
+      observer.observe(root, { subtree: true, childList: true });
+      root.addEventListener('click', rerun);
+    }
+    return () => {
+      observer.disconnect();
+      root?.removeEventListener('click', rerun);
+    };
   }, [supported, section]);
 
   useEffect(() => {
@@ -93,7 +103,7 @@ export default function InteriorMenuExperience() {
     fetch('/api/market/items', { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load player gear')))
       .then((payload) => setCatalog(payload.data || []))
-      .catch((error) => setGearMessage(error.message));
+      .catch((error: Error) => setGearMessage(error.message));
   }, [supported, section]);
 
   const players = useMemo(() => (selectedTeam?.teamPlayers || []).map((entry: any) => entry.player), [selectedTeam]);
@@ -152,7 +162,7 @@ export default function InteriorMenuExperience() {
 
       {section === 'training' && (
         <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-xl border border-emerald-300/20 bg-slate-950/90 px-4 py-2 text-xs text-emerald-100 shadow-xl">
-          Select a player to automatically show only useful training programs. Recommended programs appear first.
+          Select a player to show only training programs that benefit that position. Recommended programs appear first.
         </div>
       )}
 
@@ -197,7 +207,7 @@ export default function InteriorMenuExperience() {
                     <div className="text-sm font-black text-amber-300">{item.marketPriceCash.toLocaleString()} CASH</div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {Object.entries(item.statBoosts || {}).filter(([, value]) => value > 0).map(([stat, value]) => <span key={stat} className="rounded-md bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300">+{value} {stat.toUpperCase()}</span>)}
+                    {Object.entries(item.statBoosts || {}).filter(([, value]) => Number(value) > 0).map(([stat, value]) => <span key={stat} className="rounded-md bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300">+{Number(value)} {stat.toUpperCase()}</span>)}
                   </div>
                   <button type="button" disabled={!selectedPlayer || gearBusy === item.id} onClick={() => buyGear(item)} className="mt-3 w-full rounded-lg bg-amber-400 px-3 py-2 text-xs font-black text-slate-950 hover:bg-amber-300 disabled:opacity-50">{gearBusy === item.id ? 'Purchasing…' : `Buy for ${selectedPlayer?.name || 'player'}`}</button>
                 </div>
