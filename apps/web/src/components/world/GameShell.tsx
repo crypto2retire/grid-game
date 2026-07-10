@@ -4,6 +4,7 @@ import KintaraSportsWorld from './KintaraSportsWorld';
 import ModernSportsCampus from './ModernSportsCampus';
 import SportsWorldChrome from './SportsWorldChrome';
 import FranchiseJourney from './FranchiseJourney';
+import InteriorMenuExperience from './InteriorMenuExperience';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -32,6 +33,7 @@ export default function GameShell() {
       <SportsWorldChrome />
       <FranchiseJourney />
       <PanelOverlay />
+      <InteriorMenuExperience />
     </div>
   );
 }
