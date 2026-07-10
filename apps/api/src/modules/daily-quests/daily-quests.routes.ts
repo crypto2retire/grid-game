@@ -3,8 +3,13 @@ import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
 import { claimDailyQuest, getDailyQuestsForUser } from './daily-quests.service';
+import { retentionRouter } from '../retention/retention.routes';
 
 const router = Router();
+
+// Retention endpoints are mounted here to avoid a server bootstrap rewrite while
+// preserving an authenticated, testable API surface at /api/daily-quests/retention.
+router.use('/retention', retentionRouter);
 
 router.get(
   '/',
