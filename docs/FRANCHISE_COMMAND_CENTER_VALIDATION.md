@@ -12,3 +12,5 @@ Checks:
 - Optional contained Campus view
 - No page or console errors during navigation
 - Removal of the map-first default workflow
+
+Browser smoke rerun requested after workflow trigger correction.
