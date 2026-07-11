@@ -1,10 +1,33 @@
-import { useState, useEffect } from 'react';
-import { ArrowDown, ArrowUp, Clock, Coins, Plus, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, CheckCircle2, Clock, Coins, ExternalLink, Landmark, Link2, Plus, ShieldCheck, WalletCards, Zap } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 
 interface WalletData {
   cash: number;
   dynTokens: number;
+}
+
+interface ChainNetwork {
+  name: string;
+  chainId: number | null;
+  explorerUrl: string;
+  nativeCurrency: string;
+  ready: boolean;
+  currencies: {
+    CASH: { settlement: string; withdrawable: boolean };
+    DYN: { settlement: string; withdrawable: boolean; tokenAddress: string | null };
+    USDG: { settlement: string; withdrawable: boolean; tokenAddress: string | null };
+  };
+}
+
+interface ChainWalletData {
+  network: ChainNetwork;
+  usdgBalance: number;
+  chainWallet: {
+    address: string;
+    status: string;
+    verifiedAt: string | null;
+  } | null;
 }
 
 interface Transaction {
@@ -41,227 +64,157 @@ const formatReason = (reason: string) => REASON_LABELS[reason] || reason
   .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
   .join(' ');
 
+const shortAddress = (address: string) => `${address.slice(0, 7)}…${address.slice(-5)}`;
+
 export default function WalletPage() {
   const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [chain, setChain] = useState<ChainWalletData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [address, setAddress] = useState('');
+  const [chainMessage, setChainMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWallet();
-    fetchTransactions();
+    void Promise.all([fetchWallet(), fetchChainWallet(), fetchTransactions()]).finally(() => setLoading(false));
   }, []);
+
+  const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
   const fetchWallet = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/wallet', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/economy/wallet', { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setWallet(data.data);
+        useGameStore.getState().setWallet(data.data);
       }
     } catch (err) {
       console.error('Failed to fetch wallet:', err);
     }
   };
 
+  const fetchChainWallet = async () => {
+    try {
+      const res = await fetch('/api/solana/wallet', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setChain(data.data);
+        if (data.data?.chainWallet?.address) setAddress(data.data.chainWallet.address);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Robinhood Chain wallet:', err);
+    }
+  };
+
   const fetchTransactions = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/transactions', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/economy/transactions', { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setTransactions(data.data || []);
       }
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const topupCash = async () => {
+  const topup = async (endpoint: string, amount: number) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/wallet/topup', {
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: 50000 }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ amount }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setWallet(data.data);
-        useGameStore.getState().setWallet(data.data); // sync to gameStore
-      }
+      if (res.ok) await fetchWallet();
     } catch (err) {
-      console.error('Failed to topup CASH:', err);
+      console.error('Failed test top-up:', err);
     }
   };
 
-  const topupGrid = async () => {
+  const connectAddress = async () => {
+    setChainMessage(null);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/economy/wallet/topup-grid', {
+      const res = await fetch('/api/solana/wallet/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: 100000 }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ address }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setWallet(data.data);
-        useGameStore.getState().setWallet(data.data); // sync to gameStore
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Unable to save address');
+      setChainMessage(data.message);
+      await fetchChainWallet();
     } catch (err) {
-      console.error('Failed to topup DYN:', err);
+      setChainMessage(err instanceof Error ? err.message : 'Unable to save address');
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
-      </div>
-    );
+    return <div className="flex h-96 items-center justify-center"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-accent" /></div>;
   }
 
-  const totalEarned = transactions
-    .filter((t) => t.currency === 'CASH' && t.amount > 0)
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalSpent = transactions
-    .filter((t) => t.currency === 'CASH' && t.amount < 0)
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const totalEarned = transactions.filter((t) => t.currency === 'CASH' && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+  const totalSpent = transactions.filter((t) => t.currency === 'CASH' && t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const network = chain?.network;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Wallet</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage CASH and review your full game economy ledger
-          </p>
+          <h1 className="text-3xl font-bold text-white">Finance</h1>
+          <p className="mt-1 text-sm text-muted-foreground">CASH gameplay balance with DYN and USDG settlement on Robinhood Chain.</p>
         </div>
+        {network && (
+          <a href={network.explorerUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-300">
+            <Landmark className="h-4 w-4" /> {network.name} <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
       </div>
 
-      {/* Balance Cards */}
-      <div className="grid grid-cols-1 gap-4">
-        <div className="glass-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-yellow-400/10 rounded-lg flex items-center justify-center">
-              <Coins className="w-6 h-6 text-yellow-400" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">CASH Balance</div>
-              <div className="text-3xl font-bold text-white">
-                {wallet?.cash?.toLocaleString() || 0}
-              </div>
-            </div>
+      <section className="glass-card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-white"><ShieldCheck className="h-5 w-5 text-emerald-400" /><strong>Payment rails</strong></div>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">CASH stays inside the game. DYN is GRID utility and ownership settlement. USDG provides stable-value settlement for teams, stadiums, premium assets and tournaments.</p>
           </div>
-          <button
-            onClick={topupCash}
-            className="w-full py-2 bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-400 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add 50,000 Test CASH
-          </button>
+          <div className={`rounded-full px-3 py-1 text-xs font-bold ${network?.ready ? 'bg-emerald-400/15 text-emerald-300' : 'bg-amber-400/15 text-amber-300'}`}>
+            {network?.ready ? 'Chain configured' : 'Awaiting RPC and token addresses'}
+          </div>
         </div>
+      </section>
 
-        <div className="glass-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-purple-400/10 rounded-lg flex items-center justify-center">
-              <Zap className="w-6 h-6 text-purple-400" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">DYN Balance</div>
-              <div className="text-3xl font-bold text-white">
-                {wallet?.dynTokens?.toLocaleString() || 0}
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={topupGrid}
-            className="w-full py-2 bg-purple-400/10 hover:bg-purple-400/20 text-purple-400 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add 100,000 Test DYN
-          </button>
-        </div>
-
-        <div className="glass-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-green-400/10 rounded-lg flex items-center justify-center">
-              <ArrowUp className="w-6 h-6 text-green-400" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total Credits</div>
-              <div className="text-3xl font-bold text-white">
-                {totalEarned.toLocaleString()}
-              </div>
-            </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Top-ups, game rewards, and sale proceeds
-          </div>
-        </div>
-
-        <div className="glass-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-red-400/10 rounded-lg flex items-center justify-center">
-              <ArrowDown className="w-6 h-6 text-red-400" />
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total Debits</div>
-              <div className="text-3xl font-bold text-white">
-                {totalSpent.toLocaleString()}
-              </div>
-            </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Player hires and marketplace purchases
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <BalanceCard icon={<Coins className="h-6 w-6" />} label="CASH" value={wallet?.cash || 0} detail="Off-chain gameplay currency" tone="yellow" action={<button onClick={() => topup('/api/economy/wallet/topup', 50000)}><Plus className="h-4 w-4" /> Add test CASH</button>} />
+        <BalanceCard icon={<Zap className="h-6 w-6" />} label="DYN" value={wallet?.dynTokens || 0} detail="Robinhood Chain utility token" tone="purple" action={<button onClick={() => topup('/api/economy/wallet/topup-grid', 100000)}><Plus className="h-4 w-4" /> Add test DYN</button>} />
+        <BalanceCard icon={<WalletCards className="h-6 w-6" />} label="USDG" value={chain?.usdgBalance || 0} detail="Stable-value Robinhood Chain settlement" tone="green" />
       </div>
 
-      {/* Transactions */}
+      <section className="glass-card p-6">
+        <div className="flex items-center gap-3"><Link2 className="h-5 w-5 text-cyan-300" /><div><h2 className="font-semibold text-white">Robinhood Chain wallet</h2><p className="text-xs text-muted-foreground">Saving an address does not enable withdrawals until signature verification is completed.</p></div></div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="0x…" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm text-white outline-none focus:border-cyan-300/50" />
+          <button onClick={connectAddress} className="rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950">Save address</button>
+        </div>
+        {chain?.chainWallet && <div className="mt-3 flex items-center gap-2 text-sm text-slate-300"><CheckCircle2 className="h-4 w-4 text-amber-300" /> {shortAddress(chain.chainWallet.address)} · {chain.chainWallet.status}</div>}
+        {chainMessage && <p className="mt-3 text-sm text-amber-300">{chainMessage}</p>}
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MetricCard icon={<ArrowUp className="h-6 w-6 text-green-400" />} label="Total CASH credits" value={totalEarned} />
+        <MetricCard icon={<ArrowDown className="h-6 w-6 text-red-400" />} label="Total CASH debits" value={totalSpent} />
+      </div>
+
       <div className="glass-card p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Recent Ledger Activity</h2>
+        <h2 className="mb-4 text-lg font-semibold text-white">Recent ledger activity</h2>
         {transactions.length === 0 ? (
-          <div className="text-center py-8">
-            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-white font-medium mb-1">No ledger activity yet</p>
-            <p className="text-muted-foreground text-sm">Hire players, play games, or use the marketplace to create activity</p>
-          </div>
+          <div className="py-8 text-center"><Clock className="mx-auto mb-4 h-12 w-12 text-muted-foreground" /><p className="font-medium text-white">No ledger activity yet</p></div>
         ) : (
           <div className="space-y-3">
-            {transactions.map((t) => {
-              const positive = t.amount >= 0;
+            {transactions.map((transaction) => {
+              const positive = transaction.amount >= 0;
               return (
-                <div key={t.id} className="p-3 bg-secondary rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        positive ? 'bg-green-400/10' : 'bg-red-400/10'
-                      }`}>
-                        {positive ? (
-                          <ArrowUp className="w-4 h-4 text-green-400" />
-                        ) : (
-                          <ArrowDown className="w-4 h-4 text-red-400" />
-                        )}
-                      </div>
-                      <div className="font-medium text-white text-sm">{formatReason(t.reason)}</div>
-                    </div>
-                    <div className={`font-bold text-sm ${positive ? 'text-green-400' : 'text-red-400'}`}>
-                      {positive ? '+' : ''}{t.amount.toLocaleString()} {t.currency}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{t.sourceType || 'Ledger'}{t.metadata?.sportId ? ` • ${t.metadata.sportId}` : ''}</span>
-                    <span>{new Date(t.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  {t.balanceAfter !== null && (
-                    <div className="text-xs text-muted-foreground">Balance: {t.balanceAfter.toLocaleString()}</div>
-                  )}
+                <div key={transaction.id} className="space-y-2 rounded-lg bg-secondary p-3">
+                  <div className="flex items-center justify-between gap-4"><div className="font-medium text-white text-sm">{formatReason(transaction.reason)}</div><div className={`text-sm font-bold ${positive ? 'text-green-400' : 'text-red-400'}`}>{positive ? '+' : ''}{transaction.amount.toLocaleString()} {transaction.currency}</div></div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{transaction.sourceType || 'Ledger'}</span><span>{new Date(transaction.createdAt).toLocaleDateString()}</span></div>
                 </div>
               );
             })}
@@ -270,4 +223,13 @@ export default function WalletPage() {
       </div>
     </div>
   );
+}
+
+function BalanceCard({ icon, label, value, detail, tone, action }: { icon: React.ReactNode; label: string; value: number; detail: string; tone: 'yellow' | 'purple' | 'green'; action?: React.ReactNode }) {
+  const tones = { yellow: 'text-yellow-400 bg-yellow-400/10', purple: 'text-purple-400 bg-purple-400/10', green: 'text-emerald-400 bg-emerald-400/10' };
+  return <div className="glass-card p-6"><div className="flex items-center gap-3"><div className={`grid h-12 w-12 place-items-center rounded-lg ${tones[tone]}`}>{icon}</div><div><div className="text-sm text-muted-foreground">{label} balance</div><div className="text-3xl font-bold text-white">{value.toLocaleString(undefined, { maximumFractionDigits: 6 })}</div></div></div><p className="mt-4 text-xs text-muted-foreground">{detail}</p>{action && <div className="mt-4 [&_button]:flex [&_button]:w-full [&_button]:items-center [&_button]:justify-center [&_button]:gap-2 [&_button]:rounded-lg [&_button]:bg-white/5 [&_button]:py-2 [&_button]:text-sm [&_button]:font-bold [&_button]:text-white">{action}</div>}</div>;
+}
+
+function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return <div className="glass-card p-6"><div className="flex items-center gap-3">{icon}<div><div className="text-sm text-muted-foreground">{label}</div><div className="text-2xl font-bold text-white">{value.toLocaleString()}</div></div></div></div>;
 }
