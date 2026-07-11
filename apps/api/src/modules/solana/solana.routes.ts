@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { authMiddleware, AuthRequest } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
@@ -16,6 +15,7 @@ const robinhoodNetwork = () => ({
   explorerUrl: env.ROBINHOOD_CHAIN_EXPLORER_URL,
   nativeCurrency: env.ROBINHOOD_CHAIN_NATIVE_SYMBOL,
   confirmationsRequired: env.ROBINHOOD_CONFIRMATIONS_REQUIRED,
+  walletLinkingEnabled: false,
   currencies: {
     CASH: { settlement: 'INTERNAL', withdrawable: false },
     DYN: {
@@ -37,8 +37,6 @@ const robinhoodNetwork = () => ({
   ),
 });
 
-// The router remains mounted at /api/solana for backward compatibility while
-// clients migrate to Robinhood Chain. No Solana purchase flow is active.
 router.get(
   '/network',
   asyncHandler(async (_req, res) => {
@@ -80,36 +78,17 @@ router.get(
   }),
 );
 
+// Security hold: never accept a wallet address based only on client attestation.
+// Re-enable only after nonce issuance, domain binding, expiration, single-use
+// consumption, and EIP-191/SIWE signature recovery are implemented and tested.
 router.post(
   '/wallet/connect',
   authMiddleware,
-  asyncHandler(async (req: AuthRequest, res) => {
-    const input = z.object({
-      address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'A valid EVM address is required'),
-    }).parse(req.body);
-    const userId = req.user!.id;
-    const address = input.address.toLowerCase();
-
-    try {
-      const rows = await prisma.$queryRaw<Array<{ address: string; status: string }>>`
-        INSERT INTO "ChainWallet" ("userId", "chain", "address", "status", "updatedAt")
-        VALUES (${userId}, 'ROBINHOOD', ${address}, 'UNVERIFIED', NOW())
-        ON CONFLICT ("userId", "chain")
-        DO UPDATE SET "address" = EXCLUDED."address", "status" = 'UNVERIFIED', "verifiedAt" = NULL, "updatedAt" = NOW()
-        RETURNING "address", "status"
-      `;
-
-      res.json({
-        status: 'success',
-        data: rows[0],
-        message: 'Robinhood Chain address saved. Signature verification is required before deposits or withdrawals are enabled.',
-      });
-    } catch (error: any) {
-      if (String(error?.message || '').includes('ChainWallet_chain_address_key')) {
-        throw new AppError(409, 'That Robinhood Chain address is already linked to another account');
-      }
-      throw error;
-    }
+  asyncHandler(async (_req: AuthRequest, _res) => {
+    throw new AppError(
+      503,
+      'Wallet linking is temporarily disabled until cryptographic ownership verification is available.',
+    );
   }),
 );
 
