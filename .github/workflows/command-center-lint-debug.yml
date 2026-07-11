@@ -1,0 +1,35 @@
+name: Command Center Lint Debug
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/command-center-lint-debug.yml'
+      - 'docs/FRANCHISE_COMMAND_CENTER_VALIDATION.md'
+
+jobs:
+  lint-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --include=dev
+      - name: Capture full lint output
+        shell: bash
+        run: |
+          set +e
+          npm run lint 2>&1 | tee lint.log
+          echo ${PIPESTATUS[0]} > lint.exit
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: command-center-lint-log
+          path: |
+            lint.log
+            lint.exit
+          retention-days: 7
+      - name: Fail if lint failed
+        run: test "$(cat lint.exit)" = "0"
