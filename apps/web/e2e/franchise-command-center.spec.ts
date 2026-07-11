@@ -14,7 +14,7 @@ async function login(page: Page) {
 }
 
 async function openSection(page: Page, name: string) {
-  await page.locator('.fcc-sidebar nav').getByRole('button', { name: new RegExp(`^${name}\b`) }).click();
+  await page.locator('.fcc-sidebar nav').getByRole('button', { name: new RegExp(`^${name}`) }).click();
 }
 
 function commandTabs(page: Page) {
@@ -106,7 +106,7 @@ test.describe('Franchise Command Center', () => {
     await expect(menuButton).toBeVisible();
     await menuButton.click();
     await expect(page.locator('.fcc-sidebar')).toHaveClass(/is-open/);
-    await page.locator('.fcc-sidebar nav').getByRole('button', { name: /^Games\b/ }).click();
+    await page.locator('.fcc-sidebar nav').getByRole('button', { name: /^Games/ }).click();
     await expect(page.locator('.fcc-sidebar')).not.toHaveClass(/is-open/);
     await expect(page.locator('body')).toContainText(/Games|Schedule|Match/i);
   });
