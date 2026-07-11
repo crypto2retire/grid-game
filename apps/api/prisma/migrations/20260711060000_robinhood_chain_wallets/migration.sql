@@ -6,8 +6,8 @@ ALTER TABLE "Wallet"
   ADD COLUMN IF NOT EXISTS "usdgBalance" NUMERIC(20, 6) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS "ChainWallet" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "userId" UUID NOT NULL,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "userId" TEXT NOT NULL,
   "chain" TEXT NOT NULL DEFAULT 'ROBINHOOD',
   "address" TEXT NOT NULL,
   "status" TEXT NOT NULL DEFAULT 'UNVERIFIED',
@@ -23,8 +23,8 @@ CREATE INDEX IF NOT EXISTS "ChainWallet_userId_idx" ON "ChainWallet"("userId");
 CREATE INDEX IF NOT EXISTS "ChainWallet_chain_address_idx" ON "ChainWallet"("chain", "address");
 
 CREATE TABLE IF NOT EXISTS "ChainTransaction" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "userId" UUID NOT NULL,
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "userId" TEXT NOT NULL,
   "chain" TEXT NOT NULL DEFAULT 'ROBINHOOD',
   "currency" TEXT NOT NULL,
   "direction" TEXT NOT NULL,
