@@ -22,6 +22,9 @@ RUN cd apps/api && npx prisma generate
 # Build backend TypeScript
 RUN cd apps/api && npx tsc
 
+# Harden compiled static serving so stale asset URLs never receive index.html
+RUN node apps/api/scripts/patch-static-serving.mjs
+
 # Build frontend with Vite
 RUN cd apps/web && npm run build
 
