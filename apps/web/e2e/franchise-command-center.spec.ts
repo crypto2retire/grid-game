@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const email = process.env.GRID_E2E_EMAIL || 'qa_auto_browser_0045@example.com';
 const password = process.env.GRID_E2E_PASSWORD || 'GridQA123!';
+let runtimeErrors: string[] = [];
 
 async function login(page: Page) {
   await page.goto('/login');
@@ -13,32 +14,36 @@ async function login(page: Page) {
 }
 
 async function openSection(page: Page, name: string) {
-  await page.getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  await page.locator('.fcc-sidebar nav').getByRole('button', { name: new RegExp(`^${name}\b`) }).click();
+}
+
+function commandTabs(page: Page) {
+  return page.locator('.fcc-segmented');
 }
 
 test.describe('Franchise Command Center', () => {
   test.beforeEach(async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
+    runtimeErrors = [];
+    page.on('pageerror', (error) => runtimeErrors.push(error.message));
     page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
+      if (message.type() === 'error') runtimeErrors.push(message.text());
     });
     await login(page);
-    await page.evaluate(() => {
-      (window as typeof window & { __fccErrors?: string[] }).__fccErrors = [];
-    });
-    await page.exposeFunction('__recordFccError', (message: string) => errors.push(message));
+  });
+
+  test.afterEach(() => {
+    expect(runtimeErrors, `Unexpected browser errors:\n${runtimeErrors.join('\n')}`).toEqual([]);
   });
 
   test('all primary navigation sections open their expected workspace', async ({ page }) => {
     await openSection(page, 'Team');
-    await expect(page.getByRole('button', { name: 'Roster' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Roster', exact: true }).first()).toBeVisible();
 
     await openSection(page, 'Development');
-    await expect(page.getByRole('heading', { name: 'Development' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Training' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Recovery' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Equipment' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Development', exact: true })).toBeVisible();
+    await expect(commandTabs(page).getByRole('button', { name: 'Training', exact: true })).toBeVisible();
+    await expect(commandTabs(page).getByRole('button', { name: 'Recovery', exact: true })).toBeVisible();
+    await expect(commandTabs(page).getByRole('button', { name: 'Equipment', exact: true })).toBeVisible();
 
     await openSection(page, 'Games');
     await expect(page.locator('body')).toContainText(/Games|Schedule|Match/i);
@@ -50,9 +55,9 @@ test.describe('Franchise Command Center', () => {
     await expect(page.locator('body')).toContainText(/Marketplace|Market|Listings/i);
 
     await openSection(page, 'Facilities');
-    await expect(page.getByRole('heading', { name: 'Facilities' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Stadium' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Transport' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Facilities', exact: true })).toBeVisible();
+    await expect(commandTabs(page).getByRole('button', { name: 'Stadium', exact: true })).toBeVisible();
+    await expect(commandTabs(page).getByRole('button', { name: 'Transport', exact: true })).toBeVisible();
 
     await openSection(page, 'Finance');
     await expect(page.locator('body')).toContainText(/Wallet|CASH|DYN|Ledger/i);
@@ -67,20 +72,20 @@ test.describe('Franchise Command Center', () => {
   test('development and facilities tabs switch to the correct functions', async ({ page }) => {
     await openSection(page, 'Development');
 
-    await page.getByRole('button', { name: 'Training' }).click();
+    await commandTabs(page).getByRole('button', { name: 'Training', exact: true }).click();
     await expect(page.locator('body')).toContainText(/Training|Start Training|Training Programs/i);
 
-    await page.getByRole('button', { name: 'Recovery' }).click();
+    await commandTabs(page).getByRole('button', { name: 'Recovery', exact: true }).click();
     await expect(page.locator('body')).toContainText(/Medical|Recovery|Healthy|Treat/i);
 
-    await page.getByRole('button', { name: 'Equipment' }).click();
+    await commandTabs(page).getByRole('button', { name: 'Equipment', exact: true }).click();
     await expect(page.locator('body')).toContainText(/Equipment|Gear|Durability|Owned/i);
 
     await openSection(page, 'Facilities');
-    await page.getByRole('button', { name: 'Stadium' }).click();
+    await commandTabs(page).getByRole('button', { name: 'Stadium', exact: true }).click();
     await expect(page.locator('body')).toContainText(/Stadium|Venue|Capacity|Upgrade/i);
 
-    await page.getByRole('button', { name: 'Transport' }).click();
+    await commandTabs(page).getByRole('button', { name: 'Transport', exact: true }).click();
     await expect(page.locator('body')).toContainText(/Transport|Fleet|Vehicle|Maintenance/i);
   });
 
@@ -101,7 +106,7 @@ test.describe('Franchise Command Center', () => {
     await expect(menuButton).toBeVisible();
     await menuButton.click();
     await expect(page.locator('.fcc-sidebar')).toHaveClass(/is-open/);
-    await page.getByRole('button', { name: /^Games/ }).first().click();
+    await page.locator('.fcc-sidebar nav').getByRole('button', { name: /^Games\b/ }).click();
     await expect(page.locator('.fcc-sidebar')).not.toHaveClass(/is-open/);
     await expect(page.locator('body')).toContainText(/Games|Schedule|Match/i);
   });
