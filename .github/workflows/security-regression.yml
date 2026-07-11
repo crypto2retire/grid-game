@@ -1,0 +1,66 @@
+name: Security Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/middleware/**'
+      - 'apps/api/src/modules/auth/**'
+      - 'apps/api/src/modules/play-game/**'
+      - 'apps/api/src/modules/solana/**'
+      - 'apps/api/prisma/migrations/**'
+      - '.github/workflows/security-regression.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/api/src/middleware/**'
+      - 'apps/api/src/modules/auth/**'
+      - 'apps/api/src/modules/play-game/**'
+      - 'apps/api/src/modules/solana/**'
+      - 'apps/api/prisma/migrations/**'
+      - 'docs/validation/SECURITY_HARDENING_VALIDATION.md'
+      - '.github/workflows/security-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  security-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://grid:gridpassword@127.0.0.1:5432/gridgame_security
+      JWT_SECRET: security-ci-jwt-secret-at-least-32-characters
+      REQUIRED_DYN_BALANCE: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --include=dev
+      - run: cd apps/api && npx prisma generate
+      - name: Capture complete build output
+        shell: bash
+        run: |
+          set +e
+          npm run build 2>&1 | tee security-build.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > security-build.status
+          exit 0
+      - name: Production dependency audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=high --json > security-npm-audit.json
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-regression-report
+          path: |
+            security-build.log
+            security-build.status
+            security-npm-audit.json
+          retention-days: 14
+      - name: Enforce build result
+        shell: bash
+        run: test "$(cat security-build.status)" = "0"
