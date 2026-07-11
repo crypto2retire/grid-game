@@ -4,6 +4,7 @@ import { prisma } from '../../config/database';
 import { authMiddleware } from '../../middleware/auth';
 import { asyncHandler, AppError } from '../../middleware/errorHandler';
 import { securityActionLock } from '../../middleware/securityActionLock';
+import { userActionThrottle } from '../../middleware/userActionThrottle';
 import {
   initializePlayableMatch,
   setLineupAndStyles,
@@ -15,6 +16,10 @@ import {
 
 const router = Router();
 const matchMutationLock = securityActionLock((req) => `match:${req.params.matchId}`, 180_000);
+const playBurstThrottle = userActionThrottle('match-play-burst', 2, 2);
+const playWindowThrottle = userActionThrottle('match-play-window', 120, 15 * 60);
+const matchLifecycleThrottle = userActionThrottle('match-lifecycle', 12, 15 * 60);
+const matchSimulationThrottle = userActionThrottle('match-simulation', 5, 15 * 60);
 
 async function assertMatchParticipant(matchId: string, userId: string) {
   const match = await prisma.match.findUnique({
@@ -49,6 +54,7 @@ router.get(
 router.post(
   '/:matchId/init',
   authMiddleware,
+  matchLifecycleThrottle,
   matchMutationLock,
   asyncHandler(async (req: any, res) => {
     const { userTeamId } = await assertMatchParticipant(req.params.matchId, req.user!.id);
@@ -60,6 +66,7 @@ router.post(
 router.post(
   '/:matchId/lineup',
   authMiddleware,
+  matchLifecycleThrottle,
   matchMutationLock,
   asyncHandler(async (req: any, res) => {
     const input = z.object({
@@ -85,6 +92,8 @@ router.post(
 router.post(
   '/:matchId/play',
   authMiddleware,
+  playBurstThrottle,
+  playWindowThrottle,
   matchMutationLock,
   asyncHandler(async (req: any, res) => {
     const input = z.object({
@@ -101,6 +110,7 @@ router.post(
 router.post(
   '/:matchId/sim',
   authMiddleware,
+  matchSimulationThrottle,
   matchMutationLock,
   asyncHandler(async (req: any, res) => {
     await assertMatchParticipant(req.params.matchId, req.user!.id);
@@ -112,6 +122,7 @@ router.post(
 router.post(
   '/:matchId/complete',
   authMiddleware,
+  matchSimulationThrottle,
   matchMutationLock,
   asyncHandler(async (req: any, res) => {
     await assertMatchParticipant(req.params.matchId, req.user!.id);
