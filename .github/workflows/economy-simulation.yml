@@ -1,0 +1,52 @@
+name: Economy Player Mix Simulation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/scripts/run-economy-player-mix-simulation.ts'
+      - '.github/workflows/economy-simulation.yml'
+  workflow_dispatch:
+    inputs:
+      users:
+        description: Number of simulated players
+        required: false
+        default: '240'
+      seasons:
+        description: Number of seasons
+        required: false
+        default: '6'
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --include=dev
+      - name: Run mixed population economy simulation
+        env:
+          SIM_USERS: ${{ github.event.inputs.users || '240' }}
+          SIM_SEASONS: ${{ github.event.inputs.seasons || '6' }}
+          SIM_SEED: '20260711'
+        run: npx tsx apps/api/scripts/run-economy-player-mix-simulation.ts | tee simulation-output.log
+      - name: Verify required population mix
+        run: |
+          node - <<'NODE'
+          const report = require('./simulation-results/player-mix-economy.json');
+          if (!report.constraints.freeSellerConstraintMet) throw new Error('Free seller share below 50%');
+          if (!report.constraints.holderUpgraderConstraintMet) throw new Error('Holder/upgrader share below 10%');
+          console.log('Population constraints verified.');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: economy-player-mix-results
+          path: |
+            simulation-results/player-mix-economy.json
+            simulation-results/player-mix-economy.md
+            simulation-output.log
+          retention-days: 30
