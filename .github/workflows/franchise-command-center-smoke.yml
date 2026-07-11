@@ -15,7 +15,7 @@ on:
       - 'apps/web/src/components/world/GameShell.tsx'
       - 'apps/web/e2e/franchise-command-center.spec.ts'
       - '.github/workflows/franchise-command-center-smoke.yml'
-      - 'docs/validation/**'
+      - 'docs/FRANCHISE_COMMAND_CENTER_VALIDATION.md'
   workflow_dispatch:
 
 jobs:
