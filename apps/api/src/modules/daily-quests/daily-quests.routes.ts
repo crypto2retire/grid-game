@@ -4,12 +4,17 @@ import { asyncHandler } from '../../middleware/errorHandler';
 import { routeParam } from '../../utils/routeParams';
 import { claimDailyQuest, getDailyQuestsForUser } from './daily-quests.service';
 import { retentionRouter } from '../retention/retention.routes';
+import { economyBalanceRouter } from '../economy-balance/economy-balance.routes';
 
 const router = Router();
 
 // Retention endpoints are mounted here to avoid a server bootstrap rewrite while
 // preserving an authenticated, testable API surface at /api/daily-quests/retention.
 router.use('/retention', retentionRouter);
+
+// Economy balance endpoints share the same authenticated progression namespace.
+// Public path: /api/daily-quests/economy/*
+router.use('/economy', economyBalanceRouter);
 
 router.get(
   '/',
