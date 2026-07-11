@@ -13,4 +13,4 @@ Checks:
 - No page or console errors during navigation
 - Removal of the map-first default workflow
 
-Final live-browser rerun requested with a cold-load allowance for the first Team workspace.
+Final validation requested after moving the core Team and Development workspace into the primary bundle.
