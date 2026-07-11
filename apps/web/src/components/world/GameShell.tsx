@@ -1,10 +1,8 @@
 import { useAuthStore } from '../../store/authStore';
 import { PanelOverlay } from './PanelSystem';
-import KintaraSportsWorld from './KintaraSportsWorld';
 import InteriorMenuExperience from './InteriorMenuExperience';
-import LeagueIslandNavigator from './LeagueIslandNavigator';
+import WorldRouter from './WorldRouter';
 import './InteriorMenuExperience.css';
-import './LeagueIslandNavigator.css';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -28,10 +26,7 @@ export default function GameShell() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#07111f]">
-      <div className="legacy-world-layer pointer-events-none absolute inset-0 -z-10 opacity-0" aria-hidden="true">
-        <KintaraSportsWorld />
-      </div>
-      <LeagueIslandNavigator />
+      <WorldRouter />
       <PanelOverlay />
       <InteriorMenuExperience />
     </div>
