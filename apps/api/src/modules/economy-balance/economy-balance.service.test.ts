@@ -1,7 +1,12 @@
 process.env.DATABASE_URL ||= 'postgresql://grid:gridpassword@127.0.0.1:5432/gridgame_test';
 process.env.JWT_SECRET ||= 'test-jwt-secret-at-least-32-characters';
 
-const { getEconomyBalancePolicy, sellerBenefits } = require('./economy-balance.service') as typeof import('./economy-balance.service');
+let getEconomyBalancePolicy: typeof import('./economy-balance.service').getEconomyBalancePolicy;
+let sellerBenefits: typeof import('./economy-balance.service').sellerBenefits;
+
+beforeAll(async () => {
+  ({ getEconomyBalancePolicy, sellerBenefits } = await import('./economy-balance.service'));
+});
 
 describe('economy balance V2 policy', () => {
   test('keeps the marketplace usable without DYN', () => {
