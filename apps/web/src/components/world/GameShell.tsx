@@ -1,5 +1,6 @@
 import { useAuthStore } from '../../store/authStore';
 import FranchiseCommandCenter from '../game/FranchiseCommandCenter';
+import '../game/FranchiseCommandCenterOverrides.css';
 import { PanelOverlay } from './PanelSystem';
 
 export default function GameShell() {
