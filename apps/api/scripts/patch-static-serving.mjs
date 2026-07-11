@@ -13,9 +13,16 @@ const staticReplacement = `app.use(express_1.default.static(path_1.default.join(
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
+            // One-time defensive cache purge for clients that retained the former
+            // stable-name bundles under an immutable cache policy.
+            res.setHeader('Clear-Site-Data', '\"cache\"');
         }
         else if (filePath.includes(path_1.default.sep + 'assets' + path_1.default.sep)) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            // Vite is configured with stable asset names in this project. Stable
+            // names must be revalidated; immutable caching would pin old UI code.
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
         }
     },
 }));`;
