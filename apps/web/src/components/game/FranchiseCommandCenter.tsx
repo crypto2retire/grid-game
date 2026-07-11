@@ -19,11 +19,11 @@ import {
   X,
 } from 'lucide-react';
 import TeamPage from '../../pages/TeamPage';
+import GameCenterPage from '../../pages/GameCenterPage';
 import { useGameStore } from '../../store/gameStore';
 import WorldRouter from '../world/WorldRouter';
 import './FranchiseCommandCenter.css';
 
-const MatchesPage = lazy(() => import('../../pages/MatchesPage'));
 const MarketplacePage = lazy(() => import('../../pages/MarketplacePage'));
 const StadiumInteriorPage = lazy(() => import('../../pages/StadiumInteriorPage'));
 const TransportGaragePage = lazy(() => import('../../pages/TransportGaragePage'));
@@ -194,7 +194,7 @@ function SectionContent({ section, onNavigate }: { section: CommandSection; onNa
   if (section === 'home') return <FranchiseDashboard onNavigate={onNavigate} />;
   if (section === 'team') return <TeamPage initialTab="roster" />;
   if (section === 'development') return <DevelopmentPage />;
-  if (section === 'games') return <Suspense fallback={<LoadingPage />}><MatchesPage /></Suspense>;
+  if (section === 'games') return <GameCenterPage />;
   if (section === 'league') return <Suspense fallback={<LoadingPage />}><LeaderboardPage /></Suspense>;
   if (section === 'market') return <Suspense fallback={<LoadingPage />}><MarketplacePage /></Suspense>;
   if (section === 'facilities') return <FacilitiesPage />;
