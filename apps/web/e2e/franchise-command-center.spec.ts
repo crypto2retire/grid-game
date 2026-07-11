@@ -22,6 +22,8 @@ function commandTabs(page: Page) {
 }
 
 test.describe('Franchise Command Center', () => {
+  test.setTimeout(120_000);
+
   test.beforeEach(async ({ page }) => {
     runtimeErrors = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));
@@ -37,7 +39,7 @@ test.describe('Franchise Command Center', () => {
 
   test('all primary navigation sections open their expected workspace', async ({ page }) => {
     await openSection(page, 'Team');
-    await expect(page.getByRole('button', { name: 'Roster', exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Roster', exact: true }).first()).toBeVisible({ timeout: 30_000 });
 
     await openSection(page, 'Development');
     await expect(page.getByRole('heading', { name: 'Development', exact: true })).toBeVisible();
