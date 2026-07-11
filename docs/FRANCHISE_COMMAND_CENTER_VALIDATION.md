@@ -13,4 +13,4 @@ Checks:
 - No page or console errors during navigation
 - Removal of the map-first default workflow
 
-Browser smoke rerun requested after workflow trigger correction.
+Rerun requested after scoping Playwright selectors and correcting the API lint import.
