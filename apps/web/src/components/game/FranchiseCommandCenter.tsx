@@ -18,11 +18,11 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
+import TeamPage from '../../pages/TeamPage';
 import { useGameStore } from '../../store/gameStore';
 import WorldRouter from '../world/WorldRouter';
 import './FranchiseCommandCenter.css';
 
-const TeamPage = lazy(() => import('../../pages/TeamPage'));
 const MatchesPage = lazy(() => import('../../pages/MatchesPage'));
 const MarketplacePage = lazy(() => import('../../pages/MarketplacePage'));
 const StadiumInteriorPage = lazy(() => import('../../pages/StadiumInteriorPage'));
@@ -185,14 +185,14 @@ function DevelopmentPage() {
         <button className={tab === 'medical' ? 'active' : ''} onClick={() => setTab('medical')}>Recovery</button>
         <button className={tab === 'equipment' ? 'active' : ''} onClick={() => setTab('equipment')}>Equipment</button>
       </div>
-      <Suspense fallback={<LoadingPage />}><TeamPage initialTab={tab} /></Suspense>
+      <TeamPage initialTab={tab} />
     </div>
   );
 }
 
 function SectionContent({ section, onNavigate }: { section: CommandSection; onNavigate: (section: CommandSection) => void }) {
   if (section === 'home') return <FranchiseDashboard onNavigate={onNavigate} />;
-  if (section === 'team') return <Suspense fallback={<LoadingPage />}><TeamPage initialTab="roster" /></Suspense>;
+  if (section === 'team') return <TeamPage initialTab="roster" />;
   if (section === 'development') return <DevelopmentPage />;
   if (section === 'games') return <Suspense fallback={<LoadingPage />}><MatchesPage /></Suspense>;
   if (section === 'league') return <Suspense fallback={<LoadingPage />}><LeaderboardPage /></Suspense>;
