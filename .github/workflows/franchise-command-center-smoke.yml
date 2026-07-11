@@ -8,6 +8,14 @@ on:
       - 'apps/web/src/components/world/GameShell.tsx'
       - 'apps/web/e2e/franchise-command-center.spec.ts'
       - '.github/workflows/franchise-command-center-smoke.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/src/components/game/**'
+      - 'apps/web/src/components/world/GameShell.tsx'
+      - 'apps/web/e2e/franchise-command-center.spec.ts'
+      - '.github/workflows/franchise-command-center-smoke.yml'
+      - 'docs/validation/**'
   workflow_dispatch:
 
 jobs:
