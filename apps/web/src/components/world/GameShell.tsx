@@ -1,8 +1,6 @@
 import { useAuthStore } from '../../store/authStore';
+import FranchiseCommandCenter from '../game/FranchiseCommandCenter';
 import { PanelOverlay } from './PanelSystem';
-import InteriorMenuExperience from './InteriorMenuExperience';
-import WorldRouter from './WorldRouter';
-import './InteriorMenuExperience.css';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -26,9 +24,8 @@ export default function GameShell() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#07111f]">
-      <WorldRouter />
+      <FranchiseCommandCenter />
       <PanelOverlay />
-      <InteriorMenuExperience />
     </div>
   );
 }
