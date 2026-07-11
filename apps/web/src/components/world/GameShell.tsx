@@ -1,9 +1,6 @@
 import { useAuthStore } from '../../store/authStore';
 import { PanelOverlay } from './PanelSystem';
 import KintaraSportsWorld from './KintaraSportsWorld';
-import ModernSportsCampus from './ModernSportsCampus';
-import SportsWorldChrome from './SportsWorldChrome';
-import FranchiseJourney from './FranchiseJourney';
 import InteriorMenuExperience from './InteriorMenuExperience';
 import LeagueIslandNavigator from './LeagueIslandNavigator';
 import './InteriorMenuExperience.css';
@@ -30,11 +27,10 @@ export default function GameShell() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#07111f]">
-      <KintaraSportsWorld />
-      <ModernSportsCampus />
+      <div className="legacy-world-layer pointer-events-none absolute inset-0 opacity-0" aria-hidden="true">
+        <KintaraSportsWorld />
+      </div>
       <LeagueIslandNavigator />
-      <SportsWorldChrome />
-      <FranchiseJourney />
       <PanelOverlay />
       <InteriorMenuExperience />
     </div>
