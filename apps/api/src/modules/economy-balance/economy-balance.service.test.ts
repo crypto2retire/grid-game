@@ -1,4 +1,7 @@
-import { getEconomyBalancePolicy, sellerBenefits } from './economy-balance.service';
+process.env.DATABASE_URL ||= 'postgresql://grid:gridpassword@127.0.0.1:5432/gridgame_test';
+process.env.JWT_SECRET ||= 'test-jwt-secret-at-least-32-characters';
+
+const { getEconomyBalancePolicy, sellerBenefits } = require('./economy-balance.service') as typeof import('./economy-balance.service');
 
 describe('economy balance V2 policy', () => {
   test('keeps the marketplace usable without DYN', () => {
