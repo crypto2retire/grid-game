@@ -1,0 +1,212 @@
+/* Premium sports-operations visual layer for the management-first UI. */
+:root {
+  --mgv-panel: #0a1624;
+  --mgv-panel-2: #0e1d2d;
+  --mgv-line: rgba(148, 163, 184, 0.14);
+  --mgv-line-strong: rgba(148, 163, 184, 0.24);
+  --mgv-text: #f8fafc;
+  --mgv-muted: #8392a6;
+  --mgv-cyan: #38bdf8;
+  --mgv-gold: #f6c745;
+}
+
+/* Player cards */
+.fcc-content .card-lift {
+  min-width: 0;
+}
+
+.fcc-content .card-lift > div {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 20px !important;
+  border-color: var(--mgv-line-strong) !important;
+  background:
+    radial-gradient(circle at 85% 5%, rgba(56, 189, 248, 0.13), transparent 31%),
+    linear-gradient(165deg, rgba(17, 31, 48, 0.98), rgba(7, 17, 31, 0.99)) !important;
+  box-shadow:
+    0 20px 45px rgba(2, 6, 23, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.fcc-content .card-lift > div::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.035), transparent 24%),
+    repeating-linear-gradient(90deg, transparent 0 31px, rgba(148,163,184,0.018) 32px);
+}
+
+.fcc-content .card-lift:hover > div {
+  transform: translateY(-4px);
+  border-color: rgba(56, 189, 248, 0.42) !important;
+  box-shadow:
+    0 28px 60px rgba(2, 6, 23, 0.46),
+    0 0 0 1px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Portrait stage inside player cards */
+.fcc-content .card-lift > div > div > div.relative.h-36 {
+  min-height: 172px;
+  border-radius: 16px !important;
+  border-color: rgba(148, 163, 184, 0.16) !important;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(56,189,248,0.22), transparent 34%),
+    linear-gradient(180deg, #13243a 0%, #0a1523 67%, #07101c 100%) !important;
+  box-shadow:
+    inset 0 -28px 50px rgba(2, 6, 23, 0.55),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.fcc-content .card-lift > div > div > div.relative.h-36::after {
+  content: '';
+  position: absolute;
+  inset: auto 10% 8px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56,189,248,0.5), transparent);
+  box-shadow: 0 0 16px rgba(56,189,248,0.35);
+}
+
+.fcc-content .card-lift svg {
+  filter: drop-shadow(0 12px 16px rgba(2,6,23,0.45));
+}
+
+/* Rarity and position labels */
+.fcc-content .card-lift span.rounded-full {
+  border-color: rgba(255,255,255,0.12) !important;
+  background: rgba(8,18,31,0.82) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: blur(10px);
+}
+
+/* OVR dial */
+.fcc-content .card-lift .absolute.bottom-2.right-2 {
+  width: 54px !important;
+  height: 54px !important;
+  background: rgba(5, 13, 24, 0.9) !important;
+  box-shadow:
+    0 10px 24px rgba(2,6,23,0.55),
+    inset 0 0 0 3px rgba(255,255,255,0.035),
+    0 0 24px rgba(56,189,248,0.13);
+  backdrop-filter: blur(12px);
+}
+
+.fcc-content .card-lift h3 {
+  font-size: 14px !important;
+  letter-spacing: -0.015em;
+}
+
+/* Stat hexes become cleaner scouting chips */
+.fcc-content .card-lift .flex.items-center.justify-center.gap-2 > div {
+  min-width: 44px;
+  border: 1px solid rgba(148,163,184,0.12);
+  border-radius: 10px;
+  background: rgba(15, 29, 45, 0.72);
+  padding: 5px 4px 4px;
+}
+
+.fcc-content .card-lift .flex.items-center.justify-center.gap-2 svg polygon {
+  opacity: 0.18 !important;
+}
+
+/* Health and fatigue rows */
+.fcc-content .card-lift + div,
+.fcc-content .card-lift ~ div {
+  color: var(--mgv-muted);
+}
+
+/* Team stats / promotion / side panels */
+.fcc-content .glass-card,
+.fcc-content [class*='border-slate'],
+.fcc-content [class*='bg-slate-9'] {
+  border-color: var(--mgv-line) !important;
+}
+
+.fcc-content .glass-card {
+  border-radius: 18px !important;
+  background:
+    radial-gradient(circle at top right, rgba(56,189,248,0.055), transparent 34%),
+    linear-gradient(155deg, rgba(14,29,45,0.97), rgba(8,18,31,0.98)) !important;
+  box-shadow: 0 18px 40px rgba(2,6,23,0.22), inset 0 1px 0 rgba(255,255,255,0.035);
+}
+
+/* Tables and dense management lists */
+.fcc-content table {
+  border-collapse: separate;
+  border-spacing: 0 7px;
+}
+
+.fcc-content thead th {
+  color: #728197 !important;
+  font-size: 10px !important;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.fcc-content tbody tr {
+  background: rgba(14, 29, 45, 0.74);
+  box-shadow: inset 0 0 0 1px rgba(148,163,184,0.09);
+}
+
+.fcc-content tbody td:first-child { border-radius: 11px 0 0 11px; }
+.fcc-content tbody td:last-child { border-radius: 0 11px 11px 0; }
+
+/* Buttons */
+.fcc-content button:not(.fcc-priority):not(.fcc-primary-action):not(.fcc-mobile-menu) {
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.fcc-content button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+/* Inputs and segmented controls */
+.fcc-content input,
+.fcc-content select,
+.fcc-content textarea {
+  border-color: rgba(148,163,184,0.18) !important;
+  background: rgba(8,18,31,0.9) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+}
+
+.fcc-segmented {
+  background: rgba(8,18,31,0.92) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 24px rgba(2,6,23,0.18);
+}
+
+.fcc-segmented button.active {
+  background: linear-gradient(135deg, #1b3a53, #173047) !important;
+  box-shadow: 0 8px 18px rgba(2,6,23,0.22), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+/* Marketplace / equipment cards */
+.fcc-content [class*='rounded-xl'][class*='border'],
+.fcc-content [class*='rounded-2xl'][class*='border'] {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+}
+
+/* Scrollbars */
+.fcc-content * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(71, 112, 144, 0.55) transparent;
+}
+
+.fcc-content *::-webkit-scrollbar { width: 9px; height: 9px; }
+.fcc-content *::-webkit-scrollbar-track { background: transparent; }
+.fcc-content *::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(71,112,144,0.52);
+  background-clip: padding-box;
+}
+
+@media (max-width: 760px) {
+  .fcc-content .card-lift > div > div > div.relative.h-36 {
+    min-height: 150px;
+  }
+}
