@@ -24,11 +24,12 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run command center smoke suite
+        working-directory: apps/web
         env:
           GRID_E2E_BASE_URL: https://grid-game-pom3.onrender.com
           GRID_E2E_EMAIL: ${{ secrets.GRID_E2E_EMAIL }}
           GRID_E2E_PASSWORD: ${{ secrets.GRID_E2E_PASSWORD }}
-        run: npx playwright test apps/web/e2e/franchise-command-center.spec.ts --config=apps/web/playwright.config.ts --project=chromium
+        run: npx playwright test e2e/franchise-command-center.spec.ts --project=chromium
       - uses: actions/upload-artifact@v4
         if: always()
         with:
