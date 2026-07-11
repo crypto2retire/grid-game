@@ -3,7 +3,15 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
 import { debitCurrency, processCurrencySink } from '../economy/currency.service';
 
-const SPECIALIZATION_PATHS: Record<string, Record<string, { cash: number; dyn: number; maintenanceCash: number; maintenanceDyn: number; effects: Record<string, number> }>> = {
+type SpecializationOption = {
+  cash: number;
+  dyn: number;
+  maintenanceCash: number;
+  maintenanceDyn: number;
+  effects: Record<string, number>;
+};
+
+const SPECIALIZATION_PATHS: Record<string, Record<string, SpecializationOption>> = {
   STADIUM: {
     REVENUE: { cash: 15000, dyn: 250, maintenanceCash: 750, maintenanceDyn: 10, effects: { ticketRevenuePct: 8, sponsorValuePct: 5 } },
     FAN_EXPERIENCE: { cash: 12000, dyn: 200, maintenanceCash: 600, maintenanceDyn: 8, effects: { attendancePct: 10, prestige: 4 } },
@@ -41,13 +49,11 @@ function weekKey(now = new Date()) {
 
 export function sellerBenefits(dynHeld: number, reputationLevel: number) {
   const dynTier = dynHeld >= 2500 ? 3 : dynHeld >= 500 ? 2 : dynHeld >= 100 ? 1 : 0;
-  const baseSlots = 3;
   const reputationSlots = Math.min(4, Math.floor(Math.max(0, reputationLevel - 1) / 3));
-  const feeRebatePct = dynTier === 3 ? 2.5 : dynTier === 2 ? 1.5 : dynTier === 1 ? 0.75 : 0;
   return {
     dynTier,
-    activeListingLimit: baseSlots + reputationSlots + dynTier,
-    feeRebatePct,
+    activeListingLimit: 3 + reputationSlots + dynTier,
+    feeRebatePct: dynTier === 3 ? 2.5 : dynTier === 2 ? 1.5 : dynTier === 1 ? 0.75 : 0,
     nextDynThreshold: dynTier === 0 ? 100 : dynTier === 1 ? 500 : dynTier === 2 ? 2500 : null,
     fasterSettlement: dynTier >= 2,
   };
@@ -65,27 +71,21 @@ export async function getSellerDashboard(userId: string, now = new Date()) {
     `),
   ]);
   const profile = profileRows[0] || { reputationXp: 0, reputationLevel: 1, completedSales: 0, lifetimeVolume: 0, seasonXpEarned: 0 };
-  const objective = objectiveRows[0];
-  return {
-    profile,
-    objective,
-    benefits: sellerBenefits(wallet?.dynTokens || 0, profile.reputationLevel || 1),
-  };
+  return { profile, objective: objectiveRows[0], benefits: sellerBenefits(wallet?.dynTokens || 0, profile.reputationLevel || 1) };
 }
 
 export async function claimSellerWeeklyObjective(userId: string, now = new Date()) {
   const currentWeek = weekKey(now);
   return prisma.$transaction(async (tx: any) => {
-    const [objective] = await tx.$queryRaw<Array<any>>(Prisma.sql`
+    const rows = await tx.$queryRaw(Prisma.sql`
       SELECT * FROM "SellerWeeklyObjective" WHERE "userId" = ${userId} AND "weekKey" = ${currentWeek} FOR UPDATE
-    `);
+    `) as any[];
+    const objective = rows[0];
     if (!objective) throw new AppError(404, 'Weekly seller objective not found');
     if (!objective.completedAt) throw new AppError(400, 'Weekly seller objective is not complete');
     if (objective.claimedAt) throw new AppError(409, 'Weekly seller objective already claimed');
 
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SellerWeeklyObjective" SET "claimedAt" = ${now}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ${objective.id}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "SellerWeeklyObjective" SET "claimedAt" = ${now}, "updatedAt" = CURRENT_TIMESTAMP WHERE "id" = ${objective.id}`);
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO "SellerProfile" ("userId", "reputationXp", "seasonXpEarned")
       VALUES (${userId}, ${objective.rewardSellerXp}, ${objective.rewardSeasonXp})
@@ -95,9 +95,7 @@ export async function claimSellerWeeklyObjective(userId: string, now = new Date(
         "reputationLevel" = economy_reputation_level("SellerProfile"."reputationXp" + ${objective.rewardSellerXp}),
         "updatedAt" = CURRENT_TIMESTAMP
     `);
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "RetentionProfile" SET "seasonXp" = "seasonXp" + ${objective.rewardSeasonXp}, "updatedAt" = CURRENT_TIMESTAMP WHERE "userId" = ${userId}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "RetentionProfile" SET "seasonXp" = "seasonXp" + ${objective.rewardSeasonXp}, "updatedAt" = CURRENT_TIMESTAMP WHERE "userId" = ${userId}`);
     return { sellerXp: objective.rewardSellerXp, seasonXp: objective.rewardSeasonXp, liquidDyn: 0 };
   });
 }
@@ -125,24 +123,24 @@ export async function chooseFacilitySpecialization(userId: string, teamId: strin
 
   return prisma.$transaction(async (tx: any) => {
     await requireOwnedTeam(tx, userId, teamId);
-    const existing = await tx.$queryRaw<Array<any>>(Prisma.sql`
+    const existing = await tx.$queryRaw(Prisma.sql`
       SELECT * FROM "FacilitySpecialization" WHERE "teamId" = ${teamId} AND "facilityType" = ${facilityType} FOR UPDATE
-    `);
-    if (existing.length && existing[0].path !== path) {
-      throw new AppError(409, `${facilityType} is already specialized as ${existing[0].path}. Specializations are mutually exclusive.`);
-    }
+    `) as any[];
+    if (existing.length && existing[0].path !== path) throw new AppError(409, `${facilityType} is already specialized as ${existing[0].path}. Specializations are mutually exclusive.`);
+
     const level = existing.length ? Number(existing[0].level) + 1 : 1;
     const multiplier = 1 + Math.max(0, level - 1) * 0.65;
     const cashCost = Math.round(selection.cash * multiplier);
     const dynCost = Math.round(selection.dyn * multiplier);
+    const metadata = { facilityType, path, level };
 
-    await debitCurrency(tx, { userId, currency: 'CASH', amount: cashCost, reason: 'FACILITY_SPECIALIZATION', sourceType: 'TEAM', sourceId: teamId, metadata: { facilityType, path, level } });
-    await debitCurrency(tx, { userId, currency: 'DYN', amount: dynCost, reason: 'FACILITY_SPECIALIZATION', sourceType: 'TEAM', sourceId: teamId, metadata: { facilityType, path, level } });
-    await processCurrencySink(tx, 'CASH', cashCost, 'FACILITY_SPECIALIZATION', 'TEAM', teamId, { facilityType, path, level });
-    await processCurrencySink(tx, 'DYN', dynCost, 'FACILITY_SPECIALIZATION', 'TEAM', teamId, { facilityType, path, level });
+    await debitCurrency(tx, { userId, currency: 'CASH', amount: cashCost, reason: 'FACILITY_SPECIALIZATION', sourceType: 'TEAM', sourceId: teamId, metadata });
+    await debitCurrency(tx, { userId, currency: 'DYN', amount: dynCost, reason: 'FACILITY_SPECIALIZATION', sourceType: 'TEAM', sourceId: teamId, metadata });
+    await processCurrencySink(tx, 'CASH', cashCost, 'FACILITY_SPECIALIZATION', 'TEAM', teamId, metadata);
+    await processCurrencySink(tx, 'DYN', dynCost, 'FACILITY_SPECIALIZATION', 'TEAM', teamId, metadata);
 
-    const effects = Object.fromEntries(Object.entries(selection.effects).map(([key, value]) => [key, Number(value) * level]));
-    const [saved] = await tx.$queryRaw<Array<any>>(Prisma.sql`
+    const effects = Object.fromEntries(Object.entries(selection.effects).map(([key, value]) => [key, value * level]));
+    const savedRows = await tx.$queryRaw(Prisma.sql`
       INSERT INTO "FacilitySpecialization" ("teamId", "facilityType", "path", "level", "effects", "maintenanceCash", "maintenanceDyn", "updatedAt")
       VALUES (${teamId}, ${facilityType}, ${path}, ${level}, ${JSON.stringify(effects)}::jsonb,
         ${Math.round(selection.maintenanceCash * level)}, ${Math.round(selection.maintenanceDyn * level)}, CURRENT_TIMESTAMP)
@@ -150,8 +148,8 @@ export async function chooseFacilitySpecialization(userId: string, teamId: strin
         "level" = EXCLUDED."level", "effects" = EXCLUDED."effects", "maintenanceCash" = EXCLUDED."maintenanceCash",
         "maintenanceDyn" = EXCLUDED."maintenanceDyn", "updatedAt" = CURRENT_TIMESTAMP
       RETURNING *
-    `);
-    return { specialization: saved, paid: { cash: cashCost, dyn: dynCost } };
+    `) as any[];
+    return { specialization: savedRows[0], paid: { cash: cashCost, dyn: dynCost } };
   });
 }
 
@@ -164,28 +162,29 @@ export async function purchaseFacilitySeasonCycle(userId: string, teamId: string
   return prisma.$transaction(async (tx: any) => {
     const team = await requireOwnedTeam(tx, userId, teamId);
     const upgradeCount = team.venue?.upgrades?.length || 0;
-    const specializationRows = await tx.$queryRaw<Array<any>>(Prisma.sql`SELECT COUNT(*)::int AS count FROM "FacilitySpecialization" WHERE "teamId" = ${teamId}`);
+    const specializationRows = await tx.$queryRaw(Prisma.sql`SELECT COUNT(*)::int AS count FROM "FacilitySpecialization" WHERE "teamId" = ${teamId}`) as any[];
     const specializationCount = Number(specializationRows[0]?.count || 0);
     const multiplier = 1 + upgradeCount * 0.08 + specializationCount * 0.12;
     const cashCost = Math.round(base.cash * multiplier);
     const dynCost = Math.round(base.dyn * multiplier);
 
-    const exists = await tx.$queryRaw<Array<any>>(Prisma.sql`
+    const existing = await tx.$queryRaw(Prisma.sql`
       SELECT "id" FROM "FacilitySeasonCycle" WHERE "teamId" = ${teamId} AND "seasonKey" = ${seasonKey} AND "cycleType" = ${cycleType}
-    `);
-    if (exists.length) throw new AppError(409, `${cycleType} cycle already purchased for ${seasonKey}`);
+    `) as any[];
+    if (existing.length) throw new AppError(409, `${cycleType} cycle already purchased for ${seasonKey}`);
 
-    await debitCurrency(tx, { userId, currency: 'CASH', amount: cashCost, reason: 'FACILITY_SEASON_CYCLE', sourceType: 'TEAM', sourceId: teamId, metadata: { seasonKey, cycleType } });
-    await debitCurrency(tx, { userId, currency: 'DYN', amount: dynCost, reason: 'FACILITY_SEASON_CYCLE', sourceType: 'TEAM', sourceId: teamId, metadata: { seasonKey, cycleType } });
-    await processCurrencySink(tx, 'CASH', cashCost, 'FACILITY_SEASON_CYCLE', 'TEAM', teamId, { seasonKey, cycleType });
-    await processCurrencySink(tx, 'DYN', dynCost, 'FACILITY_SEASON_CYCLE', 'TEAM', teamId, { seasonKey, cycleType });
+    const metadata = { seasonKey, cycleType };
+    await debitCurrency(tx, { userId, currency: 'CASH', amount: cashCost, reason: 'FACILITY_SEASON_CYCLE', sourceType: 'TEAM', sourceId: teamId, metadata });
+    await debitCurrency(tx, { userId, currency: 'DYN', amount: dynCost, reason: 'FACILITY_SEASON_CYCLE', sourceType: 'TEAM', sourceId: teamId, metadata });
+    await processCurrencySink(tx, 'CASH', cashCost, 'FACILITY_SEASON_CYCLE', 'TEAM', teamId, metadata);
+    await processCurrencySink(tx, 'DYN', dynCost, 'FACILITY_SEASON_CYCLE', 'TEAM', teamId, metadata);
 
-    const [cycle] = await tx.$queryRaw<Array<any>>(Prisma.sql`
+    const cycleRows = await tx.$queryRaw(Prisma.sql`
       INSERT INTO "FacilitySeasonCycle" ("teamId", "seasonKey", "cycleType", "costCash", "costDyn", "effects")
       VALUES (${teamId}, ${seasonKey}, ${cycleType}, ${cashCost}, ${dynCost}, ${JSON.stringify(base.effects)}::jsonb)
       RETURNING *
-    `);
-    return cycle;
+    `) as any[];
+    return cycleRows[0];
   });
 }
 
