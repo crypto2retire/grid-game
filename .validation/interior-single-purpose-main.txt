@@ -1,0 +1,1 @@
+Validation marker for single-purpose building interiors and duplicate-menu removal.
