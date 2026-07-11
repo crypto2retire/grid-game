@@ -56,7 +56,7 @@ router.get(
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.id;
     const walletRows = await prisma.$queryRaw<Array<{ usdgBalance: Prisma.Decimal }>>`
-      SELECT "usdgBalance" FROM "Wallet" WHERE "userId" = ${userId}::uuid
+      SELECT "usdgBalance" FROM "Wallet" WHERE "userId" = ${userId}
     `;
     const chainWalletRows = await prisma.$queryRaw<Array<{
       address: string;
@@ -65,7 +65,7 @@ router.get(
     }>>`
       SELECT "address", "status", "verifiedAt"
       FROM "ChainWallet"
-      WHERE "userId" = ${userId}::uuid AND "chain" = 'ROBINHOOD'
+      WHERE "userId" = ${userId} AND "chain" = 'ROBINHOOD'
       LIMIT 1
     `;
 
@@ -93,7 +93,7 @@ router.post(
     try {
       const rows = await prisma.$queryRaw<Array<{ address: string; status: string }>>`
         INSERT INTO "ChainWallet" ("userId", "chain", "address", "status", "updatedAt")
-        VALUES (${userId}::uuid, 'ROBINHOOD', ${address}, 'UNVERIFIED', NOW())
+        VALUES (${userId}, 'ROBINHOOD', ${address}, 'UNVERIFIED', NOW())
         ON CONFLICT ("userId", "chain")
         DO UPDATE SET "address" = EXCLUDED."address", "status" = 'UNVERIFIED', "verifiedAt" = NULL, "updatedAt" = NOW()
         RETURNING "address", "status"
@@ -132,7 +132,7 @@ router.get(
       SELECT "id", "currency", "direction", "txHash", "amountDisplay", "status",
              "confirmations", "blockNumber", "createdAt", "confirmedAt"
       FROM "ChainTransaction"
-      WHERE "userId" = ${req.user!.id}::uuid AND "chain" = 'ROBINHOOD'
+      WHERE "userId" = ${req.user!.id} AND "chain" = 'ROBINHOOD'
       ORDER BY "createdAt" DESC
       LIMIT 100
     `;
