@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Deployment generation forces Render to rebuild the application image when the
 # command-center shell or chain integration changes.
-ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v2
+ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v3
 ENV GRID_BUILD_GENERATION=$GRID_BUILD_GENERATION
 
 # Copy root package files
@@ -37,7 +37,7 @@ RUN cd apps/web && npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v2
+ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v3
 ENV GRID_BUILD_GENERATION=$GRID_BUILD_GENERATION
 
 # Install production dependencies
@@ -62,5 +62,7 @@ WORKDIR /app/apps/api
 
 EXPOSE 3000
 
-# Run migrations and an idempotent additive-column repair before starting server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/scripts/ensureProductionSchema.js && node dist/server.js"]
+# Recover the one known failed Robinhood migration record, then apply the
+# corrected idempotent SQL. If it is already resolved/applied, resolve exits
+# non-zero and is intentionally ignored before normal migrate deploy proceeds.
+CMD ["sh", "-c", "npx prisma migrate resolve --rolled-back 20260711060000_robinhood_chain_wallets || true; npx prisma migrate deploy && node dist/scripts/ensureProductionSchema.js && node dist/server.js"]
