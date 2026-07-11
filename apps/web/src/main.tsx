@@ -21,7 +21,7 @@ function recoverFromStaleChunk(error: unknown) {
 
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
-  recoverFromStaleChunk((event as CustomEvent).payload);
+  recoverFromStaleChunk(event.payload);
 });
 
 window.addEventListener('error', (event) => recoverFromStaleChunk(event.error || event.message));
