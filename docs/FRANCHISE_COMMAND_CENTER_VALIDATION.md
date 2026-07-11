@@ -13,4 +13,4 @@ Checks:
 - No page or console errors during navigation
 - Removal of the map-first default workflow
 
-Final browser rerun requested after fixing the navigation prefix selector.
+Final live-browser rerun requested with a cold-load allowance for the first Team workspace.
