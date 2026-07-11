@@ -13,6 +13,9 @@ export default tseslint.config(
       },
     },
     rules: {
+      // TypeScript performs identifier resolution; the base JS rule can report
+      // false positives for type-only globals such as React.ReactNode.
+      'no-undef': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
     },
