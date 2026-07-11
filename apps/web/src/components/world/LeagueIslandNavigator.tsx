@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Building2, ChevronLeft, Trophy } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import './LeagueIslandNavigator.css';
@@ -77,12 +77,13 @@ export default function LeagueIslandNavigator() {
               const selected = team.id === selectedTeamId;
               const capacity = venue?.capacity || 5000;
               const scale = Math.min(1.25, Math.max(.82, .82 + capacity / 100000));
+              const stadiumStyle = { '--stadium-scale': scale, '--stadium-accent': destination.accent } as CSSProperties;
               return (
                 <button
                   key={team.id}
                   type="button"
                   className={`league-stadium ${selected ? 'is-selected' : ''}`}
-                  style={{ '--stadium-scale': scale, '--stadium-accent': destination.accent } as React.CSSProperties}
+                  style={stadiumStyle}
                   onClick={() => setSelectedTeamId(team.id)}
                 >
                   <span className="league-stadium-shell"><span className="league-stadium-field" /></span>
