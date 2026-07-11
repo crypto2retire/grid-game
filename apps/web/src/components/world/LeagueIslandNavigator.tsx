@@ -1,9 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Building2,
   ChevronLeft,
   CircleDollarSign,
@@ -23,7 +19,6 @@ type LeagueDestination = {
   id: string;
   name: string;
   tier: string;
-  direction: 'north' | 'east' | 'south' | 'west';
   accent: string;
 };
 
@@ -31,6 +26,7 @@ type HeadquartersFacility = {
   id: string;
   name: string;
   purpose: string;
+  legacyLabel: string;
   icon: typeof Building2;
   x: string;
   y: string;
@@ -38,40 +34,55 @@ type HeadquartersFacility = {
 };
 
 const DESTINATIONS: LeagueDestination[] = [
-  { id: 'regional', name: 'Regional League', tier: 'REGIONAL_PRO', direction: 'north', accent: '#38bdf8' },
-  { id: 'elite', name: 'Elite Franchise Circuit', tier: 'PRO_ELITE', direction: 'east', accent: '#a855f7' },
-  { id: 'college', name: 'College Conference', tier: 'TOP_COLLEGE', direction: 'west', accent: '#22c55e' },
-  { id: 'entry', name: 'Pro Entry League', tier: 'PRO_ENTRY', direction: 'south', accent: '#f59e0b' },
+  { id: 'regional', name: 'Regional League', tier: 'REGIONAL_PRO', accent: '#38bdf8' },
+  { id: 'elite', name: 'Elite Franchise Circuit', tier: 'PRO_ELITE', accent: '#a855f7' },
+  { id: 'college', name: 'College Conference', tier: 'TOP_COLLEGE', accent: '#22c55e' },
+  { id: 'entry', name: 'Pro Entry League', tier: 'PRO_ENTRY', accent: '#f59e0b' },
 ];
 
 const HEADQUARTERS_FACILITIES: HeadquartersFacility[] = [
-  { id: 'commissioner', name: 'League Office', purpose: 'League administration', icon: Landmark, x: '18%', y: '25%', accent: '#14b8a6' },
-  { id: 'market', name: 'Sports Market', purpose: 'Teams and asset trading', icon: ShoppingBag, x: '18%', y: '63%', accent: '#f59e0b' },
-  { id: 'media', name: 'Media Center', purpose: 'News and broadcasts', icon: Radio, x: '39%', y: '19%', accent: '#f97316' },
-  { id: 'team', name: 'Team Headquarters', purpose: 'Roster management', icon: Users, x: '61%', y: '19%', accent: '#38bdf8' },
-  { id: 'training', name: 'Training Complex', purpose: 'Development and equipment', icon: Dumbbell, x: '82%', y: '25%', accent: '#8b5cf6' },
-  { id: 'medical', name: 'Sports Medicine', purpose: 'Treatment and recovery', icon: HeartPulse, x: '82%', y: '63%', accent: '#ef4444' },
-  { id: 'garage', name: 'Mobility Depot', purpose: 'Transport and maintenance', icon: Truck, x: '61%', y: '77%', accent: '#64748b' },
-  { id: 'bank', name: 'Sponsor Bank', purpose: 'Wallet and sponsorships', icon: CircleDollarSign, x: '39%', y: '77%', accent: '#0ea5e9' },
+  { id: 'commissioner', name: 'League Office', purpose: 'League administration', legacyLabel: 'Commissioner Office', icon: Landmark, x: '18%', y: '25%', accent: '#14b8a6' },
+  { id: 'market', name: 'Sports Market', purpose: 'Teams and asset trading', legacyLabel: 'Sports Market', icon: ShoppingBag, x: '18%', y: '63%', accent: '#f59e0b' },
+  { id: 'media', name: 'Media Center', purpose: 'News and broadcasts', legacyLabel: 'Clubhouse HQ', icon: Radio, x: '39%', y: '19%', accent: '#f97316' },
+  { id: 'team', name: 'Team Headquarters', purpose: 'Roster management', legacyLabel: 'Locker Room', icon: Users, x: '61%', y: '19%', accent: '#38bdf8' },
+  { id: 'training', name: 'Training Complex', purpose: 'Development and equipment', legacyLabel: 'Training Gym', icon: Dumbbell, x: '82%', y: '25%', accent: '#8b5cf6' },
+  { id: 'medical', name: 'Sports Medicine', purpose: 'Treatment and recovery', legacyLabel: 'Medical Center', icon: HeartPulse, x: '82%', y: '63%', accent: '#ef4444' },
+  { id: 'garage', name: 'Mobility Depot', purpose: 'Transport and maintenance', legacyLabel: 'Team Garage', icon: Truck, x: '61%', y: '77%', accent: '#64748b' },
+  { id: 'bank', name: 'Sponsor Bank', purpose: 'Wallet and sponsorships', legacyLabel: 'Sponsor Bank', icon: CircleDollarSign, x: '39%', y: '77%', accent: '#0ea5e9' },
 ];
 
-function LeagueArrow({ league, onSelect }: { league: LeagueDestination; onSelect: () => void }) {
-  const Icon = league.direction === 'north' ? ArrowUp : league.direction === 'south' ? ArrowDown : league.direction === 'west' ? ArrowLeft : ArrowRight;
-  return (
-    <button type="button" className={`league-route league-route-${league.direction}`} onClick={onSelect}>
-      <span className="league-route-icon"><Icon className="h-5 w-5" /></span>
-      <span><strong>{league.name}</strong><small>{league.tier.replaceAll('_', ' ')}</small></span>
-    </button>
+function openLegacyFacility(label: string) {
+  const root = document.querySelector('.legacy-world-layer');
+  if (!root) return false;
+  const wanted = label.trim().toLowerCase();
+  const textNode = Array.from(root.querySelectorAll<SVGTextElement>('svg text')).find((node) =>
+    (node.textContent || '').trim().toLowerCase().includes(wanted),
   );
+  if (!textNode) return false;
+
+  let target: Element | null = textNode;
+  while (target && target !== root) {
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    target = target.parentElement;
+  }
+  return true;
 }
 
 function HeadquartersView({ onSelectLeague }: { onSelectLeague: (league: LeagueDestination) => void }) {
+  const [message, setMessage] = useState<string | null>(null);
+
+  const openFacility = (facility: HeadquartersFacility) => {
+    setMessage(null);
+    const opened = openLegacyFacility(facility.legacyLabel);
+    if (!opened) setMessage(`${facility.name} is temporarily unavailable.`);
+  };
+
   return (
-    <div className="league-hq-view fixed inset-0 z-[18] overflow-hidden text-white">
+    <div className="league-hq-view fixed inset-0 z-[30] overflow-hidden text-white">
       <div className="league-hq-sky" />
       <header className="league-hq-header">
         <div><span>World Hub</span><h1>League Headquarters</h1></div>
-        <p>Shared league services and franchise operations. Use a route arrow to travel to a league stadium island.</p>
+        <p>Shared league services and franchise operations.</p>
       </header>
       <main className="league-hq-stage">
         <div className="league-hq-island">
@@ -92,6 +103,7 @@ function HeadquartersView({ onSelectLeague }: { onSelectLeague: (league: LeagueD
                 className="league-hq-facility"
                 style={{ left: facility.x, top: facility.y, '--facility-accent': facility.accent } as CSSProperties}
                 title={facility.purpose}
+                onClick={() => openFacility(facility)}
               >
                 <span className="league-hq-building"><Icon className="h-7 w-7" /></span>
                 <strong>{facility.name}</strong>
@@ -99,9 +111,21 @@ function HeadquartersView({ onSelectLeague }: { onSelectLeague: (league: LeagueD
               </button>
             );
           })}
-          {DESTINATIONS.map((league) => <LeagueArrow key={league.id} league={league} onSelect={() => onSelectLeague(league)} />)}
         </div>
       </main>
+
+      <nav className="league-route-dock" aria-label="Travel to a league island">
+        <div className="league-route-dock-title">League Routes</div>
+        <div className="league-route-dock-items">
+          {DESTINATIONS.map((league) => (
+            <button key={league.id} type="button" onClick={() => onSelectLeague(league)} style={{ '--league-accent': league.accent } as CSSProperties}>
+              <strong>{league.name}</strong>
+              <small>{league.tier.replaceAll('_', ' ')}</small>
+            </button>
+          ))}
+        </div>
+        {message && <div className="league-route-message">{message}</div>}
+      </nav>
     </div>
   );
 }
@@ -119,7 +143,7 @@ export default function LeagueIslandNavigator() {
   if (!destination) return <HeadquartersView onSelectLeague={setDestination} />;
 
   return (
-    <div className="league-island-view fixed inset-0 z-[18] overflow-hidden text-white">
+    <div className="league-island-view fixed inset-0 z-[30] overflow-hidden text-white">
       <div className="league-island-sky" />
       <header className="league-island-header">
         <button type="button" onClick={() => setDestination(null)}><ChevronLeft className="h-4 w-4" /> Headquarters</button>
