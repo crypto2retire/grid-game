@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Deployment generation forces Render to rebuild the application image when the
 # command-center shell or chain integration changes.
-ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v1
+ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v2
 ENV GRID_BUILD_GENERATION=$GRID_BUILD_GENERATION
 
 # Copy root package files
@@ -37,7 +37,7 @@ RUN cd apps/web && npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v1
+ARG GRID_BUILD_GENERATION=20260711-command-center-robinhood-v2
 ENV GRID_BUILD_GENERATION=$GRID_BUILD_GENERATION
 
 # Install production dependencies
