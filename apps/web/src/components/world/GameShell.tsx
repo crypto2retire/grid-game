@@ -5,6 +5,7 @@ import ModernSportsCampus from './ModernSportsCampus';
 import SportsWorldChrome from './SportsWorldChrome';
 import FranchiseJourney from './FranchiseJourney';
 import InteriorMenuExperience from './InteriorMenuExperience';
+import './InteriorMenuExperience.css';
 
 export default function GameShell() {
   const { isAuthenticated, isLoading } = useAuthStore();
