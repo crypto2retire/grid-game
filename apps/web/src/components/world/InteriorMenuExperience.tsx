@@ -9,7 +9,6 @@ import {
   Dumbbell,
   Gauge,
   HeartPulse,
-  Home,
   Landmark,
   Package,
   RefreshCw,
