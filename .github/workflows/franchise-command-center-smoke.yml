@@ -1,0 +1,40 @@
+name: Franchise Command Center Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/src/components/game/**'
+      - 'apps/web/src/components/world/GameShell.tsx'
+      - 'apps/web/e2e/franchise-command-center.spec.ts'
+      - '.github/workflows/franchise-command-center-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --include=dev
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run command center smoke suite
+        env:
+          GRID_E2E_BASE_URL: https://grid-game-pom3.onrender.com
+          GRID_E2E_EMAIL: ${{ secrets.GRID_E2E_EMAIL }}
+          GRID_E2E_PASSWORD: ${{ secrets.GRID_E2E_PASSWORD }}
+        run: npx playwright test apps/web/e2e/franchise-command-center.spec.ts --config=apps/web/playwright.config.ts --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: franchise-command-center-playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 14
